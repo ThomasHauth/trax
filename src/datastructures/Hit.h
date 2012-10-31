@@ -1,5 +1,5 @@
 #pragma once
-
+/*
 class Hit
 {
 public:
@@ -14,3 +14,4 @@ private:
 	int m_layerId;
 
 };
+*/

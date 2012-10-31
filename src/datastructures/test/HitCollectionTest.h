@@ -3,9 +3,12 @@
 #include <iostream>
 #include <gtest/gtest.h>
 
+#include <clever/clever.hpp>
+
 #include "../HitCollection.h"
 
-TEST( HitCollection, test_create ) {
+TEST( HitCollection, test_create )
+{
 	HitCollection ht(1);
 
 	float fX = 23.0f;
@@ -13,17 +16,61 @@ TEST( HitCollection, test_create ) {
 
 	auto it = ht.getIterator();
 
-	it.setValue<GlobalX>( fX);
-	it.setValue<GlobalY>( fY);
+	it.setValue<GlobalX>(fX);
+	it.setValue<GlobalY>(fY);
 
 	GTEST_ASSERT_EQ( it.getValue<GlobalX>( ), fX);
 	GTEST_ASSERT_EQ( it.getValue<GlobalY>( ), fY);
 }
 
-TEST( HitCollection, addItem ) {
+TEST( HitCollection, addItem )
+{
 	HitCollection ht(1);
 
-	ht.addItem();
+	ht.addEntry();
 
 	GTEST_ASSERT_EQ( ht.size(), 2);
 }
+
+TEST( HitCollection, addItemWithValue )
+{
+	HitCollection ht;
+
+	float fX = 23.0f;
+	float fY = 5.0f;
+
+	ht.addWithValue(fX, fY);
+
+	auto it = ht.getIterator();
+
+	GTEST_ASSERT_EQ( it.getValue<GlobalX>( ), fX);
+	GTEST_ASSERT_EQ( it.getValue<GlobalY>( ), fY);
+}
+
+TEST( HitCollection, hitclass )
+{
+	HitCollection ht;
+
+	// this will create a new entry
+	Hit h(ht);
+
+	GTEST_ASSERT_EQ( ht.size(), 1);
+}
+
+TEST( HitCollection, OpenCLTransfer )
+{
+	HitCollection ht;
+	clever::context contx;
+
+	float fX = 23.0f;
+	float fY = 5.0f;
+
+	ht.addWithValue( fX, fY );
+
+	HitCollectionTransfer clTrans;
+
+	clTrans.initBuffers( contx, ht );
+}
+
+
+
