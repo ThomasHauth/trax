@@ -6,7 +6,7 @@
 #include <datastructures/HitCollection.h>
 
 int main(){
-	HitCollection ht;
+/*	HitCollection ht;
 
 	float fX = 23.0f;
 	float fY = 5.0f;
@@ -21,6 +21,6 @@ int main(){
 	const float outy =  ht.getValue( gy );
 
 	std::cout << outx << outy;
-
+*/
 	return 0;
 }

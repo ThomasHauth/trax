@@ -6,22 +6,24 @@
 #include "../HitCollection.h"
 
 TEST( HitCollection, test_create ) {
-	HitCollection ht;
+	HitCollection ht(1);
 
 	float fX = 23.0f;
 	float fY = 5.0f;
 
-	GlobalX gx;
-	GlobalY gy;
+	auto it = ht.getIterator();
 
-	ht.setValue(gy, fY);
-	ht.setValue(gx, fX);
+	it.setValue<GlobalX>( fX);
+	it.setValue<GlobalY>( fY);
 
-	const float outx =  ht.getValue( gx );
-	const float outy =  ht.getValue( gy );
+	GTEST_ASSERT_EQ( it.getValue<GlobalX>( ), fX);
+	GTEST_ASSERT_EQ( it.getValue<GlobalY>( ), fY);
+}
 
-	std::cout << outx << outy;
+TEST( HitCollection, addItem ) {
+	HitCollection ht(1);
 
-	GTEST_ASSERT_EQ( ht.getValue( gx ), fX);
-	GTEST_ASSERT_EQ( ht.getValue( gy ), fY);
+	ht.addItem();
+
+	GTEST_ASSERT_EQ( ht.size(), 2);
 }
