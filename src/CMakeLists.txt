@@ -7,16 +7,24 @@ include ( CMake_CompilerDefaults.txt )
 
 message ("Setting up folder ${trax_SOURCE_DIR}")
 
-set (GTEST_BASE ${trax_SOURCE_DIR}/external/gtest) 
+# Include Exterals
+set (EXTERNAL_BASE ${trax_SOURCE_DIR}/external/) 
 
+# gtest
+set (GTEST_BASE ${EXTERNAL_BASE}/gtest) 
 include_directories (${GTEST_BASE}/include) 
 include_directories (${GTEST_BASE}) 
+
+# clever
+include_directories (${EXTERNAL_BASE}/clever/src) 
 
 #include_directories (${trax_SOURCE_DIR}/src/struct) 
 #include_directories (${trax_SOURCE_DIR}/src/service) 
 #include_directories (${trax_SOURCE_DIR}/src/eval) 
 #include_directories (${trax_SOURCE_DIR}/src/algo) 
-#include_directories (${trax_SOURCE_DIR}/src/algo/test) 
+
+
+include_directories (${trax_SOURCE_DIR}) 
 
 include_directories( ${INCLUDE_DIRECTORIES})
 

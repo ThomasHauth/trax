@@ -9,6 +9,15 @@
 #endif
 
 
+// include all tests here
+
+// nice, we can easily include all the clever tests here to see
+// if something breaks on the basic levels
+#include <clever/test/clever_tests.h>
+
+#include "../datastructures/test/DatastructuresTests.h"
+
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
 

@@ -1,6 +1,8 @@
 #pragma once
 
-class Seed
+#include <boost/noncopyable.hpp>
+
+class Seed : private boost::noncopyable
 {
 
 };

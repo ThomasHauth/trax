@@ -9,3 +9,5 @@ add_executable(trax_test
  	${GTEST_BASE}/src/gtest-all.cc
 	trax_test.cpp
 )
+
+target_link_libraries(trax_test "OpenCL")
