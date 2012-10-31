@@ -27,7 +27,17 @@ struct GlobalY: public clever::FloatItem
 {
 };
 
-typedef clever::Collection<GlobalX, GlobalY> HitCollectiontems;
+struct GlobalZ: public clever::FloatItem
+{
+};
+
+struct DetectorId: public clever::UIntItem
+{
+};
+
+
+
+typedef clever::Collection<GlobalX, GlobalY, GlobalZ, DetectorId> HitCollectiontems;
 
 class HitCollection: public HitCollectiontems
 {
@@ -40,21 +50,10 @@ public:
 	}
 
 	HitCollection(int items) :
-			clever::Collection<GlobalX, GlobalY>(items)
+			clever::Collection<GlobalX, GlobalY, GlobalZ, DetectorId>(items)
 	{
 
 	}
-
-	// bring the constructors of the dataitems in this scope
-	// -> will first work in gcc 4.8
-	//using HitDataItems::dataitems<GlobalX, GlobalY>;
-
-	/*float getGlobalX () const
-	 {
-	 return getValue ( GlobalX() );
-	 //return dataitems<  FloatDataItem<GlobalX> > ::m_data;
-	 }*/
-
 };
 /*
 class GlobalPosition: private CollectionView<HitCollection>
@@ -93,7 +92,7 @@ public:
 	 }
 };
 */
-typedef clever::OpenCLTransfer<GlobalX, GlobalY> HitCollectionTransfer;
+typedef clever::OpenCLTransfer<GlobalX, GlobalY, GlobalZ, DetectorId> HitCollectionTransfer;
 
 class Hit: private clever::CollectionView<HitCollection>
 {

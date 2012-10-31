@@ -7,6 +7,8 @@
 
 #include "../HitCollection.h"
 
+
+
 TEST( HitCollection, test_create )
 {
 	HitCollection ht(1);
@@ -39,7 +41,7 @@ TEST( HitCollection, addItemWithValue )
 	float fX = 23.0f;
 	float fY = 5.0f;
 
-	ht.addWithValue(fX, fY);
+	ht.addWithValue(fX, fY, 0.0, 0);
 
 	auto it = ht.getIterator();
 
@@ -65,7 +67,7 @@ TEST( HitCollection, OpenCLTransfer )
 	float fX = 23.0f;
 	float fY = 5.0f;
 
-	ht.addWithValue( fX, fY );
+	ht.addWithValue( fX, fY, 0.0, 0 );
 
 	HitCollectionTransfer clTrans;
 
@@ -92,4 +94,5 @@ TEST( HitCollection, OpenCLTransfer_large )
 	clTrans.toDevice( contx, ht );
 	clTrans.fromDevice( contx, ht );
 }
+
 

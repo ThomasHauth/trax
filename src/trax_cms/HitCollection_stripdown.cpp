@@ -2,25 +2,19 @@
 
 #include <iostream>
 
-
+#include <clever/clever.hpp>
 #include <datastructures/HitCollection.h>
 
 int main(){
-/*	HitCollection ht;
+	HitCollection ht( 400000 );
+	clever::context contx;
 
-	float fX = 23.0f;
-	float fY = 5.0f;
+	HitCollectionTransfer clTrans;
 
-	GlobalX gx;
-	GlobalY gy;
+	clTrans.initBuffers( contx, ht );
 
-	ht.setValue(gy, fY);
-	ht.setValue(gx, fX);
+	clTrans.toDevice( contx, ht );
+	clTrans.fromDevice( contx, ht );
 
-	const float outx =  ht.getValue( gx );
-	const float outy =  ht.getValue( gy );
-
-	std::cout << outx << outy;
-*/
 	return 0;
 }

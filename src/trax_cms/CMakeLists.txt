@@ -6,4 +6,5 @@ add_executable(HitCollection_stripdown
 )
 	
 target_link_libraries ( HitCollection_stripdown datastructures )
-	
+
+target_link_libraries(HitCollection_stripdown "OpenCL")
