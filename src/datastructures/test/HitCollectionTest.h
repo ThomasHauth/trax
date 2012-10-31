@@ -70,7 +70,26 @@ TEST( HitCollection, OpenCLTransfer )
 	HitCollectionTransfer clTrans;
 
 	clTrans.initBuffers( contx, ht );
+
+	clTrans.toDevice( contx, ht );
+	clTrans.fromDevice( contx, ht );
+
+	auto it = ht.getIterator();
+
+	GTEST_ASSERT_EQ( fX, it.getValue<GlobalX>( ));
+	GTEST_ASSERT_EQ( fY, it.getValue<GlobalY>( ));
 }
 
+TEST( HitCollection, OpenCLTransfer_large )
+{
+	HitCollection ht( 400000 );
+	clever::context contx;
 
+	HitCollectionTransfer clTrans;
+
+	clTrans.initBuffers( contx, ht );
+
+	clTrans.toDevice( contx, ht );
+	clTrans.fromDevice( contx, ht );
+}
 
