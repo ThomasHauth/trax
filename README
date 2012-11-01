@@ -1,4 +1,33 @@
  -- trax --
+ 
+ -- Checkout --
+
+using submodules in the git repo:
+git clone the trax repo.
+run "git submodule init" to setup the configuation for the clever repo
+
+ git config --list
+
+will show the path to the submodule:
+
+...
+submodule.src/external/clever.url=ssh://lxplus.cern.ch/afs/cern.ch/work/h/hauth/git/clever 
+
+run 
+
+git config submodule.src/external/clever.url ssh://<YOUR USERNAME>@lxplus.cern.ch/afs/cern.ch/work/h/hauth/git/clever
+
+to configure with your username.
+
+run 
+
+    git submodule update 
+    
+to get the correct revision of the external repo.
+
+DO NOT commit your locally changed ".gitmodules" file to the central repo !
+
+-- Compiling -- 
 
 to compile an CERN / SLC machines, do the following:
 
