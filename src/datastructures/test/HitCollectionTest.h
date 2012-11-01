@@ -31,7 +31,7 @@ TEST( HitCollection, addItem )
 
 	ht.addEntry();
 
-	GTEST_ASSERT_EQ( ht.size(), 2);
+	GTEST_ASSERT_EQ( ht.size(), (unsigned int) 2);
 }
 
 TEST( HitCollection, addItemWithValue )
@@ -56,7 +56,7 @@ TEST( HitCollection, hitclass )
 	// this will create a new entry
 	Hit h(ht);
 
-	GTEST_ASSERT_EQ( ht.size(), 1);
+	GTEST_ASSERT_EQ( ht.size(), (unsigned int)1);
 }
 
 TEST( HitCollection, OpenCLTransfer )
