@@ -16,7 +16,7 @@
 #include <clever/test/clever_tests.h>
 
 #include "../datastructures/test/DatastructuresTests.h"
-#include "../algorithms/test/DummyTrackletsTest.h"
+#include "../algorithms/test/AlgorithmsTests.h"
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);

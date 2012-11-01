@@ -7,37 +7,11 @@
 
 #include <clever/clever.hpp>
 
-/*
- template<>
- std::string TypeToCLType<float>::str() {
- return "float";
- }
-
- template<>
- std::string TypeToCLType<CustomVector3>::str() {
- return "float3";
- }*/
+#include "CommonTypes.h"
 
 // todo: can we have a Collection view, which looks like a vector type
 
-struct GlobalX: public clever::FloatItem
-{
-};
-struct GlobalY: public clever::FloatItem
-{
-};
 
-struct GlobalZ: public clever::FloatItem
-{
-};
-
-struct DetectorId: public clever::UIntItem
-{
-};
-
-struct HitId: public clever::UIntItem
-{
-};
 
 #define HIT_COLLECTION_ITEMS GlobalX, GlobalY, GlobalZ, DetectorId, HitId
 
