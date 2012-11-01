@@ -35,9 +35,14 @@ struct DetectorId: public clever::UIntItem
 {
 };
 
+struct HitId: public clever::UIntItem
+{
+};
+
+#define HIT_COLLECTION_ITEMS GlobalX, GlobalY, GlobalZ, DetectorId, HitId
 
 
-typedef clever::Collection<GlobalX, GlobalY, GlobalZ, DetectorId> HitCollectiontems;
+typedef clever::Collection <HIT_COLLECTION_ITEMS> HitCollectiontems;
 
 class HitCollection: public HitCollectiontems
 {
@@ -50,7 +55,7 @@ public:
 	}
 
 	HitCollection(int items) :
-			clever::Collection<GlobalX, GlobalY, GlobalZ, DetectorId>(items)
+			clever::Collection<HIT_COLLECTION_ITEMS>(items)
 	{
 
 	}
@@ -92,7 +97,7 @@ public:
 	 }
 };
 */
-typedef clever::OpenCLTransfer<GlobalX, GlobalY, GlobalZ, DetectorId> HitCollectionTransfer;
+typedef clever::OpenCLTransfer<HIT_COLLECTION_ITEMS> HitCollectionTransfer;
 
 class Hit: private clever::CollectionView<HitCollection>
 {

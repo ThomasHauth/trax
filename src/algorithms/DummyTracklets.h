@@ -5,18 +5,26 @@
 #include <clever/clever.hpp>
 #include <datastructures/HitCollection.h>
 
-class DummyTracklets : private boost::noncopyable
+class DummyTracklets: private boost::noncopyable
 {
 public:
-	void run( HitCollectionTransfer & hits )
+	DummyTracklets(clever::context & ctext) :
+			dummy_tracklets(ctext)
 	{
 
 	}
 
-	KERNEL2_CLASS( dummy_tracklets, cl_mem, double ,
-			__kernel void dummy_tracklets( __global double * a, const double b )
+	void run(HitCollectionTransfer & hits)
 	{
-		a[ get_global_id( 0 ) ] += b;
-	});
+		dummy_tracklets.run(hits.buffer(GlobalX()), hits.buffer(GlobalY()), hits.buffer(HitId()),
+				hits.defaultRange());
+	}
 
-};
+	KERNEL3_CLASS( dummy_tracklets, cl_mem, cl_mem , cl_mem,
+			__kernel void dummy_tracklets( __global float * hitGlobalX, __global float * hitGlobalY, __global uint * hitId )
+			{
+				size_t gId = get_global_id( 0 );
+				printf ( " Running dummy_tracklets_cluster on HitId (%i)\n", hitId[ gId ] );
+			});
+
+		};
