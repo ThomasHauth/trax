@@ -6,6 +6,11 @@
 #include <datastructures/HitCollection.h>
 #include <datastructures/TrackletCollection.h>
 
+/*
+	Class which implements to most dump tracklet production possible - combine
+	every hit with every other hit.
+	The man intention is to test the data transfer and the data structure
+ */
 class DummyTracklets: private boost::noncopyable
 {
 public:
@@ -40,8 +45,12 @@ public:
 	}
 
 	KERNEL8_CLASS( dummy_tracklets, cl_mem, cl_mem , cl_mem, cl_mem, cl_mem, cl_mem , cl_mem, cl_mem,
-			__kernel void dummy_tracklets( __global const float * hitGlobalX, __global const float * hitGlobalY, __global const uint * hitId,
+			__kernel void dummy_tracklets(
+					// hit input
+					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const uint * hitId,
+					// intermeditate data: tracklet count, concurrent access using atomics
 					__global uint * trackletsFound,
+					// output of tracklet data
 					__global uint * trackletHitId1, __global uint * trackletHitId2, __global uint * trackletHitId3, __global uint * trackletId )
 			{
 				size_t gId = get_global_id( 0 );
