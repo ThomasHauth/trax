@@ -5,7 +5,8 @@
 #include <sstream>
 #include <gtest/gtest.h>
 
-TEST( EventSerializationTest, read_write ) {
+TEST( EventSerializationTest, read_write )
+{
 	GOOGLE_PROTOBUF_VERIFY_VERSION;
 
 	PEvent :: PEvent eventOne;
@@ -18,12 +19,14 @@ TEST( EventSerializationTest, read_write ) {
 	eventOne.set_lumisection(200);
 	eventOne.set_runnumber(10000);
 
-	for (size_t i = 0; i < 10; i++) {
+	for (size_t j = 0; j < 10; j++)
+	{
 
 		PEvent ::PHit * pHit = eventOne.add_hits();
 
 		pHit->set_detectorid(23);
 		pHit->set_layer(3);
+		pHit->set_hitid( j );
 
 		pHit->mutable_position()->set_x(fx);
 		pHit->mutable_position()->set_y(fy);
@@ -45,7 +48,8 @@ TEST( EventSerializationTest, read_write ) {
 
 }
 
-TEST( EventSerializationTest, speed_test ) {
+TEST( EventSerializationTest, speed_test )
+{
 	GOOGLE_PROTOBUF_VERIFY_VERSION;
 
 	std::stringstream tempString;
@@ -53,7 +57,6 @@ TEST( EventSerializationTest, speed_test ) {
 	// works, but this has to be implemented
 	// to make in seriously work
 	// https://groups.google.com/forum/?fromgroups=#!topic/protobuf/A4zErQALQmU
-
 
 	const size_t iterations = 1000;
 	const float fx = 300.2f;
@@ -72,12 +75,14 @@ TEST( EventSerializationTest, speed_test ) {
 		eventOne->set_runnumber(10000);
 
 		// add some hits
-		for (size_t i = 0; i < 1000; i++) {
+		for (size_t j = 0; j < 1000; j++)
+		{
 
 			PEvent ::PHit * pHit = eventOne->add_hits();
 
 			pHit->set_detectorid(23);
 			pHit->set_layer(3);
+			pHit->set_hitid( j );
 
 			pHit->mutable_position()->set_x(fx);
 			pHit->mutable_position()->set_y(fy);

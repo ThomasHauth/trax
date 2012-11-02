@@ -219,6 +219,13 @@ class PHit : public ::google::protobuf::Message {
   inline ::google::protobuf::uint64 detectorid() const;
   inline void set_detectorid(::google::protobuf::uint64 value);
   
+  // required uint64 hitId = 4;
+  inline bool has_hitid() const;
+  inline void clear_hitid();
+  static const int kHitIdFieldNumber = 4;
+  inline ::google::protobuf::uint64 hitid() const;
+  inline void set_hitid(::google::protobuf::uint64 value);
+  
   // @@protoc_insertion_point(class_scope:PEvent.PHit)
  private:
   ::google::protobuf::UnknownFieldSet _unknown_fields_;
@@ -227,11 +234,12 @@ class PHit : public ::google::protobuf::Message {
   ::PEvent::PGlobalPoint* position_;
   ::google::protobuf::uint64 layer_;
   ::google::protobuf::uint64 detectorid_;
+  ::google::protobuf::uint64 hitid_;
   friend void  protobuf_AddDesc_Event_2eproto();
   friend void protobuf_AssignDesc_Event_2eproto();
   friend void protobuf_ShutdownFile_Event_2eproto();
   
-  ::google::protobuf::uint32 _has_bits_[(3 + 31) / 32];
+  ::google::protobuf::uint32 _has_bits_[(4 + 31) / 32];
   
   // WHY DOES & HAVE LOWER PRECEDENCE THAN != !?
   inline bool _has_bit(int index) const {
@@ -565,6 +573,22 @@ inline ::google::protobuf::uint64 PHit::detectorid() const {
 inline void PHit::set_detectorid(::google::protobuf::uint64 value) {
   _set_bit(2);
   detectorid_ = value;
+}
+
+// required uint64 hitId = 4;
+inline bool PHit::has_hitid() const {
+  return _has_bit(3);
+}
+inline void PHit::clear_hitid() {
+  hitid_ = GOOGLE_ULONGLONG(0);
+  _clear_bit(3);
+}
+inline ::google::protobuf::uint64 PHit::hitid() const {
+  return hitid_;
+}
+inline void PHit::set_hitid(::google::protobuf::uint64 value) {
+  _set_bit(3);
+  hitid_ = value;
 }
 
 // -------------------------------------------------------------------

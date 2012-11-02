@@ -13,10 +13,15 @@
 
 
 
-#define HIT_COLLECTION_ITEMS GlobalX, GlobalY, GlobalZ, DetectorId, HitId
+#define HIT_COLLECTION_ITEMS GlobalX, GlobalY, GlobalZ, DetectorId, HitId, EventNumber
 
 
 typedef clever::Collection <HIT_COLLECTION_ITEMS> HitCollectiontems;
+
+namespace PEvent
+{
+class PEvent;
+}
 
 class HitCollection: public HitCollectiontems
 {
@@ -33,6 +38,9 @@ public:
 	{
 
 	}
+
+	// use a range of events to bootstrap the hit collection
+	HitCollection( std::vector < PEvent::PEvent * > events ) ;
 };
 /*
 class GlobalPosition: private CollectionView<HitCollection>

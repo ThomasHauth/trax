@@ -1,6 +1,6 @@
 #pragma once
 
-#include <sstream>
+#include <fstream>
 #include <memory>
 
 #include <climits>
@@ -13,6 +13,8 @@
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/io/coded_stream.h>
 //#include <boost/ptr_container/>
+
+#include "Event.pb.h"
 
 enum class EntryType
 {
@@ -134,3 +136,6 @@ private:
 	::google::protobuf::io::IstreamInputStream m_rawIn;
 	::google::protobuf::io::CodedInputStream m_codedIn;
 };
+
+typedef GenericInputStore< PEvent::PEvent, std::ifstream > EventStoreInput;
+typedef GenericOutputStore< PEvent::PEvent, std::ofstream > EventStoreOutput;

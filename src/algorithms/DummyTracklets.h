@@ -55,7 +55,7 @@ public:
 			{
 				size_t gId = get_global_id( 0 );
 				size_t gSize = get_global_size( 0 );
-				printf ( "Running dummy_tracklets_cluster on HitId (%i)\n", hitId[ gId ] );
+				//printf ( "Running dummy_tracklets_cluster on HitId (%i)\n", hitId[ gId ] );
 
 				for ( size_t secondHit = 0; secondHit < gSize; secondHit ++ )
 				{

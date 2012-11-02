@@ -54,10 +54,11 @@ void protobuf_AssignDesc_Event_2eproto() {
       ::google::protobuf::MessageFactory::generated_factory(),
       sizeof(PGlobalPoint));
   PHit_descriptor_ = file->message_type(1);
-  static const int PHit_offsets_[3] = {
+  static const int PHit_offsets_[4] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(PHit, position_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(PHit, layer_),
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(PHit, detectorid_),
+    GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(PHit, hitid_),
   };
   PHit_reflection_ =
     new ::google::protobuf::internal::GeneratedMessageReflection(
@@ -146,13 +147,13 @@ void protobuf_AddDesc_Event_2eproto() {
 
   ::google::protobuf::DescriptorPool::InternalAddGeneratedFile(
     "\n\013Event.proto\022\006PEvent\"/\n\014PGlobalPoint\022\t\n"
-    "\001x\030\001 \002(\002\022\t\n\001y\030\002 \002(\002\022\t\n\001z\030\003 \002(\002\"Q\n\004PHit\022&"
+    "\001x\030\001 \002(\002\022\t\n\001y\030\002 \002(\002\022\t\n\001z\030\003 \002(\002\"`\n\004PHit\022&"
     "\n\010position\030\001 \002(\0132\024.PEvent.PGlobalPoint\022\r"
-    "\n\005layer\030\002 \002(\004\022\022\n\ndetectorId\030\003 \002(\004\"a\n\006PEv"
-    "ent\022\021\n\trunNumber\030\001 \002(\004\022\023\n\013lumiSection\030\002 "
-    "\002(\004\022\023\n\013eventNumber\030\003 \002(\004\022\032\n\004hits\030\004 \003(\0132\014"
-    ".PEvent.PHit\"1\n\017PEventContainer\022\036\n\006event"
-    "s\030\001 \003(\0132\016.PEvent.PEvent", 303);
+    "\n\005layer\030\002 \002(\004\022\022\n\ndetectorId\030\003 \002(\004\022\r\n\005hit"
+    "Id\030\004 \002(\004\"a\n\006PEvent\022\021\n\trunNumber\030\001 \002(\004\022\023\n"
+    "\013lumiSection\030\002 \002(\004\022\023\n\013eventNumber\030\003 \002(\004\022"
+    "\032\n\004hits\030\004 \003(\0132\014.PEvent.PHit\"1\n\017PEventCon"
+    "tainer\022\036\n\006events\030\001 \003(\0132\016.PEvent.PEvent", 318);
   ::google::protobuf::MessageFactory::InternalRegisterGeneratedFile(
     "Event.proto", &protobuf_RegisterTypes);
   PGlobalPoint::default_instance_ = new PGlobalPoint();
@@ -462,6 +463,7 @@ void PGlobalPoint::Swap(PGlobalPoint* other) {
 const int PHit::kPositionFieldNumber;
 const int PHit::kLayerFieldNumber;
 const int PHit::kDetectorIdFieldNumber;
+const int PHit::kHitIdFieldNumber;
 #endif  // !_MSC_VER
 
 PHit::PHit()
@@ -484,6 +486,7 @@ void PHit::SharedCtor() {
   position_ = NULL;
   layer_ = GOOGLE_ULONGLONG(0);
   detectorid_ = GOOGLE_ULONGLONG(0);
+  hitid_ = GOOGLE_ULONGLONG(0);
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -524,6 +527,7 @@ void PHit::Clear() {
     }
     layer_ = GOOGLE_ULONGLONG(0);
     detectorid_ = GOOGLE_ULONGLONG(0);
+    hitid_ = GOOGLE_ULONGLONG(0);
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
   mutable_unknown_fields()->Clear();
@@ -576,6 +580,22 @@ bool PHit::MergePartialFromCodedStream(
         } else {
           goto handle_uninterpreted;
         }
+        if (input->ExpectTag(32)) goto parse_hitId;
+        break;
+      }
+      
+      // required uint64 hitId = 4;
+      case 4: {
+        if (::google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            ::google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT) {
+         parse_hitId:
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::uint64, ::google::protobuf::internal::WireFormatLite::TYPE_UINT64>(
+                 input, &hitid_)));
+          _set_bit(3);
+        } else {
+          goto handle_uninterpreted;
+        }
         if (input->ExpectAtEnd()) return true;
         break;
       }
@@ -614,6 +634,11 @@ void PHit::SerializeWithCachedSizes(
     ::google::protobuf::internal::WireFormatLite::WriteUInt64(3, this->detectorid(), output);
   }
   
+  // required uint64 hitId = 4;
+  if (_has_bit(3)) {
+    ::google::protobuf::internal::WireFormatLite::WriteUInt64(4, this->hitid(), output);
+  }
+  
   if (!unknown_fields().empty()) {
     ::google::protobuf::internal::WireFormat::SerializeUnknownFields(
         unknown_fields(), output);
@@ -637,6 +662,11 @@ void PHit::SerializeWithCachedSizes(
   // required uint64 detectorId = 3;
   if (_has_bit(2)) {
     target = ::google::protobuf::internal::WireFormatLite::WriteUInt64ToArray(3, this->detectorid(), target);
+  }
+  
+  // required uint64 hitId = 4;
+  if (_has_bit(3)) {
+    target = ::google::protobuf::internal::WireFormatLite::WriteUInt64ToArray(4, this->hitid(), target);
   }
   
   if (!unknown_fields().empty()) {
@@ -669,6 +699,13 @@ int PHit::ByteSize() const {
       total_size += 1 +
         ::google::protobuf::internal::WireFormatLite::UInt64Size(
           this->detectorid());
+    }
+    
+    // required uint64 hitId = 4;
+    if (has_hitid()) {
+      total_size += 1 +
+        ::google::protobuf::internal::WireFormatLite::UInt64Size(
+          this->hitid());
     }
     
   }
@@ -707,6 +744,9 @@ void PHit::MergeFrom(const PHit& from) {
     if (from._has_bit(2)) {
       set_detectorid(from.detectorid());
     }
+    if (from._has_bit(3)) {
+      set_hitid(from.hitid());
+    }
   }
   mutable_unknown_fields()->MergeFrom(from.unknown_fields());
 }
@@ -724,7 +764,7 @@ void PHit::CopyFrom(const PHit& from) {
 }
 
 bool PHit::IsInitialized() const {
-  if ((_has_bits_[0] & 0x00000007) != 0x00000007) return false;
+  if ((_has_bits_[0] & 0x0000000f) != 0x0000000f) return false;
   
   if (has_position()) {
     if (!this->position().IsInitialized()) return false;
@@ -737,6 +777,7 @@ void PHit::Swap(PHit* other) {
     std::swap(position_, other->position_);
     std::swap(layer_, other->layer_);
     std::swap(detectorid_, other->detectorid_);
+    std::swap(hitid_, other->hitid_);
     std::swap(_has_bits_[0], other->_has_bits_[0]);
     _unknown_fields_.Swap(&other->_unknown_fields_);
     std::swap(_cached_size_, other->_cached_size_);

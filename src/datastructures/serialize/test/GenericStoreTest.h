@@ -8,7 +8,6 @@
 
 #include <boost/ptr_container/ptr_vector.hpp>
 
-
 TEST( GenericStoreTest, read_write_mem )
 {
 	GOOGLE_PROTOBUF_VERIFY_VERSION;
@@ -39,13 +38,14 @@ TEST( GenericStoreTest, read_write_mem )
 			eventOne->set_runnumber(10000);
 
 			// add some hits
-			for (size_t i = 0; i < 1000; i++)
+			for (size_t j = 0; j < 1000; j++)
 			{
 
 				PEvent ::PHit * pHit = eventOne->add_hits();
 
 				pHit->set_detectorid(23);
 				pHit->set_layer(3);
+				pHit->set_hitid( j );
 
 				pHit->mutable_position()->set_x(fx);
 				pHit->mutable_position()->set_y(fy);
@@ -89,13 +89,13 @@ TEST( GenericStoreTest, read_write_mem )
 		delete e;
 	}
 }
-
 /*
 TEST( GenericStoreTest, read_write_file )
 {
 	GOOGLE_PROTOBUF_VERIFY_VERSION;
 
 	const std::string testFileName = "prototest.bin";
+	const size_t hitCount = 20;
 	//std::stringstream globalStream;
 
 	std::ofstream outputFile(testFileName, std::ios::out | std::ios::binary | std::ios::trunc);
@@ -126,13 +126,13 @@ TEST( GenericStoreTest, read_write_file )
 			eventOne->set_runnumber(10000);
 
 			// add some hits
-			for (size_t i = 0; i < 1000; i++)
+			for (size_t j = 0; j < hitCount; j++)
 			{
 				PEvent ::PHit * pHit = eventOne->add_hits();
 
 				pHit->set_detectorid(23);
 				pHit->set_layer(3);
-
+				pHit->set_hitid( j );
 				pHit->mutable_position()->set_x(fx);
 				pHit->mutable_position()->set_y(fy);
 				pHit->mutable_position()->set_z(fz);
@@ -155,7 +155,6 @@ TEST( GenericStoreTest, read_write_file )
 		elements.clear();
 	}
 
-
 	outputFile.close();
 
 	std::ifstream inputFile(testFileName, std::ios::in | std::ios::binary);
@@ -177,9 +176,9 @@ TEST( GenericStoreTest, read_write_file )
 	ASSERT_EQ( uint64_t(10000), elements[5]->runnumber() );
 
 	ASSERT_EQ( uint64_t(7), elements[6]->eventnumber() );
-	ASSERT_EQ( fx, elements[6]->hits(233).position().x() );
-	ASSERT_EQ( fy, elements[6]->hits(233).position().y() );
-	ASSERT_EQ( fz, elements[6]->hits(233).position().z() );
+	ASSERT_EQ( fx, elements[6]->hits(hitCount-2).position().x() );
+	ASSERT_EQ( fy, elements[6]->hits(hitCount-2).position().y() );
+	ASSERT_EQ( fz, elements[6]->hits(hitCount-2).position().z() );
 
 	// read the rest
 	readCount = eventIStore.readNextElements( iterations - 10, elements );
@@ -192,4 +191,6 @@ TEST( GenericStoreTest, read_write_file )
 		delete e;
 	}
 }
+
 */
+

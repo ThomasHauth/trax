@@ -41,7 +41,7 @@ TEST( HitCollection, addItemWithValue )
 	float fX = 23.0f;
 	float fY = 5.0f;
 
-	ht.addWithValue(fX, fY, 0.0, 0, 0);
+	ht.addWithValue(fX, fY, 0.0, 0, 0, 0);
 
 	auto it = ht.getIterator();
 
@@ -67,7 +67,7 @@ TEST( HitCollection, OpenCLTransfer )
 	float fX = 23.0f;
 	float fY = 5.0f;
 
-	ht.addWithValue( fX, fY, 0.0, 0,0 );
+	ht.addWithValue( fX, fY, 0.0, 0,0, 0 );
 
 	HitCollectionTransfer clTrans;
 

@@ -12,6 +12,7 @@ message PHit {
 	required PGlobalPoint position = 1;
 	required uint64 layer = 2;
 	required uint64 detectorId = 3;
+	required uint64 hitId = 4;
 }
 
 message PEvent {

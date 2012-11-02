@@ -20,3 +20,7 @@ struct DetectorId: public clever::UIntItem
 struct HitId: public clever::UIntItem
 {
 };
+
+struct EventNumber: public clever::UIntItem
+{
+};
