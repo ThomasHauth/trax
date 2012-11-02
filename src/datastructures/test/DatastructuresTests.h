@@ -2,3 +2,5 @@
 
 #include "HitCollectionTest.h"
 #include "TrackletCollectionTest.h"
+
+#include "../serialize/test/EventSerializeTest.h"
