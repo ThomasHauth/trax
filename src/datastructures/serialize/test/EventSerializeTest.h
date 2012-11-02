@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Event.pb.h"
+#include "../PEventStore.h"
 #include <sstream>
 #include <gtest/gtest.h>
 
