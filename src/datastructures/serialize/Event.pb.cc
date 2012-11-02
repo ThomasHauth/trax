@@ -2,9 +2,6 @@
 
 #define INTERNAL_SUPPRESS_PROTOBUF_FIELD_DEPRECATION
 #include "Event.pb.h"
-
-#include <algorithm>
-
 #include <google/protobuf/stubs/once.h>
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/wire_format_lite_inl.h>
@@ -259,7 +256,7 @@ bool PGlobalPoint::MergePartialFromCodedStream(
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
                    float, ::google::protobuf::internal::WireFormatLite::TYPE_FLOAT>(
                  input, &x_)));
-          set_has_x();
+          _set_bit(0);
         } else {
           goto handle_uninterpreted;
         }
@@ -275,7 +272,7 @@ bool PGlobalPoint::MergePartialFromCodedStream(
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
                    float, ::google::protobuf::internal::WireFormatLite::TYPE_FLOAT>(
                  input, &y_)));
-          set_has_y();
+          _set_bit(1);
         } else {
           goto handle_uninterpreted;
         }
@@ -291,7 +288,7 @@ bool PGlobalPoint::MergePartialFromCodedStream(
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
                    float, ::google::protobuf::internal::WireFormatLite::TYPE_FLOAT>(
                  input, &z_)));
-          set_has_z();
+          _set_bit(2);
         } else {
           goto handle_uninterpreted;
         }
@@ -318,17 +315,17 @@ bool PGlobalPoint::MergePartialFromCodedStream(
 void PGlobalPoint::SerializeWithCachedSizes(
     ::google::protobuf::io::CodedOutputStream* output) const {
   // required float x = 1;
-  if (has_x()) {
+  if (_has_bit(0)) {
     ::google::protobuf::internal::WireFormatLite::WriteFloat(1, this->x(), output);
   }
   
   // required float y = 2;
-  if (has_y()) {
+  if (_has_bit(1)) {
     ::google::protobuf::internal::WireFormatLite::WriteFloat(2, this->y(), output);
   }
   
   // required float z = 3;
-  if (has_z()) {
+  if (_has_bit(2)) {
     ::google::protobuf::internal::WireFormatLite::WriteFloat(3, this->z(), output);
   }
   
@@ -341,17 +338,17 @@ void PGlobalPoint::SerializeWithCachedSizes(
 ::google::protobuf::uint8* PGlobalPoint::SerializeWithCachedSizesToArray(
     ::google::protobuf::uint8* target) const {
   // required float x = 1;
-  if (has_x()) {
+  if (_has_bit(0)) {
     target = ::google::protobuf::internal::WireFormatLite::WriteFloatToArray(1, this->x(), target);
   }
   
   // required float y = 2;
-  if (has_y()) {
+  if (_has_bit(1)) {
     target = ::google::protobuf::internal::WireFormatLite::WriteFloatToArray(2, this->y(), target);
   }
   
   // required float z = 3;
-  if (has_z()) {
+  if (_has_bit(2)) {
     target = ::google::protobuf::internal::WireFormatLite::WriteFloatToArray(3, this->z(), target);
   }
   
@@ -408,13 +405,13 @@ void PGlobalPoint::MergeFrom(const ::google::protobuf::Message& from) {
 void PGlobalPoint::MergeFrom(const PGlobalPoint& from) {
   GOOGLE_CHECK_NE(&from, this);
   if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    if (from.has_x()) {
+    if (from._has_bit(0)) {
       set_x(from.x());
     }
-    if (from.has_y()) {
+    if (from._has_bit(1)) {
       set_y(from.y());
     }
-    if (from.has_z()) {
+    if (from._has_bit(2)) {
       set_z(from.z());
     }
   }
@@ -522,7 +519,7 @@ PHit* PHit::New() const {
 
 void PHit::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    if (has_position()) {
+    if (_has_bit(0)) {
       if (position_ != NULL) position_->::PEvent::PGlobalPoint::Clear();
     }
     layer_ = GOOGLE_ULONGLONG(0);
@@ -559,7 +556,7 @@ bool PHit::MergePartialFromCodedStream(
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
                    ::google::protobuf::uint64, ::google::protobuf::internal::WireFormatLite::TYPE_UINT64>(
                  input, &layer_)));
-          set_has_layer();
+          _set_bit(1);
         } else {
           goto handle_uninterpreted;
         }
@@ -575,7 +572,7 @@ bool PHit::MergePartialFromCodedStream(
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
                    ::google::protobuf::uint64, ::google::protobuf::internal::WireFormatLite::TYPE_UINT64>(
                  input, &detectorid_)));
-          set_has_detectorid();
+          _set_bit(2);
         } else {
           goto handle_uninterpreted;
         }
@@ -602,18 +599,18 @@ bool PHit::MergePartialFromCodedStream(
 void PHit::SerializeWithCachedSizes(
     ::google::protobuf::io::CodedOutputStream* output) const {
   // required .PEvent.PGlobalPoint position = 1;
-  if (has_position()) {
+  if (_has_bit(0)) {
     ::google::protobuf::internal::WireFormatLite::WriteMessageMaybeToArray(
       1, this->position(), output);
   }
   
   // required uint64 layer = 2;
-  if (has_layer()) {
+  if (_has_bit(1)) {
     ::google::protobuf::internal::WireFormatLite::WriteUInt64(2, this->layer(), output);
   }
   
   // required uint64 detectorId = 3;
-  if (has_detectorid()) {
+  if (_has_bit(2)) {
     ::google::protobuf::internal::WireFormatLite::WriteUInt64(3, this->detectorid(), output);
   }
   
@@ -626,19 +623,19 @@ void PHit::SerializeWithCachedSizes(
 ::google::protobuf::uint8* PHit::SerializeWithCachedSizesToArray(
     ::google::protobuf::uint8* target) const {
   // required .PEvent.PGlobalPoint position = 1;
-  if (has_position()) {
+  if (_has_bit(0)) {
     target = ::google::protobuf::internal::WireFormatLite::
       WriteMessageNoVirtualToArray(
         1, this->position(), target);
   }
   
   // required uint64 layer = 2;
-  if (has_layer()) {
+  if (_has_bit(1)) {
     target = ::google::protobuf::internal::WireFormatLite::WriteUInt64ToArray(2, this->layer(), target);
   }
   
   // required uint64 detectorId = 3;
-  if (has_detectorid()) {
+  if (_has_bit(2)) {
     target = ::google::protobuf::internal::WireFormatLite::WriteUInt64ToArray(3, this->detectorid(), target);
   }
   
@@ -701,13 +698,13 @@ void PHit::MergeFrom(const ::google::protobuf::Message& from) {
 void PHit::MergeFrom(const PHit& from) {
   GOOGLE_CHECK_NE(&from, this);
   if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    if (from.has_position()) {
+    if (from._has_bit(0)) {
       mutable_position()->::PEvent::PGlobalPoint::MergeFrom(from.position());
     }
-    if (from.has_layer()) {
+    if (from._has_bit(1)) {
       set_layer(from.layer());
     }
-    if (from.has_detectorid()) {
+    if (from._has_bit(2)) {
       set_detectorid(from.detectorid());
     }
   }
@@ -839,7 +836,7 @@ bool PEvent::MergePartialFromCodedStream(
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
                    ::google::protobuf::uint64, ::google::protobuf::internal::WireFormatLite::TYPE_UINT64>(
                  input, &runnumber_)));
-          set_has_runnumber();
+          _set_bit(0);
         } else {
           goto handle_uninterpreted;
         }
@@ -855,7 +852,7 @@ bool PEvent::MergePartialFromCodedStream(
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
                    ::google::protobuf::uint64, ::google::protobuf::internal::WireFormatLite::TYPE_UINT64>(
                  input, &lumisection_)));
-          set_has_lumisection();
+          _set_bit(1);
         } else {
           goto handle_uninterpreted;
         }
@@ -871,7 +868,7 @@ bool PEvent::MergePartialFromCodedStream(
           DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
                    ::google::protobuf::uint64, ::google::protobuf::internal::WireFormatLite::TYPE_UINT64>(
                  input, &eventnumber_)));
-          set_has_eventnumber();
+          _set_bit(2);
         } else {
           goto handle_uninterpreted;
         }
@@ -913,17 +910,17 @@ bool PEvent::MergePartialFromCodedStream(
 void PEvent::SerializeWithCachedSizes(
     ::google::protobuf::io::CodedOutputStream* output) const {
   // required uint64 runNumber = 1;
-  if (has_runnumber()) {
+  if (_has_bit(0)) {
     ::google::protobuf::internal::WireFormatLite::WriteUInt64(1, this->runnumber(), output);
   }
   
   // required uint64 lumiSection = 2;
-  if (has_lumisection()) {
+  if (_has_bit(1)) {
     ::google::protobuf::internal::WireFormatLite::WriteUInt64(2, this->lumisection(), output);
   }
   
   // required uint64 eventNumber = 3;
-  if (has_eventnumber()) {
+  if (_has_bit(2)) {
     ::google::protobuf::internal::WireFormatLite::WriteUInt64(3, this->eventnumber(), output);
   }
   
@@ -942,17 +939,17 @@ void PEvent::SerializeWithCachedSizes(
 ::google::protobuf::uint8* PEvent::SerializeWithCachedSizesToArray(
     ::google::protobuf::uint8* target) const {
   // required uint64 runNumber = 1;
-  if (has_runnumber()) {
+  if (_has_bit(0)) {
     target = ::google::protobuf::internal::WireFormatLite::WriteUInt64ToArray(1, this->runnumber(), target);
   }
   
   // required uint64 lumiSection = 2;
-  if (has_lumisection()) {
+  if (_has_bit(1)) {
     target = ::google::protobuf::internal::WireFormatLite::WriteUInt64ToArray(2, this->lumisection(), target);
   }
   
   // required uint64 eventNumber = 3;
-  if (has_eventnumber()) {
+  if (_has_bit(2)) {
     target = ::google::protobuf::internal::WireFormatLite::WriteUInt64ToArray(3, this->eventnumber(), target);
   }
   
@@ -1031,13 +1028,13 @@ void PEvent::MergeFrom(const PEvent& from) {
   GOOGLE_CHECK_NE(&from, this);
   hits_.MergeFrom(from.hits_);
   if (from._has_bits_[0 / 32] & (0xffu << (0 % 32))) {
-    if (from.has_runnumber()) {
+    if (from._has_bit(0)) {
       set_runnumber(from.runnumber());
     }
-    if (from.has_lumisection()) {
+    if (from._has_bit(1)) {
       set_lumisection(from.lumisection());
     }
-    if (from.has_eventnumber()) {
+    if (from._has_bit(2)) {
       set_eventnumber(from.eventnumber());
     }
   }

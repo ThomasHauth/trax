@@ -7,5 +7,9 @@ add_library(datastructures
 	serialize/Event.pb.cc
 )
 
+# needed by protobuf library to perform locking for 
+# thread-safeness. The library is not using threads 
+# internally however
+target_link_libraries(datastructures "pthread")
 
 target_link_libraries(datastructures "protobuf")
