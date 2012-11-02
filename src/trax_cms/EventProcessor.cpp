@@ -3,13 +3,13 @@
 #include <datastructures/HitCollection.h>
 #include <algorithms/DummyTracklets.h>
 
-EventProcessor::EventProcessor(std::string const& inputFilename, int maxEvents,
-		size_t concurrentEvents) :
-		m_inputFileName(inputFilename), m_maxEvents(maxEvents), m_concurrentEvents(
-				concurrentEvents)
+EventProcessor::EventProcessor(std::string const& inputFilename,
+		clever::context * openClContext, int maxEvents, size_t concurrentEvents) :
+		m_inputFileName(inputFilename), m_openCLContext(openClContext), m_maxEvents(
+				maxEvents), m_concurrentEvents(concurrentEvents)
 {
 	assert( m_concurrentEvents > 0);
-	m_algoDummyTracklets.reset(new DummyTracklets(m_openCLContext));
+	m_algoDummyTracklets.reset(new DummyTracklets(*m_openCLContext));
 }
 
 EventProcessor::~EventProcessor()
@@ -97,15 +97,15 @@ void EventProcessor::processSubset(
 	HitCollectionTransfer clTrans;
 	TrackletCollectionTransfer clTrans_tracklet;
 
-	clTrans.initBuffers(m_openCLContext, hits);
-	clTrans.toDevice(m_openCLContext, hits);
+	clTrans.initBuffers(*m_openCLContext, hits);
+	clTrans.toDevice(*m_openCLContext, hits);
 
-	clTrans_tracklet.initBuffers(m_openCLContext, tracklets);
+	clTrans_tracklet.initBuffers(*m_openCLContext, tracklets);
 
 	// run kernel
 	unsigned int found = m_algoDummyTracklets->run(clTrans, clTrans_tracklet);
 
-	clTrans_tracklet.fromDevice(m_openCLContext, tracklets);
+	clTrans_tracklet.fromDevice(*m_openCLContext, tracklets);
 
 	std::cout << found << " tracklets found" << std::endl;
 

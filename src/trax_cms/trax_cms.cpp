@@ -1,6 +1,9 @@
 #include <iostream>
 
+#include <memory>
+
 #include <boost/program_options.hpp>
+#include <clever/clever.hpp>
 
 #include "EventProcessor.h"
 
@@ -13,9 +16,11 @@ int main(int argc, char **argv)
 	po::options_description desc("Allowed options");
 	desc.add_options()("help", "produce help message")("input-file",
 			po::value<std::string>(), "data input file")("max-events",
-			po::value<int>(), "maximum number of events to process")
-			("parallel-events",
-						po::value<int>(), "number of events processed in parallel");
+			po::value<int>(), "maximum number of events to process")(
+			"parallel-events", po::value<int>(),
+			"number of events processed in parallel")("gpu",
+			"run the first available GPU")("cpu",
+			"run the first available CPU (default)");
 
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -51,7 +56,21 @@ int main(int argc, char **argv)
 		parEvents = vm["parallel-events"].as<int>();
 	}
 
-	EventProcessor proc(inputFileName, maxEvents, parEvents);
+	std::unique_ptr<clever::context> clContext;
+	if (vm.count("gpu"))
+	{
+		clContext.reset(
+				new clever::context(clever::context_settings::default_gpu()));
+		std::cout << "Running on default GPU" << std::endl;
+	}
+	else
+	{
+		clContext.reset(
+				new clever::context(clever::context_settings::default_cpu()));
+		std::cout << "Running on default CPU" << std::endl;
+	}
+
+	EventProcessor proc(inputFileName, clContext.get(), maxEvents, parEvents);
 	proc.run();
 
 	return 0;
