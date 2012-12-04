@@ -16,7 +16,7 @@ void generatHitTestData(HitCollection & ht, const unsigned int hitCount = 20000)
 	}
 }
 
-void loadHitDataFromPB(HitCollection &ht, std::string filename, float minPt = 0, int numTracks = -1) {
+void loadHitDataFromPB(HitCollection &ht, std::string filename, float minPt = 0, int numTracks = -1, bool onlyTracks = false, uint maxLayer = 99) {
 
 	PB_Event::PEventContainer pContainer;
 	std::fstream in(filename, std::ios::in | std::ios::binary);
@@ -27,7 +27,7 @@ void loadHitDataFromPB(HitCollection &ht, std::string filename, float minPt = 0,
 	}
 
 	for(auto event : pContainer.events()){
-		ht.addEvent(event, minPt, numTracks);
+		ht.addEvent(event, minPt, numTracks, onlyTracks, maxLayer);
 	}
 
 

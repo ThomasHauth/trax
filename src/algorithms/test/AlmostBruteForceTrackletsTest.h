@@ -21,7 +21,7 @@ TrackletCollectionTransfer clTrans_tracklet;
 TEST( AlmostBruteForceTracklets, test_create )
 {
 
-	HitCollectionData::loadHitDataFromPB(ht, "/home/dfunke/devel/trax/build/trax_test/hitsPXB_TIB_TOB.pb");
+	HitCollectionData::loadHitDataFromPB(ht, "/home/dfunke/devel/trax/build/trax_test/hitsPXB_TIB_TOB.pb", 0, 10,false, 3);
 
 	std::cout << "Loaded " << ht.size() << " hits" << std::endl;
 
