@@ -9,7 +9,7 @@ TEST( EventSerializationTest, read_write )
 {
 	GOOGLE_PROTOBUF_VERIFY_VERSION;
 
-	PEvent :: PEvent eventOne;
+	PB_Event :: PEvent eventOne;
 
 	const float fx = 300.2f;
 	const float fy = -300.2f;
@@ -22,7 +22,7 @@ TEST( EventSerializationTest, read_write )
 	for (size_t j = 0; j < 10; j++)
 	{
 
-		PEvent ::PHit * pHit = eventOne.add_hits();
+		PB_Event ::PHit * pHit = eventOne.add_hits();
 
 		pHit->set_detectorid(23);
 		pHit->set_layer(3);
@@ -35,7 +35,7 @@ TEST( EventSerializationTest, read_write )
 
 	const std::string serString(eventOne.SerializeAsString());
 
-	PEvent::PEvent eventNew;
+	PB_Event::PEvent eventNew;
 
 	eventNew.ParseFromString( serString );
 
@@ -63,12 +63,12 @@ TEST( EventSerializationTest, speed_test )
 	const float fy = -300.2f;
 	const float fz = 0.2f;
 
-	PEvent::PEventContainer cont;
+	PB_Event::PEventContainer cont;
 
 	for ( size_t i = 0; i < iterations; i ++)
 	{
 
-		PEvent :: PEvent * eventOne = cont.add_events();
+		PB_Event :: PEvent * eventOne = cont.add_events();
 
 		eventOne->set_eventnumber( i + 2);
 		eventOne->set_lumisection(200);
@@ -78,7 +78,7 @@ TEST( EventSerializationTest, speed_test )
 		for (size_t j = 0; j < 1000; j++)
 		{
 
-			PEvent ::PHit * pHit = eventOne->add_hits();
+			PB_Event ::PHit * pHit = eventOne->add_hits();
 
 			pHit->set_detectorid(23);
 			pHit->set_layer(3);
@@ -92,6 +92,6 @@ TEST( EventSerializationTest, speed_test )
 
 	cont.SerializeToOstream( &tempString );
 
-	PEvent::PEventContainer contNew;
+	PB_Event::PEventContainer contNew;
 	contNew.ParseFromIstream( &tempString );
 }

@@ -17,6 +17,10 @@ struct DetectorId: public clever::UIntItem
 {
 };
 
+struct DetectorLayer: public clever::UIntItem
+{
+};
+
 struct HitId: public clever::UIntItem
 {
 };

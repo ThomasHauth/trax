@@ -1,5 +1,10 @@
-package PEvent;
+package PB_Event;
 
+enum DetectorType {
+		BACKWARD = -1;
+		BARREL = 0;
+		FORWARD = 1;
+}
 
 message PGlobalPoint { 
 
@@ -10,9 +15,12 @@ message PGlobalPoint {
 
 message PHit {
 	required PGlobalPoint position = 1;
-	required uint64 layer = 2;
-	required uint64 detectorId = 3;
-	required uint64 hitId = 4;
+	required DetectorType detectorType = 2;
+	required uint64 layer = 3;
+	required uint64 detectorId = 4;
+	required uint64 hitId = 5;
+	optional uint64 simTrackID = 6;
+	optional float simTrackPt = 7;
 }
 
 message PEvent {

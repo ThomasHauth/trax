@@ -137,5 +137,5 @@ private:
 	::google::protobuf::io::CodedInputStream m_codedIn;
 };
 
-typedef GenericInputStore< PEvent::PEvent, std::ifstream > EventStoreInput;
-typedef GenericOutputStore< PEvent::PEvent, std::ofstream > EventStoreOutput;
+typedef GenericInputStore< PB_Event::PEvent, std::ifstream > EventStoreInput;
+typedef GenericOutputStore< PB_Event::PEvent, std::ofstream > EventStoreOutput;

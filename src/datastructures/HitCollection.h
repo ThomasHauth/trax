@@ -3,25 +3,22 @@
 //#include <tuple>
 #include <utility>
 #include <vector>
+#include <deque>
 #include <boost/type_traits.hpp>
 
 #include <clever/clever.hpp>
 
 #include "CommonTypes.h"
+#include "serialize/Event.pb.h"
 
 // todo: can we have a Collection view, which looks like a vector type
 
 
 
-#define HIT_COLLECTION_ITEMS GlobalX, GlobalY, GlobalZ, DetectorId, HitId, EventNumber
+#define HIT_COLLECTION_ITEMS GlobalX, GlobalY, GlobalZ, DetectorLayer, DetectorId, HitId, EventNumber
 
 
 typedef clever::Collection <HIT_COLLECTION_ITEMS> HitCollectiontems;
-
-namespace PEvent
-{
-class PEvent;
-}
 
 class HitCollection: public HitCollectiontems
 {
@@ -40,7 +37,16 @@ public:
 	}
 
 	// use a range of events to bootstrap the hit collection
-	HitCollection( std::vector < PEvent::PEvent * > events ) ;
+	HitCollection(const std::vector < PB_Event::PEvent * >& events ) ;
+
+	HitCollection(const PB_Event::PEvent & event) ;
+
+	void addEvent(const PB_Event::PEvent& event, float minPt = 0, int numTracks = -1) ;
+
+private:
+	typedef std::deque<PB_Event::PHit> tTrackHits; //quickly access both ends of track + random access
+	typedef std::map<uint, tTrackHits> tTrackList; //key = trackID, value trackDeque --> easy application of cuts
+	typedef tTrackList::value_type tTrackListEntry;
 };
 /*
 class GlobalPosition: private CollectionView<HitCollection>
@@ -105,6 +111,11 @@ public:
 	float globalY() const
 	{
 		return getValue<GlobalY>();
+	}
+
+	float globalZ() const
+	{
+		return getValue<GlobalZ>();
 	}
 
 };
