@@ -16,21 +16,21 @@ void generatHitTestData(HitCollection & ht, const unsigned int hitCount = 20000)
 	}
 }
 
-void loadHitDataFromPB(HitCollection &ht, std::string filename, float minPt = 0, int numTracks = -1, bool onlyTracks = false, uint maxLayer = 99) {
+HitCollection::tTrackList loadHitDataFromPB(HitCollection &ht, std::string filename, int hitCount[], float minPt = 0, int numTracks = -1, bool onlyTracks = false, uint maxLayer = 99) {
 
 	PB_Event::PEventContainer pContainer;
 	std::fstream in(filename, std::ios::in | std::ios::binary);
 
 	if(!pContainer.ParseFromIstream(&in)){
 		std::cerr << "Could not read protocol buffer" << std::endl;
-		return;
+		return HitCollection::tTrackList();
 	}
 
 	for(auto event : pContainer.events()){
-		ht.addEvent(event, minPt, numTracks, onlyTracks, maxLayer);
+		return ht.addEvent(event, hitCount, minPt, numTracks, onlyTracks, maxLayer);
 	}
 
-
+	return HitCollection::tTrackList();
 
 }
 

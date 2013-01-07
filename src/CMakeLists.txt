@@ -45,6 +45,7 @@ add_subdirectory( algorithms )
 add_subdirectory( datastructures )
 add_subdirectory( trax_test )
 add_subdirectory( trax_cms )
+add_subdirectory( triplet_builder )
 
 
 # ROOT libs ( not used, because we use the math lib in external )

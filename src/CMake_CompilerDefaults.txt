@@ -13,7 +13,7 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     #set(CMAKE_CXX_FLAGS "-Ofast --param vect-max-version-for-alias-checks=50  -flto -flto-report -Werror -Wall -std=c++11 -pedantic -pthread")
 
 	## for fast debug compiles
-    set(CMAKE_CXX_FLAGS "-O2 -g -ggdb ${GENERAL_COMPILE_FLAGS}" )
+    set(CMAKE_CXX_FLAGS "-O0 -DDEBUG -g -ggdb ${GENERAL_COMPILE_FLAGS}" )
    
     # oh yeah, you can do it
     #set(CMAKE_CXX_COMPILER clang++)

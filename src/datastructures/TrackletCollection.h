@@ -46,3 +46,40 @@ public:
 
 typedef clever::OpenCLTransfer<TRACKLET_COLLECTION_ITEMS> TrackletCollectionTransfer;
 
+class Tracklet: private clever::CollectionView<TrackletCollection>
+{
+public:
+// get a pointer to one hit in the collection
+	Tracklet(TrackletCollection & collection, index_type i) :
+			clever::CollectionView<TrackletCollection>(collection, i)
+	{
+
+	}
+
+// create a new hit in the collection
+	Tracklet(TrackletCollection & collection) :
+			clever::CollectionView<TrackletCollection>(collection)
+	{
+	}
+
+	float hit1() const
+	{
+		return getValue<TrackletHit1>();
+	}
+
+	float hit2() const
+	{
+		return getValue<TrackletHit2>();
+	}
+
+	float hit3() const
+	{
+		return getValue<TrackletHit3>();
+	}
+
+	float id() const {
+		return getValue<TrackletId>();
+	}
+
+};
+

@@ -13,9 +13,9 @@
 
 // nice, we can easily include all the clever tests here to see
 // if something breaks on the basic levels
-#include <clever/test/clever_tests.h>
+//#include <clever/test/clever_tests.h>
 
-#include "../datastructures/test/DatastructuresTests.h"
+//#include "../datastructures/test/DatastructuresTests.h"
 #include "../algorithms/test/AlgorithmsTests.h"
 
 int main(int argc, char **argv) {

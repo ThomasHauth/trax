@@ -55,8 +55,8 @@ public:
 				m_trackletsFound.get_mem(),
 				// output
 				tracklets.buffer(TrackletHit1()),
-				tracklets.buffer(TrackletHit1()),
-				tracklets.buffer(TrackletHit1()),
+				tracklets.buffer(TrackletHit2()),
+				tracklets.buffer(TrackletHit3()),
 				tracklets.buffer(TrackletId()), hits.defaultRange());
 
 		std::cout << "Found " << m_trackletsFound.getValue() << " tracklets" << std::endl;

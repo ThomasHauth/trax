@@ -25,6 +25,10 @@ class HitCollection: public HitCollectiontems
 public:
 	typedef HitCollectiontems dataitems_type;
 
+	typedef std::deque<PB_Event::PHit> tTrackHits; //quickly access both ends of track + random access
+	typedef std::map<uint, tTrackHits> tTrackList; //key = trackID, value trackDeque --> easy application of cuts
+	typedef tTrackList::value_type tTrackListEntry;
+
 	HitCollection()
 	{
 
@@ -41,12 +45,8 @@ public:
 
 	HitCollection(const PB_Event::PEvent & event) ;
 
-	void addEvent(const PB_Event::PEvent& event, float minPt = 0, int numTracks = -1, bool onlyTracks = false, uint maxLayer = 99);
+	tTrackList addEvent(const PB_Event::PEvent& event, int hitCount[] = NULL, float minPt = 0, int numTracks = -1, bool onlyTracks = false, uint maxLayer = 99) ;
 
-private:
-	typedef std::deque<PB_Event::PHit> tTrackHits; //quickly access both ends of track + random access
-	typedef std::map<uint, tTrackHits> tTrackList; //key = trackID, value trackDeque --> easy application of cuts
-	typedef tTrackList::value_type tTrackListEntry;
 };
 /*
 class GlobalPosition: private CollectionView<HitCollection>
@@ -119,32 +119,3 @@ public:
 	}
 
 };
-
-void HitCollection::addEvent(const PB_Event::PEvent& event, float minPt, int numTracks, bool onlyTracks, uint maxLayer) {
-
-	tTrackList tracks;
-	for (auto& hit : event.hits()) {
-
-		if(onlyTracks && hit.simtrackid() == 0)
-			continue;
-
-		if (hit.simtrackpt() < minPt)
-			continue;
-
-		tracks[hit.simtrackid()].push_back(hit);
-	}
-
-	int inc = (numTracks != -1) ? tracks.size() / numTracks : 1;
-	for(tTrackList::const_iterator itTrack = tracks.begin(); itTrack != tracks.end(); std::advance(itTrack, inc)){
-		for (auto& hit : itTrack->second) {
-			if(hit.layer() <= maxLayer){
-				addWithValue(hit.position().x(), hit.position().y(),
-						hit.position().z(), hit.layer(), hit.detectorid(),
-						hit.hitid(), event.eventnumber());
-				/*std::cout << hit.position().x()<< " | " <<  hit.position().y()<< " | " <<  hit.position().z()<< " | " <<
-				 hit.layer()<< " | " << hit.detectorid()<< " | " << hit.hitid()<< " | " <<
-				 event.eventnumber() << " | " << hit.simtrackid() << " | " << hit.simtrackpt() << std::endl;*/
-			}
-		}
-	}
-}
