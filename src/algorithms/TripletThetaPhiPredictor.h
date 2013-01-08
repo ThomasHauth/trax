@@ -30,27 +30,15 @@ public:
 		// create the buffers this algorithm will need to run
 }
 
-	cl_mem run(HitCollectionTransfer & hits, int nThreads, int layers[], int hitCount[], float dThetaWindow, float dPhiWindow)
+	clever::vector<uint2,1> * run(HitCollectionTransfer & hits, int nThreads, int layers[], int hitCount[],
+			float dThetaWindow, float dPhiWindow, const clever::vector<uint2,1> & pairs)
 	{
 
 		int nLayer1 = hitCount[layers[0]-1];
 		int nLayer2 = hitCount[layers[1]-1];
 		int nLayer3 = hitCount[layers[2]-1];
 
-		int nMaxPairs = nLayer1 * nLayer2;
-
-		//TODO here we should use some clever pair prediction kernel
-		std::vector<uint2> pairs;
-		for(int i = 0; i < nLayer1; ++i)
-			for(int j=0; j < nLayer2; ++j)
-				pairs.push_back(uint2(i,nLayer1 + j));
-
-		std::cout << "Transferring " << pairs.size() << " pairs...";
-		clever::vector<uint2,1> m_pairs(pairs, nMaxPairs, ctx);
-		int nPairs = m_pairs.get_count();
-		std::cout << "done[" << nPairs  << "]" << std::endl;
-
-		int nMaxTriplets = nPairs * nLayer3;
+		int nMaxTriplets = pairs.get_count() * nLayer3;
 
 		std::cout << "Initializing oracle...";
 		clever::vector<uint, 1> m_oracle(0, std::ceil(nMaxTriplets / 32.0), ctx);
@@ -64,9 +52,9 @@ public:
 		tripletThetaPhiPredict.run(
 				//configuration
 				dThetaWindow, dPhiWindow,
-				nPairs,
+				pairs.get_count(),
 				// input
-				m_pairs.get_mem(), (nLayer1+nLayer2), nLayer3,
+				pairs.get_mem(), (nLayer1+nLayer2), nLayer3,
 				hits.buffer(GlobalX()), hits.buffer(GlobalY()), hits.buffer(GlobalZ()),
 				// output
 				m_oracle.get_mem(), m_prefixSum.get_mem(),
@@ -123,26 +111,26 @@ public:
 
 		int nCandidateTriplets = prefixSum[nThreads]; //we allocated nThreads+1 so total sum is in prefixSum[nThreads]
 		std::cout << "Initializing triplet candidates...";
-		clever::vector<uint2, 1> m_triplets(nCandidateTriplets, ctx);
-		std::cout << "done[" << m_triplets.get_count()  << "]" << std::endl;
+		clever::vector<uint2, 1> * m_triplets = new clever::vector<uint2, 1>(ctx, nCandidateTriplets);
+		std::cout << "done[" << m_triplets->get_count()  << "]" << std::endl;
 
 		std::cout << "Running store kernel...";
 		tripletThetaPhiPredictStore.run(
 				//configuration
-				nPairs, (nLayer1+nLayer2), nLayer3,
+				pairs.get_count(), (nLayer1+nLayer2), nLayer3,
 				//input
-				m_pairs.get_mem(),
+				pairs.get_mem(),
 				m_oracle.get_mem(), m_prefixSum.get_mem(),
 				//output
 				// output
-				m_triplets.get_mem(),
+				m_triplets->get_mem(),
 				//thread config
 				nThreads);
 		std::cout << "done" << std::endl;
 
 		std::cout << "Fetching triplets...";
 		std::vector<uint2> triplets(nCandidateTriplets);
-		transfer::download(m_triplets, triplets, ctx);
+		transfer::download(*m_triplets, triplets, ctx);
 		std::cout <<"done[" << triplets.size() << "]" << std::endl;
 
 #ifdef DEBUG_OUT
@@ -152,7 +140,7 @@ public:
 		}
 #endif
 
-		return m_triplets.get_mem();
+		return m_triplets;
 	}
 
 	KERNEL11_CLASS( tripletThetaPhiPredict, double, double, int,  cl_mem, int, int, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
@@ -173,7 +161,7 @@ public:
 		int end = min(i + workload, nPairs); // for last thread, if not a full workload is present
 		int nFound = 0;
 
-		//printf("id %lu threads %lu workload %i start %i end %i maxEnd %i \n", id, threads, workload, i, end, nTriplets);
+		//printf("id %lu threads %lu workload %i start %i end %i maxEnd %i \n", id, threads, workload, i, end, nPairs);
 
 		for(; i < end; ++i){ //workload loop
 
@@ -188,7 +176,7 @@ public:
 			float thetaHigh = (1+dThetaWindow) * theta;
 
 			//TODO detector geometry
-			float dr = 0;
+			float dr = 13;
 
 			float zLow = hitGlobalZ[secondHit] + dr * tan(thetaLow);
 			float zHigh = hitGlobalZ[secondHit] + dr * tan(thetaHigh);
@@ -201,23 +189,24 @@ public:
 
 			//loop over all third hits
 			//TODO store hits in more suitable data structure, with phi pre-calculated and (z,phi) sorted
-			for(int j = offset; j < offset+nThirdHits; ++j){
+			for(int j = 0; j < nThirdHits; ++j){
 				// check z range
-				bool valid = zLow <= hitGlobalZ[j] || hitGlobalZ[j] <= zHigh;
+				int index = offset+j;
+				bool valid = zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh;
 
 				// check phi range
-				float hPhi = atan2(hitGlobalY[j],hitGlobalX[j]);
-				valid = valid * (phiLow <= hPhi || hPhi <= phiHigh);
+				float hPhi = atan2(hitGlobalY[index],hitGlobalX[index]);
+				valid = valid * (phiLow <= hPhi && hPhi <= phiHigh);
 
 				//if valid update nFound
 				nFound = nFound + valid;
 
 				//update oracle
-				int index = i*nPairs + j;
+				index = i*nThirdHits + j;
 				atomic_or(&oracle[index / 32], (valid << (index % 32)));
 
-				//if(valid)
-				//	printf("[ %lu ] Found valid candidate %i (%i-%i-%i). Word %i Bit %i\n", id, j, firstHit, secondHit, thirdHit, i / 32, i % 32);
+				if(valid)
+					printf("[ %lu ] Found valid candidate %i (%i-%i-%i). Word %i Bit %i\n", id, index, firstHit, secondHit, j, index / 32, index % 32);
 			} // end hit loop
 
 		} //end workload loop
@@ -247,15 +236,16 @@ public:
 
 			for(; i < end; ++i){
 
-				for(int j = offset; j < offset + nThirdHits; ++j){
+				for(int j = 0; j < nThirdHits; ++j){
 
 					//is this a valid triplet?
-					int index = i*nPairs+j;
+					int index = i*nThirdHits+j;
 					bool valid = oracle[index / 32] & (1 << (index % 32));
 
 					//last triplet written on [pos] is valid one
+					index = offset + j;
 					triplets[pos].x = valid * i;
-					triplets[pos].y = valid * j;
+					triplets[pos].y = valid * index;
 
 					//if(valid)
 					//	printf("[ %lu ] Written at %i: %i-%i-%i\n", id, pos, trackletHitId1[pos],trackletHitId2[pos],trackletHitId3[pos]);

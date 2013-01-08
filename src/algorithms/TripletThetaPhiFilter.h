@@ -6,6 +6,8 @@
 #include <datastructures/HitCollection.h>
 #include <datastructures/TrackletCollection.h>
 
+#include <algorithms/TripletThetaPhiPredictor.h>
+
 using namespace clever;
 using namespace std;
 
@@ -33,38 +35,19 @@ public:
 	TrackletCollection * run(HitCollectionTransfer & hits, int nThreads, int layers[], int hitCount[], float dThetaCut, float dPhiCut)
 	{
 
-		int nLayer1 = hitCount[layers[0]-1];
-		int nLayer2 = hitCount[layers[1]-1];
-		int nLayer3 = hitCount[layers[2]-1];
-
-		int nMaxPairs = nLayer1 * nLayer2;
-
 		//TODO here we should use some clever pair prediction kernel
-		std::vector<uint2> pairs;
-		for(int i = 0; i < nLayer1; ++i)
-			for(int j=0; j < nLayer2; ++j)
-				pairs.push_back(uint2(i,nLayer1 + j));
-
-		std::cout << "Transferring " << pairs.size() << " pairs...";
-		clever::vector<uint2,1> m_pairs(pairs, nMaxPairs, ctx);
-		int nPairs = m_pairs.get_count();
-		std::cout << "done[" << nPairs  << "]" << std::endl;
-
-		int nMaxTriplets = nPairs * nLayer3;
+		clever::vector<uint2,1> * m_pairs = generateAllPairs(hits, nThreads, layers, hitCount, 1.2*dThetaCut, 1.2*dPhiCut);
 
 		//TODO here we should use some clever triplet candidate prediction kernel
-		std::vector<uint2> triplets;
-		for(int i = 0; i < nPairs; ++i)
-			for(int j = 0; j < nLayer3; ++j)
-				triplets.push_back(uint2(i,nLayer1 + nLayer2 + j));
-
-		std::cout << "Transferring " << triplets.size() << " triplets...";
-		clever::vector<uint2,1> m_triplets(triplets, nMaxTriplets, ctx);
-		int nTriplets = m_triplets.get_count();
-		std::cout << "done[" << nTriplets  << "]" << std::endl;
+		//clever::vector<uint2,1> * m_triplets = generateAllTriplets(hits, nThreads, layers, hitCount, 1.2*dThetaCut, 1.2*dPhiCut, *m_pairs);
+		TripletThetaPhiPredictor predictor(ctx);
+		float dThetaWindow = 0.5;
+		float dPhiWindow = 0.5;
+		clever::vector<uint2,1> * m_triplets = predictor.run(hits, nThreads, layers, hitCount, dThetaWindow, dPhiWindow, *m_pairs);
+		int nTripletCandidates = m_triplets->get_count();
 
 		std::cout << "Initializing oracle...";
-		clever::vector<uint, 1> m_oracle(0, std::ceil(nTriplets / 32.0), ctx);
+		clever::vector<uint, 1> m_oracle(0, std::ceil(nTripletCandidates / 32.0), ctx);
 		std::cout << "done[" << m_oracle.get_count()  << "]" << std::endl;
 
 		std::cout << "Initializing prefix sum...";
@@ -75,9 +58,9 @@ public:
 		tripletThetaPhiCheck.run(
 				//configuration
 				dThetaCut, dPhiCut,
-				nTriplets,
+				nTripletCandidates,
 				// input
-				m_pairs.get_mem(), m_triplets.get_mem(),
+				m_pairs->get_mem(), m_triplets->get_mem(),
 				hits.buffer(GlobalX()), hits.buffer(GlobalY()), hits.buffer(GlobalZ()),
 				// output
 				m_oracle.get_mem(), m_prefixSum.get_mem(),
@@ -142,9 +125,9 @@ public:
 		std::cout << "Running store kernel...";
 		tripletThetaPhiStore.run(
 				//configuration
-				nTriplets,
+				nTripletCandidates,
 				//input
-				m_pairs.get_mem(), m_triplets.get_mem(),
+				m_pairs->get_mem(), m_triplets->get_mem(),
 				m_oracle.get_mem(), m_prefixSum.get_mem(),
 				//output
 				// output
@@ -157,7 +140,53 @@ public:
 		clTrans_tracklet.fromDevice(ctx, *tracklets);
 		std::cout <<"done[" << tracklets->size() << "]" << std::endl;
 
+		//clean up
+		delete m_pairs;
+		delete m_triplets;
+
 		return tracklets;
+	}
+
+	clever::vector<uint2,1> * generateAllPairs(HitCollectionTransfer & hits, int nThreads, int layers[], int hitCount[],
+				float dThetaWindow, float dPhiWindow) {
+
+		int nLayer1 = hitCount[layers[0]-1];
+		int nLayer2 = hitCount[layers[1]-1];
+
+		int nMaxPairs = nLayer1 * nLayer2;
+		std::vector<uint2> pairs;
+		for(int i = 0; i < nLayer1; ++i)
+			for(int j=0; j < nLayer2; ++j)
+				pairs.push_back(uint2(i,nLayer1 + j));
+
+		std::cout << "Transferring " << pairs.size() << " pairs...";
+		clever::vector<uint2,1> * m_pairs = new clever::vector<uint2,1>(pairs, nMaxPairs, ctx);
+		int nPairs = m_pairs->get_count();
+		std::cout << "done[" << nPairs  << "]" << std::endl;
+
+		return m_pairs;
+	}
+
+	clever::vector<uint2,1> * generateAllTriplets(HitCollectionTransfer & hits, int nThreads, int layers[], int hitCount[],
+			float dThetaWindow, float dPhiWindow, const clever::vector<uint2,1> & pairs) {
+
+		int nLayer1 = hitCount[layers[0]-1];
+		int nLayer2 = hitCount[layers[1]-1];
+		int nLayer3 = hitCount[layers[2]-1];
+
+		int nPairs = pairs.get_count();
+		int nTriplets = nPairs * nLayer3;
+
+		std::vector<uint2> triplets;
+		for(int i = 0; i < nPairs; ++i)
+			for(int j = 0; j < nLayer3; ++j)
+				triplets.push_back(uint2(i,nLayer1 + nLayer2 + j));
+
+		std::cout << "Transferring " << triplets.size() << " triplets...";
+		clever::vector<uint2,1> * m_triplets = new clever::vector<uint2,1>(triplets, nTriplets, ctx);
+		std::cout << "done[" << m_triplets->get_count()  << "]" << std::endl;
+
+		return m_triplets;
 	}
 
 	KERNEL10_CLASS( tripletThetaPhiCheck, double, double, int, cl_mem, cl_mem,  cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,

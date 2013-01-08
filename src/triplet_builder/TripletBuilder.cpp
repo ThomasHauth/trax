@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
 	const int maxLayer = 3;
 	int hitCount[maxLayer] = { }; // all elements 0
 
-	const int tracks = 100;
+	const int tracks = 10;
 	const double minPt = .3;
 
 	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "/home/dfunke/devel/trax/build/triplet_builder/hitsPXB.pb", hitCount, minPt, tracks,true, maxLayer);
