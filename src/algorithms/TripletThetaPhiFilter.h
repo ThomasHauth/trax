@@ -89,21 +89,27 @@ public:
 		std::vector<uint> prefixSum(m_prefixSum.get_count());
 		transfer::download(m_prefixSum,prefixSum,ctx);
 		std::cout << "done" << std::endl;
+
+#ifdef DEBUG_OUT
 		std::cout << "Prefix sum: ";
 		for(auto i : prefixSum){
 			std::cout << i << " ; ";
 		}
 		std::cout << std::endl;
+#endif
 
 		std::cout << "Fetching oracle...";
 		std::vector<uint> oracle(m_oracle.get_count());
 		transfer::download(m_oracle,oracle,ctx);
 		std::cout << "done" << std::endl;
+
+#ifdef DEBUG_OUT
 		std::cout << "Oracle: ";
 		for(auto i : oracle){
 			std::cout << i << " ; ";
 		}
 		std::cout << std::endl;
+#endif
 
 		//Calculate prefix sum
 		//TODO implement prefix sum as kernel
@@ -114,11 +120,14 @@ public:
 			prefixSum[i] = tmp;
 		}
 
+#ifdef DEBUG_OUT
 		std::cout << "Prefix sum: ";
 		for(auto i : prefixSum){
 			std::cout << i << " ; ";
 		}
 		std::cout << std::endl;
+#endif
+
 		std::cout << "Storing prefix sum...";
 		transfer::upload(m_prefixSum,prefixSum,ctx);
 		std::cout << "done" << std::endl;

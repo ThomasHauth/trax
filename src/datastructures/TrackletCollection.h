@@ -81,5 +81,18 @@ public:
 		return getValue<TrackletId>();
 	}
 
+	bool isValid(const HitCollection& hits) const {
+		return hits.getValue(HitId(),hit1()) == hits.getValue(HitId(),hit2())
+						&& hits.getValue(HitId(),hit1()) == hits.getValue(HitId(),hit3());
+	}
+
+	uint trackId(const HitCollection& hits) const {
+		if(isValid(hits))
+			return hits.getValue(HitId(),hit1());
+
+		return 0;
+
+	}
+
 };
 
