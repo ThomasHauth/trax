@@ -10,6 +10,7 @@
 
 #include "CommonTypes.h"
 #include "serialize/Event.pb.h"
+#include "DetectorGeometry.h"
 
 // todo: can we have a Collection view, which looks like a vector type
 
@@ -18,12 +19,12 @@
 #define HIT_COLLECTION_ITEMS GlobalX, GlobalY, GlobalZ, DetectorLayer, DetectorId, HitId, EventNumber
 
 
-typedef clever::Collection <HIT_COLLECTION_ITEMS> HitCollectiontems;
+typedef clever::Collection <HIT_COLLECTION_ITEMS> HitCollectionItems;
 
-class HitCollection: public HitCollectiontems
+class HitCollection: public HitCollectionItems
 {
 public:
-	typedef HitCollectiontems dataitems_type;
+	typedef HitCollectionItems dataitems_type;
 
 	typedef std::deque<PB_Event::PHit> tTrackHits; //quickly access both ends of track + random access
 	typedef std::map<uint, tTrackHits> tTrackList; //key = trackID, value trackDeque --> easy application of cuts
@@ -41,11 +42,11 @@ public:
 	}
 
 	// use a range of events to bootstrap the hit collection
-	HitCollection(const std::vector < PB_Event::PEvent * >& events ) ;
+	HitCollection(const std::vector < PB_Event::PEvent * >& events) ;
 
 	HitCollection(const PB_Event::PEvent & event) ;
 
-	tTrackList addEvent(const PB_Event::PEvent& event, int hitCount[] = NULL, float minPt = 0, int numTracks = -1, bool onlyTracks = false, uint maxLayer = 99) ;
+	tTrackList addEvent(const PB_Event::PEvent& event, const DetectorGeometry& geom, int hitCount[] = NULL, float minPt = 0, int numTracks = -1, bool onlyTracks = false, uint maxLayer = 99) ;
 
 };
 /*

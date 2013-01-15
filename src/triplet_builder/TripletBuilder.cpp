@@ -13,44 +13,80 @@
 #include <datastructures/test/HitCollectionData.h>
 #include <datastructures/HitCollection.h>
 #include <datastructures/TrackletCollection.h>
+#include <datastructures/DetectorGeometry.cpp>
+#include <datastructures/Dictionary.h>
 
 #include <algorithms/TripletThetaPhiFilter.h>
 
 #include "lib/ccolor.cpp"
+#include "lib/CSV.h"
 
 int main(int argc, char *argv[]) {
 
-	//global variables
-	HitCollection hits;
+	//
 	clever::context contx;
-	HitCollectionTransfer clTrans_hits;
 
+	//load radius dictionary
+	Dictionary dict;
+
+	std::ifstream radiusDictFile("radiusDictionary.dat");
+	CSVRow row;
+	while(radiusDictFile >> row)
+	{
+		dict.addWithValue(atof(row[1].c_str()));
+	}
+	radiusDictFile.close();
+
+	//load detectorGeometry
+	DetectorGeometry geom;
+
+	std::ifstream detectorGeometryFile("detectorRadius.dat");
+	while(detectorGeometryFile >> row)
+	{
+		geom.addWithValue(atoi(row[0].c_str()), atoi(row[1].c_str()));
+	}
+	detectorGeometryFile.close();
+
+	//configure hit loader
 	const int maxLayer = 3;
 	int hitCount[maxLayer] = { }; // all elements 0
 
-	const int tracks = 10;
-	const double minPt = .3;
+	const int tracks = 100;
+	const double minPt = 1;
 
-	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "/home/dfunke/devel/trax/build/triplet_builder/hitsPXB.pb", hitCount, minPt, tracks,true, maxLayer);
+	HitCollection hits;
+	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "hitsPXB.pb", geom, hitCount, minPt, tracks,true, maxLayer);
 
 	std::cout << "Loaded " << validTracks.size() << " tracks with minPt " << minPt << " GeV and " << hits.size() << " hits" << std::endl;
 	for(int i = 1; i <= maxLayer; ++i)
 		std::cout << "Layer " << i << ": " << hitCount[i-1] << " hits" << std::endl;
 
 
-	clTrans_hits.initBuffers(contx, hits);
-	clTrans_hits.toDevice(contx, hits);
+	//transer everything to gpu
+	HitCollectionTransfer hitTransfer;
+	hitTransfer.initBuffers(contx, hits);
+	hitTransfer.toDevice(contx, hits);
 
-	// run kernel
-	TripletThetaPhiFilter tripletThetaPhi(contx);
+	DetectorGeometryTransfer geomTransfer;
+	geomTransfer.initBuffers(contx, geom);
+	geomTransfer.toDevice(contx, geom);
+
+	DictionaryTransfer dictTransfer;
+	dictTransfer.initBuffers(contx, dict);
+	dictTransfer.toDevice(contx, dict);
+
+	// configure kernel
 
 	int layers[] = {1,2,3};
 
 	float dTheta = 0.01;
 	float dPhi = 0.1;
 
-	TrackletCollection * tracklets = tripletThetaPhi.run(clTrans_hits, 4, layers, hitCount, dTheta, dPhi);
+	//run it
+	TripletThetaPhiFilter tripletThetaPhi(contx);
+	TrackletCollection * tracklets = tripletThetaPhi.run(hitTransfer, geomTransfer, dictTransfer, 4, layers, hitCount, dTheta, dPhi);
 
+	//evaluate it
 	std::set<uint> foundTracks;
 	uint fakeTracks = 0;
 

@@ -6,17 +6,17 @@ HitCollection::HitCollection(const std::vector<PB_Event::PEvent *>& events)
 {
 	for ( auto e : events )
 	{
-		addEvent(*e);
+		addEvent(*e, DetectorGeometry());
 	}
 
 }
 
 HitCollection::HitCollection(const PB_Event::PEvent & event)
 {
-	addEvent(event);
+	addEvent(event, DetectorGeometry());
 }
 
-HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event, int hitCount[], float minPt,
+HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event, const DetectorGeometry & geom, int hitCount[], float minPt,
 		int numTracks, bool onlyTracks, uint maxLayer) {
 
 	//associate hits to tracks
@@ -88,8 +88,16 @@ HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event,
 #endif
 
 		for(auto & hit : layers[i]){
+
+			uint detId = hit.detectorid();
+		    int index = geom.resolveDetId(detId);
+		    if(index != -1)
+		    	detId = index;
+		    else
+		    	std::cerr << "Invalid DetectorId used: << " << detId << std::endl;
+
 			int id = addWithValue(hit.position().x(), hit.position().y(),
-						 	 	   hit.position().z(), hit.layer(), hit.detectorid(),
+						 	 	   hit.position().z(), hit.layer(), detId,
 						 	 	   hit.simtrackid(), event.eventnumber());
 
 #ifdef OUT_BY_LAYER

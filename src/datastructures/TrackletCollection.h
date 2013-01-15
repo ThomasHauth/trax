@@ -25,12 +25,12 @@ struct TrackletId: public clever::UIntItem
 
 #define TRACKLET_COLLECTION_ITEMS TrackletId, TrackletHit1, TrackletHit2,TrackletHit3
 
-typedef clever::Collection<TRACKLET_COLLECTION_ITEMS> TrackletCollectiontems;
+typedef clever::Collection<TRACKLET_COLLECTION_ITEMS> TrackletCollectionItems;
 
-class TrackletCollection: public TrackletCollectiontems
+class TrackletCollection: public TrackletCollectionItems
 {
 public:
-	typedef TrackletCollectiontems dataitems_type;
+	typedef TrackletCollectionItems dataitems_type;
 
 	TrackletCollection()
 	{

@@ -32,7 +32,8 @@ public:
 		// create the buffers this algorithm will need to run
 }
 
-	TrackletCollection * run(HitCollectionTransfer & hits, int nThreads, int layers[], int hitCount[], float dThetaCut, float dPhiCut)
+	TrackletCollection * run(HitCollectionTransfer & hits, const DetectorGeometryTransfer & geom, const DictionaryTransfer & dict,
+			int nThreads, int layers[], int hitCount[], float dThetaCut, float dPhiCut)
 	{
 
 		//TODO here we should use some clever pair prediction kernel
@@ -41,9 +42,9 @@ public:
 		//TODO here we should use some clever triplet candidate prediction kernel
 		//clever::vector<uint2,1> * m_triplets = generateAllTriplets(hits, nThreads, layers, hitCount, 1.2*dThetaCut, 1.2*dPhiCut, *m_pairs);
 		TripletThetaPhiPredictor predictor(ctx);
-		float dThetaWindow = 0.5;
-		float dPhiWindow = 0.5;
-		clever::vector<uint2,1> * m_triplets = predictor.run(hits, nThreads, layers, hitCount, dThetaWindow, dPhiWindow, *m_pairs);
+		float dThetaWindow = 0.1;
+		float dPhiWindow = 0.1;
+		clever::vector<uint2,1> * m_triplets = predictor.run(hits, geom, dict, nThreads, layers, hitCount, dThetaWindow, dPhiWindow, *m_pairs);
 		int nTripletCandidates = m_triplets->get_count();
 
 		std::cout << "Initializing oracle...";
@@ -54,7 +55,7 @@ public:
 		clever::vector<uint, 1> m_prefixSum(0, nThreads+1, ctx);
 		std::cout << "done[" << m_prefixSum.get_count()  << "]" << std::endl;
 
-		std::cout << "Running check kernel...";
+		std::cout << "Running filter kernel...";
 		tripletThetaPhiCheck.run(
 				//configuration
 				dThetaCut, dPhiCut,
@@ -122,7 +123,7 @@ public:
 		TrackletCollectionTransfer clTrans_tracklet;
 		clTrans_tracklet.initBuffers(ctx, *tracklets);
 
-		std::cout << "Running store kernel...";
+		std::cout << "Running filter store kernel...";
 		tripletThetaPhiStore.run(
 				//configuration
 				nTripletCandidates,
@@ -216,6 +217,10 @@ public:
 			int thirdHit = triplets[i].y;
 			bool valid = true;
 
+			if(firstHit == 5 && secondHit == 17 && thirdHit == 30){
+				printf("\n\nyeah\n\n");
+			}
+
 			//tanTheta1
 			float angle1 = atan2(sqrt((hitGlobalX[secondHit] - hitGlobalX[firstHit])*(hitGlobalX[secondHit] - hitGlobalX[firstHit])
 					+ (hitGlobalY[secondHit] - hitGlobalY[firstHit])*(hitGlobalY[secondHit] - hitGlobalY[firstHit]))
@@ -236,14 +241,14 @@ public:
 			valid = valid * (1-dPhiCut <= ratio && ratio <= 1+dPhiCut);
 
 			//found good triplet?
-			nValid = nValid + valid;
+			nValid += + valid;
 
 			//if(valid)
 			//	printf("[ %lu ] Found valid track %i (%i-%i-%i). Word %i Bit %i\n", id, i, firstHit, secondHit, thirdHit, i / 32, i % 32);
 
 			atomic_or(&oracle[i / 32], (valid << (i % 32)));
 
-		}
+		} // end triplet candidate loop
 
 		prefixSum[id] = nValid;
 	});
@@ -266,9 +271,9 @@ public:
 			int i = id * workload;
 			int end = min(i + workload, nTriplets); // for last thread, if not a full workload is present
 
-			int pos = prefixSum[id];
+			uint pos = prefixSum[id];
 
-			for(; i < end; ++i){
+			for(; i < end && pos < prefixSum[id+1]; ++i){ // pos < prefixSum[id+1] can lead to thread divergence
 
 				//is this a valid triplet?
 				bool valid = oracle[i / 32] & (1 << (i % 32));
