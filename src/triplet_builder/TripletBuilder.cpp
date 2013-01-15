@@ -24,7 +24,16 @@
 int main(int argc, char *argv[]) {
 
 	//
-	clever::context contx;
+	clever::context *contx;
+	try{
+		//try gpu
+		contx = new clever::context(clever::context_settings::default_gpu());
+		std::cout << "Using GPGPU" << std::endl;
+	} catch (const std::runtime_error & e){
+		//if not use cpu
+		contx = new clever::context();
+		std::cout << "Using CPU" << std::endl;
+	}
 
 	//load radius dictionary
 	Dictionary dict;
@@ -64,16 +73,16 @@ int main(int argc, char *argv[]) {
 
 	//transer everything to gpu
 	HitCollectionTransfer hitTransfer;
-	hitTransfer.initBuffers(contx, hits);
-	hitTransfer.toDevice(contx, hits);
+	hitTransfer.initBuffers(*contx, hits);
+	hitTransfer.toDevice(*contx, hits);
 
 	DetectorGeometryTransfer geomTransfer;
-	geomTransfer.initBuffers(contx, geom);
-	geomTransfer.toDevice(contx, geom);
+	geomTransfer.initBuffers(*contx, geom);
+	geomTransfer.toDevice(*contx, geom);
 
 	DictionaryTransfer dictTransfer;
-	dictTransfer.initBuffers(contx, dict);
-	dictTransfer.toDevice(contx, dict);
+	dictTransfer.initBuffers(*contx, dict);
+	dictTransfer.toDevice(*contx, dict);
 
 	// configure kernel
 
@@ -83,7 +92,7 @@ int main(int argc, char *argv[]) {
 	float dPhi = 0.1;
 
 	//run it
-	TripletThetaPhiFilter tripletThetaPhi(contx);
+	TripletThetaPhiFilter tripletThetaPhi(*contx);
 	TrackletCollection * tracklets = tripletThetaPhi.run(hitTransfer, geomTransfer, dictTransfer, 4, layers, hitCount, dTheta, dPhi);
 
 	//evaluate it
