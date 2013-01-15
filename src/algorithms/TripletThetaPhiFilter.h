@@ -190,10 +190,10 @@ public:
 		return m_triplets;
 	}
 
-	KERNEL10_CLASS( tripletThetaPhiCheck, double, double, int, cl_mem, cl_mem,  cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL10_CLASS( tripletThetaPhiCheck, float, float, int, cl_mem, cl_mem,  cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
 			__kernel void tripletThetaPhiCheck(
 					//configuration
-					double dThetaCut, double dPhiCut, int nTriplets,
+					float dThetaCut, float dPhiCut, int nTriplets,
 					// hit input
 					__global const uint2 * pairs, __global const uint2 * triplets,
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
