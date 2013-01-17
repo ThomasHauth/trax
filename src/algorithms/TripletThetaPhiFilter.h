@@ -217,10 +217,6 @@ public:
 			int thirdHit = triplets[i].y;
 			bool valid = true;
 
-			if(firstHit == 5 && secondHit == 17 && thirdHit == 30){
-				printf("\n\nyeah\n\n");
-			}
-
 			//tanTheta1
 			float angle1 = atan2(sqrt((hitGlobalX[secondHit] - hitGlobalX[firstHit])*(hitGlobalX[secondHit] - hitGlobalX[firstHit])
 					+ (hitGlobalY[secondHit] - hitGlobalY[firstHit])*(hitGlobalY[secondHit] - hitGlobalY[firstHit]))

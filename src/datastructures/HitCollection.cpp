@@ -102,7 +102,7 @@ HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event,
 
 #ifdef OUT_BY_LAYER
 			std::cout << "\t [" << id << "] Track: " << hit.simtrackid();
-			std::cout << "\t\t x: " << hit.position().x()<< " y: " <<  hit.position().y()<< " z: " <<  hit.position().z();
+			std::cout << "\t\t [" << hit.position().x()<< ", " <<  hit.position().y()<< ", " <<  hit.position().z() << "]";
 			std::cout << std::endl;
 #endif
 		}

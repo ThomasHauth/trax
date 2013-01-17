@@ -175,18 +175,16 @@ public:
 			int secondHit = pairs[i].y;
 
 			//theta
-			float theta = atan2(sqrt((hitGlobalX[secondHit] - hitGlobalX[firstHit])*(hitGlobalX[secondHit] - hitGlobalX[firstHit])
+			float theta = atan2(sign(hitGlobalY[secondHit]) * sqrt((hitGlobalX[secondHit] - hitGlobalX[firstHit])*(hitGlobalX[secondHit] - hitGlobalX[firstHit])
 					+ (hitGlobalY[secondHit] - hitGlobalY[firstHit])*(hitGlobalY[secondHit] - hitGlobalY[firstHit]))
 																		, ( hitGlobalZ[secondHit] - hitGlobalZ[firstHit] ));
 			float thetaLow = (1-dThetaWindow) * theta;
-			int thetaLowSign = 1;
-			thetaLowSign -= (thetaLow > M_PI_2_F) * 2;
-			thetaLow -= (thetaLow > M_PI_2_F) * M_PI_2_F;
+			int thetaLowSgn = 1 - (fabs(thetaLow) > M_PI_2_F) * 2;
+			thetaLow = (fabs(thetaLow) <= M_PI_2_F) * thetaLow + (fabs(thetaLow) > M_PI_2_F) * (sign(thetaLow)*M_PI_F - thetaLow);
 
 			float thetaHigh = (1+dThetaWindow) * theta;
-			int thetaHighSign = 1;
-			thetaHighSign -= (thetaHigh > M_PI_2_F) * 2;
-			thetaHigh -= (thetaHigh > M_PI_2_F) * M_PI_2_F;
+			int thetaHighSgn = 1 - (fabs(thetaHigh) > M_PI_2_F) * 2;
+			thetaHigh = (fabs(thetaHigh) <= M_PI_2_F) * thetaHigh + (fabs(thetaHigh) > M_PI_2_F) * (sign(thetaHigh)*M_PI_F - thetaHigh);
 
 			//phi
 			float phi = atan2((hitGlobalY[secondHit] - hitGlobalY[firstHit]) , ( hitGlobalX[secondHit] - hitGlobalX[firstHit] ));
@@ -207,8 +205,9 @@ public:
 
 				float dr = radiusDict[detRadius[detId[index]]] - r;
 
-				float tmp = hitGlobalZ[secondHit] + thetaLowSign * dr * tan(thetaLow);
-				float zHigh = hitGlobalZ[secondHit] + thetaHighSign * dr * tan(thetaHigh);
+				//z_3 = z_2 + dr * cot(theta) => cot(theta) = tan(pi/2 - theta)
+				float tmp = hitGlobalZ[secondHit] + thetaLowSgn * dr * fabs(tan(M_PI_2_F - thetaLow));
+				float zHigh = hitGlobalZ[secondHit] + thetaHighSgn * dr * fabs(tan(M_PI_2_F - thetaHigh));
 
 				float zLow = (tmp < zHigh) * tmp + (tmp > zHigh) * zHigh;
 				zHigh = (tmp < zHigh) * zHigh + (tmp > zHigh) * tmp;
@@ -217,7 +216,7 @@ public:
 
 				if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[offset+j]){
 					printf("%i-%i-%i [%i]: z exp[%f]: %f - %f; z act: %f\n", firstHit, secondHit, offset+j, hitId[firstHit], hitGlobalZ[secondHit], zLow, zHigh, hitGlobalZ[offset+j]);
-					float thetaAct = atan2(sqrt((hitGlobalX[offset+j] - hitGlobalX[secondHit])*(hitGlobalX[offset+j] - hitGlobalX[secondHit])
+					float thetaAct = atan2(sign(hitGlobalY[offset+j])*sqrt((hitGlobalX[offset+j] - hitGlobalX[secondHit])*(hitGlobalX[offset+j] - hitGlobalX[secondHit])
 							+ (hitGlobalY[offset+j] - hitGlobalY[secondHit])*(hitGlobalY[offset+j] - hitGlobalY[secondHit]))
 							, ( hitGlobalZ[offset+j] - hitGlobalZ[secondHit] ));
 					//if(!(thetaLow <= thetaAct && thetaAct <= thetaHigh))
