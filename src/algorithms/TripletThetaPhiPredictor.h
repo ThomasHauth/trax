@@ -214,7 +214,7 @@ public:
 
 				bool valid = zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh;
 
-				if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[offset+j]){
+				/*if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[offset+j]){
 					printf("%i-%i-%i [%i]: z exp[%f]: %f - %f; z act: %f\n", firstHit, secondHit, offset+j, hitId[firstHit], hitGlobalZ[secondHit], zLow, zHigh, hitGlobalZ[offset+j]);
 					float thetaAct = atan2(sign(hitGlobalY[offset+j])*sqrt((hitGlobalX[offset+j] - hitGlobalX[secondHit])*(hitGlobalX[offset+j] - hitGlobalX[secondHit])
 							+ (hitGlobalY[offset+j] - hitGlobalY[secondHit])*(hitGlobalY[offset+j] - hitGlobalY[secondHit]))
@@ -227,16 +227,16 @@ public:
 
 					printf("\tdr exp: %f; dr act: %f\n", dr, r3-r2);
 					//}
-				}
+				}*/
 
 				// check phi range
 				float actPhi = atan2(hitGlobalY[index],hitGlobalX[index]);
 				valid = valid * (phiLow <= actPhi && actPhi <= phiHigh);
 
-				if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[offset+j]){
+				/*if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[offset+j]){
 					printf("%i-%i-%i [%i]: phi exp: %f - %f; phi act: %f\n", firstHit, secondHit, offset+j, hitId[firstHit], phiLow, phiHigh, actPhi);
 					//}
-				}
+				}*/
 
 				//if valid update nFound
 				nFound = nFound + valid;
