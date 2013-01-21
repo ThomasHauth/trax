@@ -16,7 +16,7 @@ void generatHitTestData(HitCollection & ht, const unsigned int hitCount = 20000)
 	}
 }
 
-HitCollection::tTrackList loadHitDataFromPB(HitCollection &ht, std::string filename, const DetectorGeometry & geom, int hitCount[],
+HitCollection::tTrackList loadHitDataFromPB(HitCollection &ht, std::string filename, const DetectorGeometry & geom, LayerSupplement & layerSupplement , int nSectors,
 		float minPt = 0, int numTracks = -1, bool onlyTracks = false, uint maxLayer = 99) {
 
 	PB_Event::PEventContainer pContainer;
@@ -28,7 +28,7 @@ HitCollection::tTrackList loadHitDataFromPB(HitCollection &ht, std::string filen
 	}
 
 	for(auto event : pContainer.events()){
-		return ht.addEvent(event, geom, hitCount, minPt, numTracks, onlyTracks, maxLayer);
+		return ht.addEvent(event, geom, layerSupplement, nSectors, minPt, numTracks, onlyTracks, maxLayer);
 	}
 
 	return HitCollection::tTrackList();

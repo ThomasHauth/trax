@@ -15,23 +15,31 @@
 #include <datastructures/TrackletCollection.h>
 #include <datastructures/DetectorGeometry.cpp>
 #include <datastructures/Dictionary.h>
+#include <datastructures/LayerSupplement.h>
 
 #include <algorithms/TripletThetaPhiFilter.h>
+
+#include "RuntimeRecord.h"
 
 #include "lib/ccolor.cpp"
 #include "lib/CSV.h"
 
-int main(int argc, char *argv[]) {
-
+RuntimeRecord buildTriplets(uint nTracks) {
 	//
 	clever::context *contx;
 	try{
 		//try gpu
-		contx = new clever::context(clever::context_settings::default_gpu());
+		clever::context_settings settings = clever::context_settings::default_gpu();
+		settings.m_profile = true;
+
+		contx = new clever::context(settings);
 		std::cout << "Using GPGPU" << std::endl;
 	} catch (const std::runtime_error & e){
 		//if not use cpu
-		contx = new clever::context();
+		clever::context_settings settings = clever::context_settings::default_cpu();
+		settings.m_profile = true;
+
+		contx = new clever::context(settings);
 		std::cout << "Using CPU" << std::endl;
 	}
 
@@ -58,18 +66,33 @@ int main(int argc, char *argv[]) {
 
 	//configure hit loader
 	const int maxLayer = 3;
-	int hitCount[maxLayer] = { }; // all elements 0
+	const int nSectors = 8;
+	LayerSupplement layerSupplement(maxLayer, nSectors);
 
-	const int tracks = 100;
+	const int tracks = nTracks;
 	const double minPt = 1;
 
 	HitCollection hits;
-	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "hitsPXB.pb", geom, hitCount, minPt, tracks,true, maxLayer);
+	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "hitsPXB.pb", geom, layerSupplement, nSectors, minPt, tracks,true, maxLayer);
 
 	std::cout << "Loaded " << validTracks.size() << " tracks with minPt " << minPt << " GeV and " << hits.size() << " hits" << std::endl;
 	for(int i = 1; i <= maxLayer; ++i)
-		std::cout << "Layer " << i << ": " << hitCount[i-1] << " hits" << std::endl;
+		std::cout << "Layer " << i << ": " << layerSupplement[i-1].nHits << " hits" << std::endl;
 
+	//output sector borders
+	std::cout << "Layer";
+	for(int i = 0; i <= nSectors; ++i){
+		std::cout << "\t" << -M_PI + i * (2*M_PI / nSectors);
+	}
+	std::cout << std::endl;
+
+	for(int i = 0; i < maxLayer; i++){
+		std::cout << i+1;
+		for(int j = 0; j <= nSectors; j++){
+			std::cout << "\t" << layerSupplement[i].sectorBorders[j];
+		}
+		std::cout << std::endl;
+	}
 
 	//transer everything to gpu
 	HitCollectionTransfer hitTransfer;
@@ -93,7 +116,8 @@ int main(int argc, char *argv[]) {
 
 	//run it
 	TripletThetaPhiFilter tripletThetaPhi(*contx);
-	TrackletCollection * tracklets = tripletThetaPhi.run(hitTransfer, geomTransfer, dictTransfer, 4, layers, hitCount, dTheta, dPhi);
+	TrackletCollection * tracklets = tripletThetaPhi.run(hitTransfer, geomTransfer, dictTransfer, 4, layers,
+			layerSupplement, dTheta, dPhi, nSectors);
 
 	//evaluate it
 	std::set<uint> foundTracks;
@@ -124,9 +148,70 @@ int main(int argc, char *argv[]) {
 
 	std::cout << "Efficiency: " << ((double) foundTracks.size()) / validTracks.size() << " FakeRate: " << ((double) fakeTracks) / tracklets->size() << std::endl;
 
+	RuntimeRecord result;
+	result.nTracks = foundTracks.size();
+	result.efficiency =  ((double) foundTracks.size()) / validTracks.size();
+	result.fakeRate = ((double) fakeTracks) / tracklets->size();
+
 	//output not found tracks
 	for(auto vTrack : validTracks) {
 		if( foundTracks.find(vTrack.first) == foundTracks.end())
 			std::cout << "Didn't find track " << vTrack.first << std::endl;
 	}
+
+	//determine runtimes
+	profile_info pinfo = contx->report_profile(contx->PROFILE_WRITE);
+	result.dataTransferWrite = pinfo.runtime();
+	std::cout << "Data Transfer\tWritten: " << pinfo.runtime() << "ns\tRead: ";
+	pinfo = contx->report_profile(contx->PROFILE_READ);
+	result.dataTransferRead = pinfo.runtime();
+	std::cout << pinfo.runtime() << " ns" << std::endl;
+
+
+	/*
+	pinfo = contx->report_profile(PairGeneratorSector::KERNEL_COMPUTE_EVT());
+	std::cout << "Pair Generation\tCompute: " << pinfo.runtime() << " ns\tStore: ";
+	pinfo = contx->report_profile(PairGeneratorSector::KERNEL_STORE_EVT());
+	std::cout << pinfo.runtime() << " ns" << std::endl;
+	*/
+
+
+	pinfo = contx->report_profile(TripletThetaPhiPredictor::KERNEL_COMPUTE_EVT());
+	result.tripletPredictComp = pinfo.runtime();
+	std::cout << "Triplet Prediction\tCompute: " << pinfo.runtime() << " ns\tStore: ";
+	pinfo = contx->report_profile(TripletThetaPhiPredictor::KERNEL_STORE_EVT());
+	result.tripletPredictStore = pinfo.runtime();
+	std::cout << pinfo.runtime() << " ns" << std::endl;
+
+
+	pinfo = contx->report_profile(TripletThetaPhiFilter::KERNEL_COMPUTE_EVT());
+	result.tripletCheckComp = pinfo.runtime();
+	std::cout << "Triplet Checking\tCompute: " << pinfo.runtime() << " ns\tStore: ";
+	pinfo = contx->report_profile(TripletThetaPhiFilter::KERNEL_STORE_EVT());
+	result.tripletCheckStore = pinfo.runtime();
+	std::cout << pinfo.runtime() << " ns" << std::endl;
+
+	delete tracklets;
+	delete contx;
+
+	return result;
+}
+
+int main(int argc, char *argv[]) {
+
+	uint testCases[] = {1, 10, 50, 100 };
+
+	std::ofstream results("timings.csv", std::ios::trunc);
+
+	results << "#nTracks, dataTransfer, computation, runtime, efficiency, fakeRate" << std::endl;
+
+	for(uint i : testCases){
+		RuntimeRecord res = buildTriplets(i);
+
+		results << res.nTracks << ", " << res.totalDataTransfer() << ", " << res.totalComputation() << ", " << res.totalRuntime()
+				<< ", " << res.efficiency << ", " << res.fakeRate << std::endl;
+	}
+
+	results.close();
+
 }

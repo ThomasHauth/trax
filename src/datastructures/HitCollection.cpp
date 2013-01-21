@@ -1,22 +1,23 @@
 #include "HitCollection.h"
 
 #include "serialize/Event.pb.h"
+#include "LayerSupplement.h"
 
 HitCollection::HitCollection(const std::vector<PB_Event::PEvent *>& events)
 {
 	for ( auto e : events )
 	{
-		addEvent(*e, DetectorGeometry());
+		//addEvent(*e, DetectorGeometry(), LayerSupplement(0 , 0));
 	}
 
 }
 
 HitCollection::HitCollection(const PB_Event::PEvent & event)
 {
-	addEvent(event, DetectorGeometry());
+	//addEvent(event, DetectorGeometry(), LayerSupplement(0, 0));
 }
 
-HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event, const DetectorGeometry & geom, int hitCount[], float minPt,
+HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event, const DetectorGeometry & geom, LayerSupplement & layerSupplement, int nSectors , float minPt,
 		int numTracks, bool onlyTracks, uint maxLayer) {
 
 	//associate hits to tracks
@@ -79,6 +80,47 @@ HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event,
 		}
 	}
 
+	//fill layer sizes
+	if(layerSupplement.size() > 0){
+		uint offset = 0;
+		for(uint i = 1; i <= maxLayer; ++i){
+			layerSupplement[i-1].nHits = layers[i].size();
+			layerSupplement[i-1].offset = offset;
+			offset += layers[i].size();
+		}
+	}
+
+	//TODO[gpu] perform this on gpu
+	//sort each layer according to phi
+	if(nSectors != 0){
+		for(uint i = 1; i <= maxLayer; ++i){
+			std::sort(layers[i].begin(), layers[i].end(),
+					[] (const PB_Event::PHit & a, const PB_Event::PHit & b) -> bool
+					{
+						float aPhi = atan2(a.position().y(), a.position().x());
+						float bPhi = atan2(b.position().y(), b.position().x());
+
+						return aPhi < bPhi;
+					});
+
+			float sectorSize = 2 * M_PI / nSectors;
+			float currentBorder = -M_PI - sectorSize;
+
+			for(int s = 0; s <= nSectors; ++s){
+				//return iterator to FIRST element in the range for which pred comes true
+				auto itBorder = std::find_if(layers[i].begin(), layers[i].end(),
+						[currentBorder, sectorSize] (const PB_Event::PHit & a) -> bool
+						{
+							float aPhi = atan2(a.position().y(), a.position().x());
+							return aPhi > currentBorder + sectorSize;
+						});
+
+				layerSupplement[i-1].sectorBorders[s] = std::distance(layers[i].begin(), itBorder);
+				currentBorder += sectorSize;
+			}
+		}
+	}
+
 #define OUT_BY_LAYER
 	//add hits in order of layers to HitCollection
 	for(uint i = 1; i <= maxLayer; ++i){
@@ -106,8 +148,6 @@ HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event,
 			std::cout << std::endl;
 #endif
 		}
-		if(hitCount != NULL)
-			hitCount[i-1] = layers[i].size();
 	}
 
 	return filteredTracks;

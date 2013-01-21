@@ -3,7 +3,7 @@
 ## Compiler flags
 if(CMAKE_COMPILER_IS_GNUCXX)
 
-	set (GENERAL_COMPILE_FLAGS " -Werror -Wfatal-errors -Wall -Wno-unused-variable -Wno-unused-value -std=c++11 -pedantic")
+	set (GENERAL_COMPILE_FLAGS " -Wfatal-errors -Wall -Wno-unused-variable -Wno-unused-value -std=c++11 -pedantic")
 
 	## go for it, big time
     #set(CMAKE_CXX_FLAGS "-g -O2 -march=native -Werror --param vect-max-version-for-alias-checks=30 -ftree-vectorizer-verbose=0 -std=gnu++0x -pthread  -Wfatal-errors ")

@@ -5,8 +5,10 @@
 #include <clever/clever.hpp>
 #include <datastructures/HitCollection.h>
 #include <datastructures/TrackletCollection.h>
+#include <datastructures/LayerSupplement.h>
 
 #include <algorithms/TripletThetaPhiPredictor.h>
+#include <algorithms/PairGeneratorSector.h>
 
 using namespace clever;
 using namespace std;
@@ -30,21 +32,28 @@ public:
 		tripletThetaPhiStore(ctext)
 {
 		// create the buffers this algorithm will need to run
+#ifdef DEBUG_OUT
+		std::cout << "FilterKernel WorkGroupSize: " << tripletThetaPhiCheck.getWorkGroupSize() << std::endl;
+		std::cout << "StoreKernel WorkGroupSize: " << tripletThetaPhiStore.getWorkGroupSize() << std::endl;
+#endif
 }
 
+	static std::string KERNEL_COMPUTE_EVT() {return "TripletThetaPhiFilter_COMPUTE";}
+	static std::string KERNEL_STORE_EVT() {return "TripletThetaPhiFilter_STORE";}
+
 	TrackletCollection * run(HitCollectionTransfer & hits, const DetectorGeometryTransfer & geom, const DictionaryTransfer & dict,
-			int nThreads, int layers[], int hitCount[], float dThetaCut, float dPhiCut)
+			int nThreads, int layers[], const LayerSupplement & layerSupplement, float dThetaCut, float dPhiCut, int nSectors)
 	{
 
-		//TODO here we should use some clever pair prediction kernel
-		clever::vector<uint2,1> * m_pairs = generateAllPairs(hits, nThreads, layers, hitCount, 1.2*dThetaCut, 1.2*dPhiCut);
+		clever::vector<uint2,1> * m_pairs = generateAllPairs(hits, nThreads, layers, layerSupplement);
+		//PairGeneratorSector pairGen(ctx);
+		//clever::vector<uint2,1> * m_pairs = pairGen.run(hits, nThreads, layers, layerSupplement , nSectors);
 
-		//TODO here we should use some clever triplet candidate prediction kernel
 		//clever::vector<uint2,1> * m_triplets = generateAllTriplets(hits, nThreads, layers, hitCount, 1.2*dThetaCut, 1.2*dPhiCut, *m_pairs);
 		TripletThetaPhiPredictor predictor(ctx);
 		float dThetaWindow = 0.1;
 		float dPhiWindow = 0.1;
-		clever::vector<uint2,1> * m_triplets = predictor.run(hits, geom, dict, nThreads, layers, hitCount, dThetaWindow, dPhiWindow, *m_pairs);
+		clever::vector<uint2,1> * m_triplets = predictor.run(hits, geom, dict, nThreads, layers, layerSupplement, dThetaWindow, dPhiWindow, *m_pairs);
 		int nTripletCandidates = m_triplets->get_count();
 
 		std::cout << "Initializing oracle...";
@@ -56,7 +65,7 @@ public:
 		std::cout << "done[" << m_prefixSum.get_count()  << "]" << std::endl;
 
 		std::cout << "Running filter kernel...";
-		tripletThetaPhiCheck.run(
+		cl_event evt = tripletThetaPhiCheck.run(
 				//configuration
 				dThetaCut, dPhiCut,
 				nTripletCandidates,
@@ -68,6 +77,8 @@ public:
 				//thread config
 				nThreads);
 		std::cout << "done" << std::endl;
+
+		ctx.add_profile_event(evt, KERNEL_COMPUTE_EVT());
 
 		std::cout << "Fetching prefix sum...";
 		std::vector<uint> prefixSum(m_prefixSum.get_count());
@@ -96,7 +107,7 @@ public:
 #endif
 
 		//Calculate prefix sum
-		//TODO implement prefix sum as kernel
+		//TODO[gpu] implement prefix sum as kernel
 		uint s = 0;
 		for(uint i = 0; i < prefixSum.size(); ++i){
 			int tmp = s;
@@ -124,7 +135,7 @@ public:
 		clTrans_tracklet.initBuffers(ctx, *tracklets);
 
 		std::cout << "Running filter store kernel...";
-		tripletThetaPhiStore.run(
+		evt = tripletThetaPhiStore.run(
 				//configuration
 				nTripletCandidates,
 				//input
@@ -137,6 +148,8 @@ public:
 				nThreads);
 		std::cout << "done" << std::endl;
 
+		ctx.add_profile_event(evt, KERNEL_STORE_EVT());
+
 		std::cout << "Fetching triplets...";
 		clTrans_tracklet.fromDevice(ctx, *tracklets);
 		std::cout <<"done[" << tracklets->size() << "]" << std::endl;
@@ -148,17 +161,16 @@ public:
 		return tracklets;
 	}
 
-	clever::vector<uint2,1> * generateAllPairs(HitCollectionTransfer & hits, int nThreads, int layers[], int hitCount[],
-				float dThetaWindow, float dPhiWindow) {
+	clever::vector<uint2,1> * generateAllPairs(HitCollectionTransfer & hits, int nThreads, int layers[], const LayerSupplement & layerSupplement) {
 
-		int nLayer1 = hitCount[layers[0]-1];
-		int nLayer2 = hitCount[layers[1]-1];
+		int nLayer1 = layerSupplement[layers[0]-1].nHits;
+		int nLayer2 = layerSupplement[layers[1]-1].nHits;
 
 		int nMaxPairs = nLayer1 * nLayer2;
 		std::vector<uint2> pairs;
 		for(int i = 0; i < nLayer1; ++i)
 			for(int j=0; j < nLayer2; ++j)
-				pairs.push_back(uint2(i,nLayer1 + j));
+				pairs.push_back(uint2(layerSupplement[layers[0]-1].offset + i,layerSupplement[layers[1]-1].offset + j));
 
 		std::cout << "Transferring " << pairs.size() << " pairs...";
 		clever::vector<uint2,1> * m_pairs = new clever::vector<uint2,1>(pairs, nMaxPairs, ctx);
@@ -190,31 +202,32 @@ public:
 		return m_triplets;
 	}
 
-	KERNEL10_CLASS( tripletThetaPhiCheck, float, float, int, cl_mem, cl_mem,  cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL10_CLASS( tripletThetaPhiCheck, float, float, uint, cl_mem, cl_mem,  cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
 			__kernel void tripletThetaPhiCheck(
 					//configuration
-					float dThetaCut, float dPhiCut, int nTriplets,
+					float dThetaCut, float dPhiCut, uint nTriplets,
 					// hit input
 					__global const uint2 * pairs, __global const uint2 * triplets,
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
 					// intermeditate data: oracle for hit pair + candidate combination, prefix sum for found tracklets
 					__global uint * oracle, __global uint * prefixSum )
 	{
-		size_t id = get_global_id( 0 );
-		size_t threads = get_global_size( 0 );
+		const size_t gid = get_global_id( 0 );
+		const size_t lid = get_local_id( 0 );
+		const size_t threads = get_global_size( 0 );
 
-		int workload = nTriplets / threads + 1;
-		int i = id * workload;
-		int end = min(i + workload, nTriplets); // for last thread, if not a full workload is present
-		int nValid = 0;
+		uint workload = nTriplets / threads + 1;
+		uint i = gid * workload;
+		uint end = min(i + workload, nTriplets); // for last thread, if not a full workload is present
+		uint nValid = 0;
 
 		//printf("id %lu threads %lu workload %i start %i end %i maxEnd %i \n", id, threads, workload, i, end, nTriplets);
 
 		for(; i < end; ++i){
 
-			int firstHit = pairs[triplets[i].x].x;
-			int secondHit = pairs[triplets[i].x].y;
-			int thirdHit = triplets[i].y;
+			uint firstHit = pairs[triplets[i].x].x;
+			uint secondHit = pairs[triplets[i].x].y;
+			uint thirdHit = triplets[i].y;
 			bool valid = true;
 
 			//tanTheta1
@@ -246,13 +259,13 @@ public:
 
 		} // end triplet candidate loop
 
-		prefixSum[id] = nValid;
+		prefixSum[gid] = nValid;
 	});
 
-	KERNEL8_CLASS( tripletThetaPhiStore, int, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL8_CLASS( tripletThetaPhiStore, uint, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
 				__kernel void tripletThetaPhiStore(
 						//configuration
-						int nTriplets,
+						uint nTriplets,
 						// hit input
 						__global const uint2 * pairs, __global const uint2 * triplets,
 						// input for oracle and prefix sum
@@ -263,9 +276,9 @@ public:
 			size_t id = get_global_id( 0 );
 			size_t threads = get_global_size( 0 );
 
-			int workload = nTriplets / threads + 1;
-			int i = id * workload;
-			int end = min(i + workload, nTriplets); // for last thread, if not a full workload is present
+			uint workload = nTriplets / threads + 1;
+			uint i = id * workload;
+			uint end = min(i + workload, nTriplets); // for last thread, if not a full workload is present
 
 			uint pos = prefixSum[id];
 

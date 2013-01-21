@@ -11,6 +11,7 @@
 #include "CommonTypes.h"
 #include "serialize/Event.pb.h"
 #include "DetectorGeometry.h"
+#include "LayerSupplement.h"
 
 // todo: can we have a Collection view, which looks like a vector type
 
@@ -46,7 +47,7 @@ public:
 
 	HitCollection(const PB_Event::PEvent & event) ;
 
-	tTrackList addEvent(const PB_Event::PEvent& event, const DetectorGeometry& geom, int hitCount[] = NULL, float minPt = 0, int numTracks = -1, bool onlyTracks = false, uint maxLayer = 99) ;
+	tTrackList addEvent(const PB_Event::PEvent& event, const DetectorGeometry& geom, LayerSupplement & layerSupplement, int nSectors = 0, float minPt = 0, int numTracks = -1, bool onlyTracks = false, uint maxLayer = 99) ;
 
 };
 /*
