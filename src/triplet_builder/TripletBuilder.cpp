@@ -203,6 +203,7 @@ int main(int argc, char *argv[]) {
 	float minPt;
 	uint tracks;
 	uint threads;
+	bool silent;
 
 	po::options_description desc("Allowed Options");
 	desc.add_options()
@@ -210,6 +211,7 @@ int main(int argc, char *argv[]) {
 			("minPt", po::value<float>(&minPt)->default_value(1.0), "minimum track Pt")
 			("tracks", po::value<uint>(&tracks)->default_value(10), "number of valid tracks to load")
 			("threads", po::value<uint>(&threads)->default_value(4), "number of threads to use")
+			("silent", po::value<bool>(&silent)->default_value(false), "supress messages")
 			("testSuite", "run entire testSuite");
 
 	po::variables_map vm;
@@ -241,7 +243,19 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 
+	std::streambuf * coutSave = NULL;
+	if(silent){
+		std::ofstream devNull("/dev/null");
+		coutSave = std::cout.rdbuf();
+		std::cout.rdbuf(devNull.rdbuf());
+	}
+
 	RuntimeRecord res = buildTriplets(tracks,minPt, threads);
+
+	if(silent){
+		std::cout.rdbuf(coutSave);
+	}
+
 	std::cout << "Found: " << res.nTracks << " Tracks with mintPt=" << minPt << " using "
 			<< threads << " threads in " << res.totalRuntime() << " ns" << std::endl;
 	std::cout << "\tData transfer " << res.totalDataTransfer() << " ns" << std::endl;
