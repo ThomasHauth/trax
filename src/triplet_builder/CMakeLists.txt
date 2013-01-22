@@ -9,3 +9,4 @@ target_link_libraries(tripletBuilder datastructures)
 target_link_libraries(tripletBuilder algorithms)
 
 target_link_libraries(tripletBuilder "OpenCL")
+target_link_libraries(tripletBuilder "boost_program_options")

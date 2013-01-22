@@ -8,6 +8,8 @@
 #include <iostream>
 #include <set>
 
+#include <boost/program_options.hpp>
+
 #include <clever/clever.hpp>
 
 #include <datastructures/test/HitCollectionData.h>
@@ -24,7 +26,7 @@
 #include "lib/ccolor.cpp"
 #include "lib/CSV.h"
 
-RuntimeRecord buildTriplets(uint tracks, float minPt) {
+RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads) {
 	//
 	clever::context *contx;
 	try{
@@ -113,7 +115,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt) {
 
 	//run it
 	TripletThetaPhiFilter tripletThetaPhi(*contx);
-	TrackletCollection * tracklets = tripletThetaPhi.run(hitTransfer, geomTransfer, dictTransfer, 4, layers,
+	TrackletCollection * tracklets = tripletThetaPhi.run(hitTransfer, geomTransfer, dictTransfer, threads, layers,
 			layerSupplement, dTheta, dPhi, nSectors);
 
 	//evaluate it
@@ -196,19 +198,56 @@ RuntimeRecord buildTriplets(uint tracks, float minPt) {
 
 int main(int argc, char *argv[]) {
 
-	uint testCases[] = {1, 10, 50, 100, 200, 300, 500 };
+	namespace po = boost::program_options;
 
-	std::ofstream results("timings.csv", std::ios::trunc);
+	float minPt;
+	uint tracks;
+	uint threads;
 
-	results << "#nTracks, dataTransfer, pairGen, tripletPredict, tripletFilter, computation, runtime, efficiency, fakeRate" << std::endl;
+	po::options_description desc("Allowed Options");
+	desc.add_options()
+			("help", "produce help message")
+			("minPt", po::value<float>(&minPt)->default_value(1.0), "minimum track Pt")
+			("tracks", po::value<uint>(&tracks)->default_value(10), "number of valid tracks to load")
+			("threads", po::value<uint>(&threads)->default_value(4), "number of threads to use")
+			("testSuite", "run entire testSuite");
 
-	for(uint i : testCases){
-		RuntimeRecord res = buildTriplets(i,0.3);
+	po::variables_map vm;
+	po::store(po::parse_command_line(argc,argv,desc), vm);
+	po::notify(vm);
 
-		results << res.nTracks << ", " << res.totalDataTransfer() << ", " << res.totalPairGen() << ", " << res.totalTripletPredict() << ", " << res.totalTripletCheck() << ", "  << res.totalComputation() << ", " << res.totalRuntime()
-				<< ", " << res.efficiency << ", " << res.fakeRate << std::endl;
+	if(vm.count("help")){
+		std::cout << desc << std::endl;
+		return 1;
 	}
 
-	results.close();
+	if(vm.count("testSuite")){
+
+		uint testCases[] = {1, 10, 50, 100, 200, 300, 500 };
+
+		std::ofstream results("timings.csv", std::ios::trunc);
+
+		results << "#nTracks, dataTransfer, pairGen, tripletPredict, tripletFilter, computation, runtime, efficiency, fakeRate" << std::endl;
+
+		for(uint i : testCases){
+			RuntimeRecord res = buildTriplets(i,minPt, threads);
+
+			results << res.nTracks << ", " << res.totalDataTransfer() << ", " << res.totalPairGen() << ", " << res.totalTripletPredict() << ", " << res.totalTripletCheck() << ", "  << res.totalComputation() << ", " << res.totalRuntime()
+						<< ", " << res.efficiency << ", " << res.fakeRate << std::endl;
+		}
+
+		results.close();
+
+		return 0;
+	}
+
+	RuntimeRecord res = buildTriplets(tracks,minPt, threads);
+	std::cout << "Found: " << res.nTracks << " Tracks with mintPt=" << minPt << " using "
+			<< threads << " threads in " << res.totalRuntime() << " ns" << std::endl;
+	std::cout << "\tData transfer " << res.totalDataTransfer() << " ns" << std::endl;
+	std::cout << "\tPairGen "	<< res.totalPairGen() << " ns" << std::endl;
+	std::cout << "\tTripletPredict " << res.totalTripletPredict() << " ns" << std::endl;
+	std::cout << "\tTripletCheck " << res.totalTripletCheck() << " ns" << std::endl;
+	std::cout << "\tTotal Computation "	<< res.totalComputation() << " ns" << std::endl;
 
 }

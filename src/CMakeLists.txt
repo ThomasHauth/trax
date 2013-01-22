@@ -23,6 +23,8 @@ include_directories (${EXTERNAL_BASE}/clever/src)
 #include_directories (${trax_SOURCE_DIR}/src/eval) 
 #include_directories (${trax_SOURCE_DIR}/src/algo) 
 
+#boost
+FIND_PACKAGE(Boost)
 
 include_directories (${trax_SOURCE_DIR}) 
 
