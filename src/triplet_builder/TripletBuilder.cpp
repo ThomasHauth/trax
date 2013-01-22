@@ -24,7 +24,7 @@
 #include "lib/ccolor.cpp"
 #include "lib/CSV.h"
 
-RuntimeRecord buildTriplets(uint nTracks) {
+RuntimeRecord buildTriplets(uint tracks, float minPt) {
 	//
 	clever::context *contx;
 	try{
@@ -68,9 +68,6 @@ RuntimeRecord buildTriplets(uint nTracks) {
 	const int maxLayer = 3;
 	const int nSectors = 8;
 	LayerSupplement layerSupplement(maxLayer, nSectors);
-
-	const int tracks = nTracks;
-	const double minPt = 1;
 
 	HitCollection hits;
 	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "hitsPXB.pb", geom, layerSupplement, nSectors, minPt, tracks,true, maxLayer);
@@ -199,16 +196,16 @@ RuntimeRecord buildTriplets(uint nTracks) {
 
 int main(int argc, char *argv[]) {
 
-	uint testCases[] = {1, 10, 50, 100 };
+	uint testCases[] = {1, 10, 50, 100, 200, 300, 500 };
 
 	std::ofstream results("timings.csv", std::ios::trunc);
 
-	results << "#nTracks, dataTransfer, computation, runtime, efficiency, fakeRate" << std::endl;
+	results << "#nTracks, dataTransfer, pairGen, tripletPredict, tripletFilter, computation, runtime, efficiency, fakeRate" << std::endl;
 
 	for(uint i : testCases){
-		RuntimeRecord res = buildTriplets(i);
+		RuntimeRecord res = buildTriplets(i,0.3);
 
-		results << res.nTracks << ", " << res.totalDataTransfer() << ", " << res.totalComputation() << ", " << res.totalRuntime()
+		results << res.nTracks << ", " << res.totalDataTransfer() << ", " << res.totalPairGen() << ", " << res.totalTripletPredict() << ", " << res.totalTripletCheck() << ", "  << res.totalComputation() << ", " << res.totalRuntime()
 				<< ", " << res.efficiency << ", " << res.fakeRate << std::endl;
 	}
 
