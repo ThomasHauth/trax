@@ -28,11 +28,41 @@ public:
 	}
 
 	LayerInformation & operator[](uint i){
+		//invalidate
+
 		return this->at(i);
 	}
 
 	const LayerInformation & operator[](uint i) const {
 			return this->at(i);
+	}
+
+	std::vector<uint> getLayerHits() const {
+
+		if(layerHits.size() != this->size()){
+			layerHits.clear();
+			for(const LayerInformation & info : *this)
+				layerHits.push_back(info.nHits);
 		}
+
+		return layerHits;
+
+	}
+
+	std::vector<uint> getLayerOffsets() const {
+
+		if(layerOffsets.size() != this->size()){
+			layerOffsets.clear();
+			for(const LayerInformation & info : *this)
+				layerOffsets.push_back(info.offset);
+		}
+
+		return layerOffsets;
+
+	}
+
+private:
+	mutable std::vector<uint> layerHits;
+	mutable std::vector<uint> layerOffsets;
 
 };

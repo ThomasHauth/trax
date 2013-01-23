@@ -32,10 +32,12 @@ public:
 		tripletThetaPhiStore(ctext)
 {
 		// create the buffers this algorithm will need to run
+#define DEBUG_OUT
 #ifdef DEBUG_OUT
 		std::cout << "FilterKernel WorkGroupSize: " << tripletThetaPhiCheck.getWorkGroupSize() << std::endl;
 		std::cout << "StoreKernel WorkGroupSize: " << tripletThetaPhiStore.getWorkGroupSize() << std::endl;
 #endif
+#undef DEBUG_OUT
 }
 
 	static std::string KERNEL_COMPUTE_EVT() {return "TripletThetaPhiFilter_COMPUTE";}

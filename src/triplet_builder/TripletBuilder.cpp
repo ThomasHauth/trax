@@ -20,13 +20,14 @@
 #include <datastructures/LayerSupplement.h>
 
 #include <algorithms/TripletThetaPhiFilter.h>
+#include <algorithms/HitSorter.h>
 
 #include "RuntimeRecord.h"
 
 #include "lib/ccolor.cpp"
 #include "lib/CSV.h"
 
-RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads) {
+RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose = false) {
 	//
 	clever::context *contx;
 	try{
@@ -75,22 +76,26 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads) {
 	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "hitsPXB.pb", geom, layerSupplement, nSectors, minPt, tracks,true, maxLayer);
 
 	std::cout << "Loaded " << validTracks.size() << " tracks with minPt " << minPt << " GeV and " << hits.size() << " hits" << std::endl;
-	for(int i = 1; i <= maxLayer; ++i)
-		std::cout << "Layer " << i << ": " << layerSupplement[i-1].nHits << " hits" << std::endl;
 
-	//output sector borders
-	std::cout << "Layer";
-	for(int i = 0; i <= nSectors; ++i){
-		std::cout << "\t" << -M_PI + i * (2*M_PI / nSectors);
-	}
-	std::cout << std::endl;
+	if(verbose){
+		for(int i = 1; i <= maxLayer; ++i)
+			std::cout << "Layer " << i << ": " << layerSupplement[i-1].nHits << " hits" << std::endl;
 
-	for(int i = 0; i < maxLayer; i++){
-		std::cout << i+1;
-		for(int j = 0; j <= nSectors; j++){
-			std::cout << "\t" << layerSupplement[i].sectorBorders[j];
+
+		//output sector borders
+		std::cout << "Layer";
+		for(int i = 0; i <= nSectors; ++i){
+			std::cout << "\t" << -M_PI + i * (2*M_PI / nSectors);
 		}
 		std::cout << std::endl;
+
+		for(int i = 0; i < maxLayer; i++){
+			std::cout << i+1;
+			for(int j = 0; j <= nSectors; j++){
+				std::cout << "\t" << layerSupplement[i].sectorBorders[j];
+			}
+			std::cout << std::endl;
+		}
 	}
 
 	//transer everything to gpu
@@ -106,9 +111,22 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads) {
 	dictTransfer.initBuffers(*contx, dict);
 	dictTransfer.toDevice(*contx, dict);
 
+	int layers[] = {1};
+	HitSorter sorter(*contx);
+	sorter.run(hitTransfer, threads,layers,layerSupplement);
+
+	HitCollection hits2(hits.size());
+	hitTransfer.fromDevice(*contx, hits2);
+	for(int i = 0; i < layerSupplement[0].nHits; ++i){
+		Hit hit(hits2, i);
+		std::cout << "[" << hit.globalX() << ", " << hit.globalY() << ", " << hit.globalZ() << "]" << std::endl;
+	}
+
+	return RuntimeRecord();
+
 	// configure kernel
 
-	int layers[] = {1,2,3};
+	//int layers[] = {1,2,3};
 
 	float dTheta = 0.01;
 	float dPhi = 0.1;
@@ -129,19 +147,23 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads) {
 		if(tracklet.isValid(hits)){
 			//valid triplet
 			foundTracks.insert(hits.getValue(HitId(),tracklet.hit1()));
-			std::cout << zkr::cc::fore::green;
-			std::cout << "Track " << tracklet.trackId(hits) << " : " << tracklet.hit1() << "-" << tracklet.hit2() << "-" << tracklet.hit3();
-			std::cout << zkr::cc::console << std::endl;
+			if(verbose){
+				std::cout << zkr::cc::fore::green;
+				std::cout << "Track " << tracklet.trackId(hits) << " : " << tracklet.hit1() << "-" << tracklet.hit2() << "-" << tracklet.hit3();
+				std::cout << zkr::cc::console << std::endl;
+			}
 		}
 		else {
 			//fake triplet
 			++fakeTracks;
 			foundTracks.insert(hits.getValue(HitId(),tracklet.hit1()));
-			std::cout << zkr::cc::fore::red;
-			std::cout << "Fake: " << tracklet.hit1() << "[" << hits.getValue(HitId(),tracklet.hit1()) << "]";
-			std::cout << "-" << tracklet.hit2() << "[" << hits.getValue(HitId(),tracklet.hit2()) << "]";
-			std::cout << "-" << tracklet.hit3() << "[" << hits.getValue(HitId(),tracklet.hit3()) << "]";
-			std::cout << zkr::cc::console << std::endl;
+			if(verbose){
+				std::cout << zkr::cc::fore::red;
+				std::cout << "Fake: " << tracklet.hit1() << "[" << hits.getValue(HitId(),tracklet.hit1()) << "]";
+				std::cout << "-" << tracklet.hit2() << "[" << hits.getValue(HitId(),tracklet.hit2()) << "]";
+				std::cout << "-" << tracklet.hit3() << "[" << hits.getValue(HitId(),tracklet.hit3()) << "]";
+				std::cout << zkr::cc::console << std::endl;
+			}
 		}
 	}
 
@@ -204,14 +226,16 @@ int main(int argc, char *argv[]) {
 	uint tracks;
 	uint threads;
 	bool silent;
+	bool verbose;
 
 	po::options_description desc("Allowed Options");
 	desc.add_options()
 			("help", "produce help message")
 			("minPt", po::value<float>(&minPt)->default_value(1.0), "minimum track Pt")
-			("tracks", po::value<uint>(&tracks)->default_value(10), "number of valid tracks to load")
-			("threads", po::value<uint>(&threads)->default_value(4), "number of threads to use")
-			("silent", po::value<bool>(&silent)->zero_tokens(), "supress messages")
+			("tracks", po::value<uint>(&tracks)->default_value(100), "number of valid tracks to load")
+			("threads", po::value<uint>(&threads)->default_value(1024), "number of threads to use")
+			("silent", po::value<bool>(&silent)->zero_tokens(), "supress all messages from TripletFinder")
+			("verbose", po::value<bool>(&verbose)->zero_tokens(), "elaborate information")
 			("testSuite", "run entire testSuite");
 
 	po::variables_map vm;
@@ -250,7 +274,7 @@ int main(int argc, char *argv[]) {
 		std::cout.rdbuf(devNull.rdbuf());
 	}
 
-	RuntimeRecord res = buildTriplets(tracks,minPt, threads);
+	RuntimeRecord res = buildTriplets(tracks,minPt, threads, verbose);
 
 	if(silent){
 		std::cout.rdbuf(coutSave);
