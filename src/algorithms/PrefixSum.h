@@ -36,11 +36,19 @@ public:
 	static std::string KERNEL_COMPUTE_EVT() {return "PREFIX_COMPUTE";}
 	static std::string KERNEL_STORE_EVT() {return "";}
 
-	uint run(cl_mem input, const uint size, const uint nThreads)
+	uint run(cl_mem input, const uint size, const uint nThreads, const bool storeTotalInLastElement = false)
 	{
 
+		uint lSize = size - storeTotalInLastElement;
+
+		//check power of two
+		if((lSize & (lSize-1)) != 0 )
+			return 0; //TODO[gpu] implement more generic prefixSum Kernel
+
+		cl_bool clStoreTotalInLastElement = storeTotalInLastElement ? CL_TRUE : CL_FALSE;
+
 		cl_event evt = prefixSumKernel.run(
-				input, size, local_param(sizeof(cl_uint), size),
+				input, lSize, clStoreTotalInLastElement, local_param(sizeof(cl_uint), lSize),
 				//threads
 				nThreads);
 
@@ -59,11 +67,11 @@ public:
 		return out;
 	}
 
-	KERNEL3_CLASS( prefixSumKernel, cl_mem, uint,  local_param,
+	KERNEL4_CLASS( prefixSumKernel, cl_mem, uint, cl_bool, local_param,
 
 	__kernel void prefixSumKernel(
 			//configuration
-			__global uint * input, const uint size,
+			__global uint * input, const uint size, uint storeTotalInLastElement,
 			// intermeditate data
 			__local uint * data )
 	{
@@ -124,6 +132,12 @@ public:
 					data[bi] += t;
 				}
 			}
+		}
+		barrier(CLK_LOCAL_MEM_FENCE);
+
+		//store total in size+1 if requested
+		if(storeTotalInLastElement && gid == 0){
+			input[size] = data[size-1] + input[size-1];
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 
