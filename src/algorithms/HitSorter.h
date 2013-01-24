@@ -4,11 +4,8 @@
 
 #include <clever/clever.hpp>
 #include <datastructures/HitCollection.h>
-#include <datastructures/TrackletCollection.h>
 #include <datastructures/LayerSupplement.h>
 
-#include <algorithms/TripletThetaPhiPredictor.h>
-#include <algorithms/PairGeneratorSector.h>
 
 using namespace clever;
 using namespace std;
@@ -41,30 +38,26 @@ public:
 	static std::string KERNEL_COMPUTE_EVT() {return "SORT_COMPUTE";}
 	static std::string KERNEL_STORE_EVT() {return "";}
 
-	void run(HitCollectionTransfer & hits, int nThreads, int layers[], const LayerSupplement & layerSupplement)
+	void run(HitCollectionTransfer & hits, int nThreads, uint maxLayer, const LayerSupplement & layerSupplement)
 	{
 
 		clever::vector<uint, 1> layerHits(layerSupplement.getLayerHits(), ctx);
 		clever::vector<uint, 1> layerOffsets(layerSupplement.getLayerOffsets(), ctx);
 
-		for(uint layer = 1; layer < 2; ++layer){
+		for(uint layer = 1; layer <= maxLayer; ++layer){
 			cl_event evt = sortingKernel.run(
 					//configuration
 					layer, layerHits.get_mem(), layerOffsets.get_mem(),
 					// input
 					hits.buffer(GlobalX()), hits.buffer(GlobalY()), hits.buffer(GlobalZ()),
 					//aux
-					local_param(sizeof(float3), layerSupplement[layer-1].nHits),
+					local_param(sizeof(cl_float4), layerSupplement[layer-1].nHits),
 					//threads
 					nThreads);
 		}
 	}
 
 	KERNEL7_CLASS( sortingKernel, uint, cl_mem, cl_mem,  cl_mem, cl_mem, cl_mem, local_param,
-
-	float getKey(float3 a){
-		return a.z;
-	}
 
 	uint pow2i(uint exp){
 		return 1 << exp;
@@ -78,23 +71,30 @@ public:
 		return k-1;
 	}
 
+	inline float calcSearchCriterion(float4 a){
+		//return atan2( sign(a.y) * sqrt(a.x*a.x + a.y*a.y), a.z);
+		return a.z;
+	}
+
 	__kernel void sortingKernel(
 			//configuration
 			uint layer, __global const uint * layerHits, __global const uint * layerOffsets,
 			// hit input
 			__global float * hitGlobalX, __global float * hitGlobalY, __global float * hitGlobalZ,
 			// intermeditate data
-			__local float3 * aux )
+			__local float4 * aux )
 	{
 		uint gid = get_global_id(0); // thread
 		uint threads = get_global_size(0);
 
 		uint hits = layerHits[layer-1];
-		uint offset = layerOffsets[layer-1];
+		uint offset = 0;//layerOffsets[layer-1];
 
 		//load elements into buffer
 		for(uint i = gid; i < hits; i+= threads){
-			aux[i] = (float3) (hitGlobalX[offset + i], hitGlobalZ[offset + i], hitGlobalZ[offset + i]);
+				aux[i] = (float4) (hitGlobalX[offset + i], hitGlobalY[offset + i], hitGlobalZ[offset + i], 0);
+				//calculate theta and store it in w
+				aux[i].w = calcSearchCriterion(aux[i]); //float3 == float4 -> .w is free
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 
@@ -109,8 +109,8 @@ public:
 			for (uint q = paddedSize >> 1; q >= p; q >>= 1){
 				for (uint k = gid; k < hits; k += threads){
 					if (((k & p) == r) && ((k + d) < hits)){
-						if (getKey(aux[k]) > getKey(aux[k+d])){
-							float3 temp = aux[k];
+						if (aux[k].w > aux[k+d].w){
+							float4 temp = aux[k];
 							aux[k] = aux[k+d];
 							aux[k+d] = temp;
 

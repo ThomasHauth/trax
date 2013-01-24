@@ -21,6 +21,7 @@
 
 #include <algorithms/TripletThetaPhiFilter.h>
 #include <algorithms/HitSorter.h>
+#include <algorithms/PrefixSum.h>
 
 #include "RuntimeRecord.h"
 
@@ -98,6 +99,31 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 		}
 	}
 
+	/*****
+
+
+	cl_device_id device;
+	ERROR_HANDLER(
+			ERROR = clGetCommandQueueInfo(contx->default_queue(), CL_QUEUE_DEVICE, sizeof(cl_device_id), &device, NULL));
+
+	cl_ulong localMemSize;
+	ERROR_HANDLER(
+			ERROR = clGetDeviceInfo(device, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &localMemSize, NULL));
+	cl_ulong maxAlloc;
+	ERROR_HANDLER(
+			ERROR = clGetDeviceInfo(device, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong), &maxAlloc, NULL));
+	size_t maxParam;
+	ERROR_HANDLER(
+			ERROR = clGetDeviceInfo(device, CL_DEVICE_MAX_PARAMETER_SIZE, sizeof(size_t), &maxParam, NULL));
+
+	std::cout << "LocalMemSize: " << localMemSize << std::endl;
+	std::cout << "MaxAlloc: " << maxAlloc << std::endl;
+	std::cout << "MaxParam: " << maxParam << std::endl;
+
+
+
+	 ********/
+
 	//transer everything to gpu
 	HitCollectionTransfer hitTransfer;
 	hitTransfer.initBuffers(*contx, hits);
@@ -111,22 +137,49 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	dictTransfer.initBuffers(*contx, dict);
 	dictTransfer.toDevice(*contx, dict);
 
-	int layers[] = {1};
+	//sort hits on device
 	HitSorter sorter(*contx);
-	sorter.run(hitTransfer, threads,layers,layerSupplement);
+	sorter.run(hitTransfer, threads,maxLayer,layerSupplement);
 
+	//verify sorting
+	bool valid = true;
 	HitCollection hits2(hits.size());
 	hitTransfer.fromDevice(*contx, hits2);
-	for(int i = 0; i < layerSupplement[0].nHits; ++i){
-		Hit hit(hits2, i);
-		std::cout << "[" << hit.globalX() << ", " << hit.globalY() << ", " << hit.globalZ() << "]" << std::endl;
+	for(int l = 1; l <= maxLayer; ++l){
+		float lastZ = -9999;
+		for(int i = 0; i < layerSupplement[0].nHits; ++i){
+			Hit hit(hits2, i);
+			if(hit.globalZ() < lastZ){
+				std::cerr << lastZ <<  "--" << hit.globalZ() << std::endl;
+				valid = false;
+			}
+			lastZ = hit.globalZ();
+		}
 	}
+
+	if(!valid)
+		std::cerr << "Not sorted properly" << std::endl;
+
+	//prefix sum test
+	std::vector<uint> uints(4,100);
+	//uints.push_back(0);
+	clever::vector<uint,1> dUints(uints, *contx);
+
+	PrefixSum psum(*contx);
+	uint res = psum.run(dUints.get_mem(), 4, 4);
+	transfer::download(dUints, uints, *contx);
+
+	for(uint i : uints){
+		std::cout << i << "\t";
+	}
+
+	std::cout << std::endl << "Result: " << res << std::endl;
 
 	return RuntimeRecord();
 
 	// configure kernel
 
-	//int layers[] = {1,2,3};
+	int layers[] = {1,2,3};
 
 	float dTheta = 0.01;
 	float dPhi = 0.1;
