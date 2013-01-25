@@ -16,7 +16,7 @@ TripletConnectivity::TripletConnectivity(clever::context & ctext) :
 
 void TripletConnectivity::run(
 		TrackletCollectionTransfer const& trackletsInitial,
-		TrackletCollectionTransfer & trackletsFollowing, bool iterateBackwards)
+		TrackletCollectionTransfer & trackletsFollowing, bool iterateBackwards) const
 {
 	cl_mem intialHits;
 	cl_mem followingHits;

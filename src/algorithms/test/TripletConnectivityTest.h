@@ -29,6 +29,40 @@ public:
 		trFollowing.addWithValue(3, 9, 4, 8, 0);
 	}
 
+	void addFourLayerForward()
+	{
+		// triplets on four layers:
+		//  -- outside --
+		//trBaseTrans  			 Hits:  ( 1  - 10 )
+		//trFollowingTrans       Hits:  ( 11 - 20 )
+		//trFollowingTwoTrans    Hits:  ( 21 - 30 )
+		//trFollowingThreeTrans  Hits:  ( 31 - 40 )
+		//  -- inside ---
+
+		unsigned int triptletId = 1;
+
+		// id, hit1id, hit2id, hit3id, connectivity
+		trBase.addWithValue(triptletId++, 1, 3, 8, 0);
+		trBase.addWithValue(triptletId++, 1, 3, 5, 0);
+		trBase.addWithValue(triptletId++, 2, 4, 6, 0);/* track */
+		trBase.addWithValue(triptletId++, 2, 4, 7, 0);
+
+		trFollowing.addWithValue(triptletId++, 6, 11, 16, 0);/* track */
+		trFollowing.addWithValue(triptletId++, 9, 12, 17, 0);
+		trFollowing.addWithValue(triptletId++, 9, 13, 18, 0);
+		trFollowing.addWithValue(triptletId++, 9, 14, 19, 0);
+
+		trFollowingTwo.addWithValue(triptletId++, 16, 21, 30, 0);/* track */
+		trFollowingTwo.addWithValue(triptletId++, 15, 22, 29, 0);
+		trFollowingTwo.addWithValue(triptletId++, 15, 24, 29, 0);
+		trFollowingTwo.addWithValue(triptletId++, 15, 25, 27, 0);
+
+		trFollowingThree.addWithValue(triptletId++, 30, 31, 36, 0);/*track*/
+		trFollowingThree.addWithValue(triptletId++, 28, 32, 37, 0);
+		trFollowingThree.addWithValue(triptletId++, 26, 33, 38, 0);
+		trFollowingThree.addWithValue(triptletId++, 27, 34, 39, 0);
+	}
+
 	void addSimpleBackward()
 	{
 		// id, hit1id, hit2id, hit3id, connectivity
@@ -44,15 +78,34 @@ public:
 		trBaseTrans.initBuffers(contx, trBase);
 		trBaseTrans.toDevice(contx, trBase);
 
-		trFollowingTrans.initBuffers(contx, trFollowing);
-		trFollowingTrans.toDevice(contx, trFollowing);
+		if (trFollowing.size() > 0)
+		{
+			trFollowingTrans.initBuffers(contx, trFollowing);
+			trFollowingTrans.toDevice(contx, trFollowing);
+		}
+
+		if (trFollowingTwo.size() > 0)
+		{
+			trFollowingTwoTrans.initBuffers(contx, trFollowingTwo);
+			trFollowingTwoTrans.toDevice(contx, trFollowingTwo);
+		}
+
+		if (trFollowingThree.size() > 0)
+		{
+			trFollowingThreeTrans.initBuffers(contx, trFollowingThree);
+			trFollowingThreeTrans.toDevice(contx, trFollowingThree);
+		}
 	}
 
 	TrackletCollection trBase;
 	TrackletCollection trFollowing;
+	TrackletCollection trFollowingTwo;
+	TrackletCollection trFollowingThree;
 
 	TrackletCollectionTransfer trBaseTrans;
 	TrackletCollectionTransfer trFollowingTrans;
+	TrackletCollectionTransfer trFollowingTwoTrans;
+	TrackletCollectionTransfer trFollowingThreeTrans;
 
 	clever::context contx;
 };
@@ -99,6 +152,41 @@ TEST( TripletConnectivity, test_run_backward )
 	GTEST_ASSERT_EQ( 0, it.getValue<TrackletConnectivity>( ));
 }
 
+TEST( TripletConnectivity, test_run_multilayer )
+{
+	TripletConnectivityTestSupport testSupport;
+	testSupport.addFourLayerForward();
+	testSupport.initAndTransfer();
+
+	TripletConnectivity ttc(testSupport.contx);
+
+	ttc.run(testSupport.trBaseTrans, testSupport.trFollowingTrans, false);
+	ttc.run(testSupport.trFollowingTrans, testSupport.trFollowingTwoTrans,
+			false);
+	ttc.run(testSupport.trFollowingTwoTrans, testSupport.trFollowingThreeTrans,
+			false);
+
+	testSupport.contx.finish_default_queue();
+
+	// download all
+	testSupport.trFollowingTrans.fromDevice(testSupport.contx,
+			testSupport.trFollowing);
+	testSupport.trFollowingTwoTrans.fromDevice(testSupport.contx,
+			testSupport.trFollowingTwo);
+	testSupport.trFollowingThreeTrans.fromDevice(testSupport.contx,
+			testSupport.trFollowingThree);
+
+	// check if the connectivity has been increased correctly
+	// the first one should be the tracklet which is part of a track
+	auto it = testSupport.trFollowingThree.getIterator();
+	GTEST_ASSERT_EQ( 3, it.getValue<TrackletConnectivity>( ));
+	it++;
+	GTEST_ASSERT_EQ( 0, it.getValue<TrackletConnectivity>( ));
+	it++;
+	GTEST_ASSERT_EQ( 0, it.getValue<TrackletConnectivity>( ));
+	it++;
+	GTEST_ASSERT_EQ( 1, it.getValue<TrackletConnectivity>( ));
+}
 
 //global variables
 /*HitCollection ht;

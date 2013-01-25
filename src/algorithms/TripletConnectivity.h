@@ -17,6 +17,11 @@ using namespace std;
  - buffer A holding Triplets to compute : read / write
  - buffer B holding Tripltes to check for connectivity ( can be the same as above ) : read only
  - range to start and end the connectivity search on buffer B
+
+ possible todos:
+ - improve performance by using local caching of the connectivity quantity
+ - more complex tests ( fitted trajectory, theta / phi values of triptles )
+
  */
 class TripletConnectivity: private boost::noncopyable
 {
@@ -39,7 +44,7 @@ public:
 
 	void run(TrackletCollectionTransfer const& trackletsBase,
 			TrackletCollectionTransfer & trackletsFollowing,
-			bool iterateBackwards = false);
+			bool iterateBackwards = false) const;
 
 	KERNEL6_CLASS( tripletConnectivity, cl_mem, cl_mem, cl_mem, cl_mem, cl_uint, cl_uint,
 			__kernel void tripletConnectivity(
@@ -61,10 +66,18 @@ public:
 					//printf("  is connected %i\n" , connected );
 					//printf("  connectivity old is %i\n" , tripletFollowCon [ i ] );
 
+					//if ( connected )
+					//{
+					//	atomic_add( tripletFollowCon + i , tripletFollowCon[ i ] + 1 );
+					//}
+
+					// this is the branch-less version, test the performance
+					// the following triplet inherits the connectivity from the base
 					if ( connected )
 					{
-						atomic_add( tripletFollowCon + i , tripletFollowCon[ i ] + 1 );
+						atomic_add( tripletFollowCon + i , ( tripletBaseCon[ gid ] + 1 ) );
 					}
+
 					//printf("  connectivity is now %i\n" , tripletFollowCon [ i ] );
 				}
 
