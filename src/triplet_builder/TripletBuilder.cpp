@@ -161,12 +161,12 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 		std::cerr << "Not sorted properly" << std::endl;
 
 	//prefix sum test
-	std::vector<uint> uints(16,100);
+	std::vector<uint> uints(19,100);
 	uints.push_back(0);
 	clever::vector<uint,1> dUints(uints, *contx);
 
 	PrefixSum psum(*contx);
-	uint res = psum.run(dUints.get_mem(), 16, 4, false);
+	uint res = psum.run(dUints.get_mem(), uints.size(), 4, true);
 	transfer::download(dUints, uints, *contx);
 
 	for(uint i = 0; i < uints.size(); ++i){
