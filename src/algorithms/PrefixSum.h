@@ -36,19 +36,27 @@ public:
 	static std::string KERNEL_COMPUTE_EVT() {return "PREFIX_COMPUTE";}
 	static std::string KERNEL_STORE_EVT() {return "";}
 
+	uint getNextPowerOfTwo(uint n){
+		n--;
+		n |= n >> 1;
+		n |= n >> 2;
+		n |= n >> 4;
+		n |= n >> 8;
+		n |= n >> 16;
+		n++;
+
+		return n;
+	}
+
 	uint run(cl_mem input, const uint size, const uint nThreads, const bool storeTotalInLastElement = false)
 	{
 
 		uint lSize = size - storeTotalInLastElement;
 
-		//check power of two
-		if((lSize & (lSize-1)) != 0 )
-			return 0; //TODO[gpu] implement more generic prefixSum Kernel
-
 		cl_bool clStoreTotalInLastElement = storeTotalInLastElement ? CL_TRUE : CL_FALSE;
 
 		cl_event evt = prefixSumKernel.run(
-				input, lSize, clStoreTotalInLastElement, local_param(sizeof(cl_uint), lSize),
+				input, lSize, clStoreTotalInLastElement, local_param(sizeof(cl_uint), getNextPowerOfTwo(lSize)),
 				//threads
 				nThreads);
 
@@ -69,6 +77,18 @@ public:
 
 	KERNEL4_CLASS( prefixSumKernel, cl_mem, uint, cl_bool, local_param,
 
+	inline uint getNextPowerOfTwo(uint n){
+		n--;
+		n |= n >> 1;
+		n |= n >> 2;
+		n |= n >> 4;
+		n |= n >> 8;
+		n |= n >> 16;
+		n++;
+
+		return n;
+	}
+
 	__kernel void prefixSumKernel(
 			//configuration
 			__global uint * input, const uint size, uint storeTotalInLastElement,
@@ -78,20 +98,26 @@ public:
 		uint gid = get_global_id(0); // thread
 		uint threads = get_global_size(0);
 
+		uint paddedSize = getNextPowerOfTwo(size);
+
 		//load elements into buffer
 		for(uint i = gid; i < size; i+= threads){
 			data[i] = input[i];
+		}
+		//initialize padding with zero [ OpenCL 1.2 extension cl_khr_initialize_memory allows automatic initialization in the future
+		for(uint i = size + gid; i < paddedSize; i += threads){
+			data[i] = 0;
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 
 		uint offset = 1;
 
 		// Build the sum in place up the tree.
-		for (uint d = size>>1; d > 0; d >>= 1)
+		for (uint d = paddedSize>>1; d > 0; d >>= 1)
 		{
 			barrier(CLK_LOCAL_MEM_FENCE);
 
-			for (uint p = gid; p < size; p += threads)
+			for (uint p = gid; p < paddedSize; p += threads)
 			{
 
 				if (p < d)
@@ -111,16 +137,16 @@ public:
 		// Clear the last element
 		if (gid == 0)
 		{
-			data[size - 1] = 0;
+			data[paddedSize - 1] = 0;
 		}
 
 		// Traverse down the tree building the scan in place.
-		for (uint d = 1; d < size; d <<= 1)
+		for (uint d = 1; d < paddedSize; d <<= 1)
 		{
 			offset >>= 1;
 			barrier(CLK_LOCAL_MEM_FENCE);
 
-			for (uint p = gid; p < size; p += threads)
+			for (uint p = gid; p < paddedSize; p += threads)
 			{
 				if (p < d)
 				{
