@@ -4,6 +4,7 @@ project (trax)
 add_library(datastructures
 	Hit.cpp
 	HitCollection.cpp
+	DetectorGeometry.cpp
 	serialize/Event.pb.cc
 )
 

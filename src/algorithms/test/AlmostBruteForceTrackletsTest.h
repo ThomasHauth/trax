@@ -17,7 +17,7 @@ clever::context contx;
 TrackletCollection* tracklets;
 HitCollectionTransfer clTrans_hits;
 TrackletCollectionTransfer clTrans_tracklet;
-
+/*
 TEST( AlmostBruteForceTracklets, test_create )
 {
 
@@ -54,3 +54,4 @@ TEST( AlmostBruteForceTracklets, OpenCL_Result_Transfer)
 {
 	clTrans_tracklet.fromDevice(contx, *tracklets);
 }
+*/

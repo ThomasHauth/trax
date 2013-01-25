@@ -23,7 +23,11 @@ struct TrackletId: public clever::UIntItem
 {
 };
 
-#define TRACKLET_COLLECTION_ITEMS TrackletId, TrackletHit1, TrackletHit2,TrackletHit3
+struct TrackletConnectivity: public clever::UCharDictionaryItem
+{
+};
+
+#define TRACKLET_COLLECTION_ITEMS TrackletId, TrackletHit1, TrackletHit2, TrackletHit3, TrackletConnectivity
 
 typedef clever::Collection<TRACKLET_COLLECTION_ITEMS> TrackletCollectionItems;
 
