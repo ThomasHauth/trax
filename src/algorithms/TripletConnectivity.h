@@ -42,15 +42,25 @@ public:
 		return "TripletConnectiviy_STORE";
 	}
 
+	/*
+	 	 by default, only the outermost hits of both triplets are compared for compatibility.
+	 	 The tightPacking option can be set to true to compute the connectivity for overlapping
+	 	 triplets, meaning that two hits must be shared by the triplets
+
+	 */
 	void run(TrackletCollectionTransfer const& trackletsBase,
 			TrackletCollectionTransfer & trackletsFollowing,
-			bool iterateBackwards = false) const;
+			bool iterateBackwards = false,
+			bool tightPacking = false ) const;
 
-	KERNEL6_CLASS( tripletConnectivity, cl_mem, cl_mem, cl_mem, cl_mem, cl_uint, cl_uint,
-			__kernel void tripletConnectivity(
+	KERNEL6_CLASS( tripletConnectivityWide, cl_mem, cl_mem, cl_mem, cl_mem, cl_uint, cl_uint,
+			__kernel void tripletConnectivityWide(
 					// tracklet base ( hit id, connectivity )
-					__global const uint * tripletBaseHit1, __global const uint * tripletBaseCon,
-					__global uint * tripletFollowHit1, __global uint * tripletFollowCon,
+					__global const uint * tripletBaseHit1,
+					__global const uint * tripletBaseCon,
+					// tracklet following ( hit id, hit id, connectivity )
+					__global uint * tripletFollowHit1,
+					__global uint * tripletFollowCon,
 					const uint followFirst, const uint followLast
 			)
 			{
@@ -83,5 +93,56 @@ public:
 
 			})
 	;
+
+	KERNEL8_CLASS( tripletConnectivityTight, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_uint, cl_uint,
+			__kernel void tripletConnectivityTight(
+					// tracklet base ( hit id, hit id, connectivity )
+					__global uint const* tripletBaseHit1,
+					__global uint const* tripletBaseHit2,
+					__global uint const* tripletBaseCon,
+
+					// tracklet following ( hit id, hit id, connectivity )
+					__global uint const* tripletFollowHit1,
+					__global uint const* tripletFollowHit2,
+					__global uint * tripletFollowCon,
+
+					const uint followFirst, const uint followLast
+			)
+			{
+				const size_t gid = get_global_id( 0 );
+				const size_t lid = get_local_id( 0 );
+				const size_t threads = get_global_size( 0 );
+
+				for ( size_t i = followFirst; i <= followLast; i++ )
+				{
+					//printf("Doing %i\n" , gid );
+					// the comparison has to be made criss / cross
+					const bool connected = ( tripletBaseHit1[ gid ] == tripletFollowHit1[ i ] ) &&
+										   ( tripletBaseHit2[ gid ] == tripletFollowHit2[ i ] );
+
+					//printf("  id1 : %i  f_id1 : %i\n", tripletBaseHit1[ gid ], tripletFollowHit1[ i ]);
+					//printf("  id2 : %i  f_id2 : %i\n", tripletBaseHit2[ gid ], tripletFollowHit2[ i ]);
+
+					//printf("  is connected %i\n" , connected );
+					//printf("  connectivity old is %i\n" , tripletFollowCon [ i ] );
+
+					//if ( connected )
+					//{
+					//	atomic_add( tripletFollowCon + i , tripletFollowCon[ i ] + 1 );
+					//}
+
+					// this is the branch-less version, test the performance
+					// the following triplet inherits the connectivity from the base
+					if ( connected )
+					{
+						atomic_add( tripletFollowCon + i , ( tripletBaseCon[ gid ] + 1 ) );
+					}
+
+					//printf("  connectivity is now %i\n" , tripletFollowCon [ i ] );
+				}
+
+			})
+	;
+
 
 };
