@@ -48,7 +48,7 @@ public:
 		return n;
 	}
 
-	uint run(cl_mem input, const uint size, const uint nThreads, const bool storeTotalInLastElement = false)
+	uint run(clever::vector<uint,1> & input, const uint size, const uint nThreads, const bool storeTotalInLastElement = false)
 	{
 
 		uint lSize = size - storeTotalInLastElement;
@@ -56,21 +56,12 @@ public:
 		cl_bool clStoreTotalInLastElement = storeTotalInLastElement ? CL_TRUE : CL_FALSE;
 
 		cl_event evt = prefixSumKernel.run(
-				input, lSize, clStoreTotalInLastElement, local_param(sizeof(cl_uint), getNextPowerOfTwo(lSize)),
+				input.get_mem(), lSize, clStoreTotalInLastElement, local_param(sizeof(cl_uint), getNextPowerOfTwo(lSize)),
 				//threads
 				nThreads);
 
 		uint out;
-
-
-		//read last element
-		ERROR_HANDLER( ERROR = opencl::clEnqueueReadBuffer(
-				ctx.default_queue(),
-				input,
-				CL_TRUE, sizeof(cl_uint)*(size-1),
-				sizeof(cl_uint),
-				&out,
-				1, &evt, NULL ) );
+		transfer::downloadScalar(input, out, ctx,true,size-1,1,&evt);
 
 		return out;
 	}

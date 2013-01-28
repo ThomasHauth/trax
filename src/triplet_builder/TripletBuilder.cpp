@@ -80,7 +80,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 
 	if(verbose){
 		for(int i = 1; i <= maxLayer; ++i)
-			std::cout << "Layer " << i << ": " << layerSupplement[i-1].nHits << " hits" << std::endl;
+			std::cout << "Layer " << i << ": " << layerSupplement[i-1].nHits << " hits" << "\t Offset: " << layerSupplement[i-1].offset << std::endl;
 
 
 		//output sector borders
@@ -137,6 +137,15 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	dictTransfer.initBuffers(*contx, dict);
 	dictTransfer.toDevice(*contx, dict);
 
+	for(int i = 0; i < hits.size(); ++i){
+		Hit hit(hits, i);
+
+		std::cout << "[" << i << "]";
+		std::cout << " Coordinates: [" << hit.globalX() << ";" << hit.globalY() << ";" << hit.globalZ() << "]";
+		std::cout << " DetId: " << hit.getValue<DetectorId>() << " DetLayer: " << hit.getValue<DetectorLayer>();
+		std::cout << " Event: " << hit.getValue<EventNumber>() << " HitId: " << hit.getValue<HitId>() << std::endl;
+	}
+
 	//sort hits on device
 	HitSorter sorter(*contx);
 	sorter.run(hitTransfer, threads,maxLayer,layerSupplement);
@@ -147,10 +156,10 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	hitTransfer.fromDevice(*contx, hits2);
 	for(int l = 1; l <= maxLayer; ++l){
 		float lastZ = -9999;
-		for(int i = 0; i < layerSupplement[0].nHits; ++i){
-			Hit hit(hits2, i);
+		for(int i = 0; i < layerSupplement[l-1].nHits; ++i){
+			Hit hit(hits2, layerSupplement[l-1].offset + i);
 			if(hit.globalZ() < lastZ){
-				std::cerr << lastZ <<  "--" << hit.globalZ() << std::endl;
+				std::cerr << "Layer " << l << " : " << lastZ <<  "|" << hit.globalZ() << std::endl;
 				valid = false;
 			}
 			lastZ = hit.globalZ();
@@ -159,14 +168,25 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 
 	if(!valid)
 		std::cerr << "Not sorted properly" << std::endl;
+	else
+		std::cout << "Sorted correctly" << std::endl;
+
+	for(int i = 0; i < hits2.size(); ++i){
+			Hit hit(hits2, i);
+
+			std::cout << "[" << i << "]";
+			std::cout << " Coordinates: [" << hit.globalX() << ";" << hit.globalY() << ";" << hit.globalZ() << "]";
+			std::cout << " DetId: " << hit.getValue<DetectorId>() << " DetLayer: " << hit.getValue<DetectorLayer>();
+			std::cout << " Event: " << hit.getValue<EventNumber>() << " HitId: " << hit.getValue<HitId>() << std::endl;
+		}
 
 	//prefix sum test
-	std::vector<uint> uints(19,100);
+	/*std::vector<uint> uints(19,100);
 	uints.push_back(0);
 	clever::vector<uint,1> dUints(uints, *contx);
 
 	PrefixSum psum(*contx);
-	uint res = psum.run(dUints.get_mem(), uints.size(), 4, true);
+	uint res = psum.run(dUints, uints.size(), 4, true);
 	transfer::download(dUints, uints, *contx);
 
 	for(uint i = 0; i < uints.size(); ++i){
@@ -175,7 +195,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 
 	std::cout << std::endl << "Result: " << res << std::endl;
 
-	return RuntimeRecord();
+	return RuntimeRecord();*/
 
 	// configure kernel
 
@@ -286,7 +306,7 @@ int main(int argc, char *argv[]) {
 			("help", "produce help message")
 			("minPt", po::value<float>(&minPt)->default_value(1.0), "minimum track Pt")
 			("tracks", po::value<uint>(&tracks)->default_value(100), "number of valid tracks to load")
-			("threads", po::value<uint>(&threads)->default_value(1024), "number of threads to use")
+			("threads", po::value<uint>(&threads)->default_value(4), "number of threads to use")
 			("silent", po::value<bool>(&silent)->zero_tokens(), "supress all messages from TripletFinder")
 			("verbose", po::value<bool>(&verbose)->zero_tokens(), "elaborate information")
 			("testSuite", "run entire testSuite");

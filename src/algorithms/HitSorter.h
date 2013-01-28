@@ -88,7 +88,7 @@ public:
 		uint threads = get_global_size(0);
 
 		uint hits = layerHits[layer-1];
-		uint offset = 0;//layerOffsets[layer-1];
+		uint offset = layerOffsets[layer-1];
 
 		//load elements into buffer
 		for(uint i = gid; i < hits; i+= threads){

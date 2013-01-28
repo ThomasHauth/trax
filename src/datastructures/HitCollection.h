@@ -89,7 +89,7 @@ public:
 */
 typedef clever::OpenCLTransfer<HIT_COLLECTION_ITEMS> HitCollectionTransfer;
 
-class Hit: private clever::CollectionView<HitCollection>
+class Hit: public clever::CollectionView<HitCollection>
 {
 public:
 // get a pointer to one hit in the collection
