@@ -152,12 +152,11 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 
 	//verify sorting
 	bool valid = true;
-	HitCollection hits2(hits.size());
-	hitTransfer.fromDevice(*contx, hits2);
+	hitTransfer.fromDevice(*contx, hits);
 	for(int l = 1; l <= maxLayer; ++l){
 		float lastZ = -9999;
 		for(int i = 0; i < layerSupplement[l-1].nHits; ++i){
-			Hit hit(hits2, layerSupplement[l-1].offset + i);
+			Hit hit(hits, layerSupplement[l-1].offset + i);
 			if(hit.globalZ() < lastZ){
 				std::cerr << "Layer " << l << " : " << lastZ <<  "|" << hit.globalZ() << std::endl;
 				valid = false;
@@ -171,8 +170,8 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	else
 		std::cout << "Sorted correctly" << std::endl;
 
-	for(int i = 0; i < hits2.size(); ++i){
-			Hit hit(hits2, i);
+	for(int i = 0; i < hits.size(); ++i){
+			Hit hit(hits, i);
 
 			std::cout << "[" << i << "]";
 			std::cout << " Coordinates: [" << hit.globalX() << ";" << hit.globalY() << ";" << hit.globalZ() << "]";
@@ -219,7 +218,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 
 		if(tracklet.isValid(hits)){
 			//valid triplet
-			foundTracks.insert(hits.getValue(HitId(),tracklet.hit1()));
+			foundTracks.insert(tracklet.trackId(hits));
 			if(verbose){
 				std::cout << zkr::cc::fore::green;
 				std::cout << "Track " << tracklet.trackId(hits) << " : " << tracklet.hit1() << "-" << tracklet.hit2() << "-" << tracklet.hit3();
@@ -229,7 +228,6 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 		else {
 			//fake triplet
 			++fakeTracks;
-			foundTracks.insert(hits.getValue(HitId(),tracklet.hit1()));
 			if(verbose){
 				std::cout << zkr::cc::fore::red;
 				std::cout << "Fake: " << tracklet.hit1() << "[" << hits.getValue(HitId(),tracklet.hit1()) << "]";

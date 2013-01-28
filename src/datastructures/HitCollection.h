@@ -105,6 +105,14 @@ public:
 	{
 	}
 
+	bool operator==(const Hit & rhs) const {
+		return getValue<EventNumber>() == rhs.getValue<EventNumber>()
+				&& getValue<HitId>() == rhs.getValue<HitId>()
+				&& getValue<DetectorId>() == rhs.getValue<DetectorId>()
+				&& getValue<DetectorLayer>() == rhs.getValue<DetectorLayer>()
+				&& globalX() == rhs.globalX() && globalY() == rhs.globalY() && globalZ() == rhs.globalZ(); //values are only copied ==> should be bitwise identical
+	}
+
 	float globalX() const
 	{
 		return getValue<GlobalX>();

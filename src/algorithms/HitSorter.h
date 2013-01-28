@@ -50,14 +50,18 @@ public:
 					layer, layerHits.get_mem(), layerOffsets.get_mem(),
 					// input
 					hits.buffer(GlobalX()), hits.buffer(GlobalY()), hits.buffer(GlobalZ()),
+					hits.buffer(DetectorLayer()), hits.buffer(DetectorId()), hits.buffer(HitId()), hits.buffer(EventNumber()),
 					//aux
-					local_param(sizeof(cl_float4), layerSupplement[layer-1].nHits),
+					local_param(sizeof(cl_uint), layerSupplement[layer-1].nHits), local_param(sizeof(cl_float), layerSupplement[layer-1].nHits),
+					local_param(sizeof(cl_float3), layerSupplement[layer-1].nHits), local_param(sizeof(cl_uint4), layerSupplement[layer-1].nHits),
 					//threads
 					nThreads);
 		}
+
+		ctx.finish_default_queue();
 	}
 
-	KERNEL7_CLASS( sortingKernel, uint, cl_mem, cl_mem,  cl_mem, cl_mem, cl_mem, local_param,
+	KERNEL14_CLASS( sortingKernel, uint, cl_mem, cl_mem,  cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,  cl_mem, cl_mem, local_param,local_param,local_param,local_param,
 
 	uint pow2i(uint exp){
 		return 1 << exp;
@@ -71,7 +75,7 @@ public:
 		return k-1;
 	}
 
-	inline float calcSearchCriterion(float4 a){
+	inline float calcSearchCriterion(float3 a){
 		//return atan2( sign(a.y) * sqrt(a.x*a.x + a.y*a.y), a.z);
 		return a.z;
 	}
@@ -81,8 +85,9 @@ public:
 			uint layer, __global const uint * layerHits, __global const uint * layerOffsets,
 			// hit input
 			__global float * hitGlobalX, __global float * hitGlobalY, __global float * hitGlobalZ,
+			__global uint * DetectorLayer, __global uint * DetectorId, __global uint * HitId, __global uint * EventNumber,
 			// intermeditate data
-			__local float4 * aux )
+			__local uint * sIdx, __local float * sSortCrit, __local float3 * sPos, __local uint4 * sData )
 	{
 		uint gid = get_global_id(0); // thread
 		uint threads = get_global_size(0);
@@ -92,9 +97,13 @@ public:
 
 		//load elements into buffer
 		for(uint i = gid; i < hits; i+= threads){
-				aux[i] = (float4) (hitGlobalX[offset + i], hitGlobalY[offset + i], hitGlobalZ[offset + i], 0);
+				sPos[i] = (float3) (hitGlobalX[offset + i], hitGlobalY[offset + i], hitGlobalZ[offset + i]);
+				sData[i] = (uint4) (DetectorLayer[offset + i], DetectorId[offset + i], HitId[offset + i], EventNumber[offset + i]);
+
+				sIdx[i] = i;
 				//calculate theta and store it in w
-				aux[i].w = calcSearchCriterion(aux[i]); //float3 == float4 -> .w is free
+				//sSortCrit[i] = calcSearchCriterion(aux); //float3 == float4 -> .w is free
+				sSortCrit[i] = hitGlobalZ[offset + i];
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 
@@ -109,11 +118,14 @@ public:
 			for (uint q = paddedSize >> 1; q >= p; q >>= 1){
 				for (uint k = gid; k < hits; k += threads){
 					if (((k & p) == r) && ((k + d) < hits)){
-						if (aux[k].w > aux[k+d].w){
-							float4 temp = aux[k];
-							aux[k] = aux[k+d];
-							aux[k+d] = temp;
-
+						if (sSortCrit[k] > sSortCrit[k+d]){
+							float tempCrit = sSortCrit[k];
+							sSortCrit[k] = sSortCrit[k+d];
+							sSortCrit[k+d] = tempCrit;
+							//
+							uint tempIdx = sIdx[k];
+							sIdx[k] = sIdx[k+d];
+							sIdx[k+d] = tempIdx;
 						}
 					}
 				}
@@ -129,9 +141,13 @@ public:
 
 		//write back
 		for(uint i = gid; i < hits; i+= threads){
-			hitGlobalX[offset + i] = aux[i].x;
-			hitGlobalY[offset + i] = aux[i].y;
-			hitGlobalZ[offset + i] = aux[i].z;
+			hitGlobalX[offset + i] = sPos[sIdx[i]].x;
+			hitGlobalY[offset + i] = sPos[sIdx[i]].y;
+			hitGlobalZ[offset + i] = sPos[sIdx[i]].z;
+			DetectorLayer[offset + i] = sData[sIdx[i]].x;
+			DetectorId[offset + i] = sData[sIdx[i]].y;
+			HitId[offset + i] = sData[sIdx[i]].z;
+			EventNumber[offset + i] = sData[sIdx[i]].w;
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 
