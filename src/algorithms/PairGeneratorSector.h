@@ -38,21 +38,21 @@ public:
 	static std::string KERNEL_COMPUTE_EVT() {return "PairGeneratorSector_COMPUTE";}
 	static std::string KERNEL_STORE_EVT() {return "PairGeneratorSector_STORE";}
 
-	clever::vector<uint2,1> * run(HitCollectionTransfer & hits,
+	clever::vector<uint2,1> * run(HitCollection & hits,
 				int nThreads, int layers[], const LayerSupplement & layerSupplement,
 				int nSectors)
 		{
 
-			/*int nLayer1 = layerSupplement[layers[0]-1].nHits;
-			int nLayer2 = layerSupplement[layers[1]-1].nHits;
+			int nLayer1 = layerSupplement[layers[0]-1].getNHits();
+			int nLayer2 = layerSupplement[layers[1]-1].getNHits();
 
 			int nMaxPairs = nLayer1 * nLayer2;
 
 			std::cout << "Transferring sector borders...";
 
 			//border layer 1
-			clever::vector<uint, 1> m_borders1(layerSupplement[layers[0]-1].sectorBorders,ctx);
-			clever::vector<uint, 1> m_borders2(layerSupplement[layers[1]-1].sectorBorders,ctx);
+			clever::vector<uint, 1> m_borders1(ctx, 1);
+			clever::vector<uint, 1> m_borders2(ctx, 1);
 
 			std::cout << "done[" << m_borders1.get_count() + m_borders2.get_count() << "]" << std::endl;
 
@@ -139,7 +139,7 @@ public:
 			pairStore.run(
 					//configuration
 					nLayer1, nLayer2,
-					layerSupplement[layers[0]-1].offset, layerSupplement[layers[1]-1].offset,
+					layerSupplement[layers[0]-1].getOffset(), layerSupplement[layers[1]-1].getOffset(),
 					// input for oracle and prefix sum
 					m_oracle.get_mem(), m_prefixSum.get_mem(),
 					// output of pairs
@@ -160,7 +160,7 @@ public:
 			}
 	#endif
 
-			return m_pairs;*/
+			return m_pairs;
 		}
 
 	KERNEL8_CLASS( pairSectorGen, uint, uint, uint, uint, cl_mem, cl_mem,  cl_mem, cl_mem,
