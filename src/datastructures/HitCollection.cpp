@@ -17,7 +17,7 @@ HitCollection::HitCollection(const PB_Event::PEvent & event)
 	//addEvent(event, DetectorGeometry(), LayerSupplement(0, 0));
 }
 
-HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event, const DetectorGeometry & geom, LayerSupplement & layerSupplement, int nSectors , float minPt,
+HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event, const DetectorGeometry & geom, LayerSupplement & layerSupplement , float minPt,
 		int numTracks, bool onlyTracks, uint maxLayer) {
 
 	//associate hits to tracks
@@ -84,15 +84,15 @@ HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event,
 	if(layerSupplement.size() > 0){
 		uint offset = 0;
 		for(uint i = 1; i <= maxLayer; ++i){
-			layerSupplement[i-1].nHits = layers[i].size();
-			layerSupplement[i-1].offset = offset;
+			layerSupplement[i-1].setNHits(layers[i].size());
+			layerSupplement[i-1].setOffset(offset);
 			offset += layers[i].size();
 		}
 	}
 
 	//TODO[gpu] perform this on gpu
 	//sort each layer according to phi
-	if(nSectors != 0){
+	/*if(nSectors != 0){
 		for(uint i = 1; i <= maxLayer; ++i){
 			std::sort(layers[i].begin(), layers[i].end(),
 					[] (const PB_Event::PHit & a, const PB_Event::PHit & b) -> bool
@@ -119,7 +119,7 @@ HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event,
 				currentBorder += sectorSize;
 			}
 		}
-	}
+	}*/
 
 #define OUT_BY_LAYER
 	//add hits in order of layers to HitCollection

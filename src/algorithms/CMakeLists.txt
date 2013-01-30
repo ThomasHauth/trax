@@ -3,4 +3,5 @@ project (trax)
 
 add_library(algorithms
 	Seed.cpp
+	TripletConnectivity.cpp
 )

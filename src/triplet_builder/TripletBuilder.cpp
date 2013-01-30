@@ -15,9 +15,10 @@
 #include <datastructures/test/HitCollectionData.h>
 #include <datastructures/HitCollection.h>
 #include <datastructures/TrackletCollection.h>
-#include <datastructures/DetectorGeometry.cpp>
+#include <datastructures/DetectorGeometry.h>
 #include <datastructures/Dictionary.h>
 #include <datastructures/LayerSupplement.h>
+#include <datastructures/Grid.h>
 
 #include <algorithms/TripletThetaPhiFilter.h>
 #include <algorithms/HitSorter.h>
@@ -25,7 +26,7 @@
 
 #include "RuntimeRecord.h"
 
-#include "lib/ccolor.cpp"
+#include "lib/ccolor.h"
 #include "lib/CSV.h"
 
 RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose = false) {
@@ -70,33 +71,35 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 
 	//configure hit loader
 	const int maxLayer = 3;
-	const int nSectors = 8;
-	LayerSupplement layerSupplement(maxLayer, nSectors);
+	const int nSectorsZ = 40;
+	const int nSectorsPhi = 8;
+	LayerSupplement layerSupplement(maxLayer);
+	Grid grid(maxLayer, nSectorsZ,nSectorsPhi);
 
 	HitCollection hits;
-	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "hitsPXB.pb", geom, layerSupplement, nSectors, minPt, tracks,true, maxLayer);
+	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "hitsPXB.pb", geom, layerSupplement, minPt, tracks,true, maxLayer);
 
 	std::cout << "Loaded " << validTracks.size() << " tracks with minPt " << minPt << " GeV and " << hits.size() << " hits" << std::endl;
 
 	if(verbose){
 		for(int i = 1; i <= maxLayer; ++i)
-			std::cout << "Layer " << i << ": " << layerSupplement[i-1].nHits << " hits" << "\t Offset: " << layerSupplement[i-1].offset << std::endl;
+			std::cout << "Layer " << i << ": " << layerSupplement[i-1].getNHits() << " hits" << "\t Offset: " << layerSupplement[i-1].getOffset() << std::endl;
 
 
 		//output sector borders
-		std::cout << "Layer";
-		for(int i = 0; i <= nSectors; ++i){
-			std::cout << "\t" << -M_PI + i * (2*M_PI / nSectors);
+		/*std::cout << "Layer";
+		for(int i = 0; i <= nSectorsPhi; ++i){
+			std::cout << "\t" << -M_PI + i * (2*M_PI / nSectorsPhi);
 		}
 		std::cout << std::endl;
 
 		for(int i = 0; i < maxLayer; i++){
 			std::cout << i+1;
-			for(int j = 0; j <= nSectors; j++){
+			for(int j = 0; j <= nSectorsPhi; j++){
 				std::cout << "\t" << layerSupplement[i].sectorBorders[j];
 			}
 			std::cout << std::endl;
-		}
+		}*/
 	}
 
 	/*****
@@ -125,17 +128,20 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	 ********/
 
 	//transer everything to gpu
-	HitCollectionTransfer hitTransfer;
-	hitTransfer.initBuffers(*contx, hits);
-	hitTransfer.toDevice(*contx, hits);
+	hits.transfer.initBuffers(*contx, hits);
+	hits.transfer.toDevice(*contx, hits);
 
-	DetectorGeometryTransfer geomTransfer;
-	geomTransfer.initBuffers(*contx, geom);
-	geomTransfer.toDevice(*contx, geom);
+	geom.transfer.initBuffers(*contx, geom);
+	geom.transfer.toDevice(*contx, geom);
 
-	DictionaryTransfer dictTransfer;
-	dictTransfer.initBuffers(*contx, dict);
-	dictTransfer.toDevice(*contx, dict);
+	dict.transfer.initBuffers(*contx, dict);
+	dict.transfer.toDevice(*contx, dict);
+
+	//transferring layer supplement
+	layerSupplement.transfer.initBuffers(*contx, layerSupplement);
+	layerSupplement.transfer.toDevice(*contx,layerSupplement);
+	//initializating grid
+	grid.transfer.initBuffers(*contx,grid);
 
 	for(int i = 0; i < hits.size(); ++i){
 		Hit hit(hits, i);
@@ -148,15 +154,15 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 
 	//sort hits on device
 	HitSorter sorter(*contx);
-	sorter.run(hitTransfer, threads,maxLayer,layerSupplement);
+	sorter.run(hits, threads,maxLayer,layerSupplement);
 
 	//verify sorting
 	bool valid = true;
-	hitTransfer.fromDevice(*contx, hits);
+	hits.transfer.fromDevice(*contx, hits);
 	for(int l = 1; l <= maxLayer; ++l){
 		float lastZ = -9999;
-		for(int i = 0; i < layerSupplement[l-1].nHits; ++i){
-			Hit hit(hits, layerSupplement[l-1].offset + i);
+		for(int i = 0; i < layerSupplement[l-1].getNHits(); ++i){
+			Hit hit(hits, layerSupplement[l-1].getOffset() + i);
 			if(hit.globalZ() < lastZ){
 				std::cerr << "Layer " << l << " : " << lastZ <<  "|" << hit.globalZ() << std::endl;
 				valid = false;
@@ -205,8 +211,8 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 
 	//run it
 	TripletThetaPhiFilter tripletThetaPhi(*contx);
-	TrackletCollection * tracklets = tripletThetaPhi.run(hitTransfer, geomTransfer, dictTransfer, threads, layers,
-			layerSupplement, dTheta, dPhi, nSectors);
+	TrackletCollection * tracklets = tripletThetaPhi.run(hits, geom, dict, threads, layers,
+			layerSupplement, dTheta, dPhi);
 
 	//evaluate it
 	std::set<uint> foundTracks;
@@ -304,7 +310,7 @@ int main(int argc, char *argv[]) {
 			("help", "produce help message")
 			("minPt", po::value<float>(&minPt)->default_value(1.0), "minimum track Pt")
 			("tracks", po::value<uint>(&tracks)->default_value(100), "number of valid tracks to load")
-			("threads", po::value<uint>(&threads)->default_value(4), "number of threads to use")
+			("threads", po::value<uint>(&threads)->default_value(256), "number of threads to use")
 			("silent", po::value<bool>(&silent)->zero_tokens(), "supress all messages from TripletFinder")
 			("verbose", po::value<bool>(&verbose)->zero_tokens(), "elaborate information")
 			("testSuite", "run entire testSuite");

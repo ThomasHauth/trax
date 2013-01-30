@@ -47,7 +47,10 @@ public:
 
 	HitCollection(const PB_Event::PEvent & event) ;
 
-	tTrackList addEvent(const PB_Event::PEvent& event, const DetectorGeometry& geom, LayerSupplement & layerSupplement, int nSectors = 0, float minPt = 0, int numTracks = -1, bool onlyTracks = false, uint maxLayer = 99) ;
+	tTrackList addEvent(const PB_Event::PEvent& event, const DetectorGeometry& geom, LayerSupplement & layerSupplement, float minPt = 0, int numTracks = -1, bool onlyTracks = false, uint maxLayer = 99) ;
+
+public:
+	clever::OpenCLTransfer<HIT_COLLECTION_ITEMS> transfer;
 
 };
 /*
@@ -87,7 +90,6 @@ public:
 	 }
 };
 */
-typedef clever::OpenCLTransfer<HIT_COLLECTION_ITEMS> HitCollectionTransfer;
 
 class Hit: public clever::CollectionView<HitCollection>
 {

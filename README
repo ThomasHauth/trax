@@ -43,3 +43,8 @@ make -j8
 to run the tests:
 trax_test/trax_test
 
+-- Protobuf --
+
+on SLC: 
+If your protobuffer library is not recent enough, download from the web and use this command to load the new lib
+export LD_LIBRARY_PATH=/build/hauth/dev/protobuf-bin/lib/

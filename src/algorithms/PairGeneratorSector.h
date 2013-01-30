@@ -43,7 +43,7 @@ public:
 				int nSectors)
 		{
 
-			int nLayer1 = layerSupplement[layers[0]-1].nHits;
+			/*int nLayer1 = layerSupplement[layers[0]-1].nHits;
 			int nLayer2 = layerSupplement[layers[1]-1].nHits;
 
 			int nMaxPairs = nLayer1 * nLayer2;
@@ -160,7 +160,7 @@ public:
 			}
 	#endif
 
-			return m_pairs;
+			return m_pairs;*/
 		}
 
 	KERNEL8_CLASS( pairSectorGen, uint, uint, uint, uint, cl_mem, cl_mem,  cl_mem, cl_mem,

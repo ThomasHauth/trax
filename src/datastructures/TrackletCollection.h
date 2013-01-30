@@ -8,6 +8,7 @@
 #include <clever/clever.hpp>
 
 #include "CommonTypes.h"
+#include "HitCollection.h"
 
 struct TrackletHit1: public clever::UIntItem
 {
@@ -23,7 +24,8 @@ struct TrackletId: public clever::UIntItem
 {
 };
 
-struct TrackletConnectivity: public clever::UCharDictionaryItem
+// todo: can also be uchar
+struct TrackletConnectivity: public clever::UIntItem
 {
 };
 
@@ -46,9 +48,10 @@ public:
 	{
 
 	}
-};
 
-typedef clever::OpenCLTransfer<TRACKLET_COLLECTION_ITEMS> TrackletCollectionTransfer;
+public:
+	clever::OpenCLTransfer<TRACKLET_COLLECTION_ITEMS> transfer;
+};
 
 class Tracklet: private clever::CollectionView<TrackletCollection>
 {

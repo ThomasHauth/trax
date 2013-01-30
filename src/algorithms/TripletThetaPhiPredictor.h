@@ -7,6 +7,8 @@
 #include <datastructures/TrackletCollection.h>
 #include <datastructures/LayerSupplement.h>
 
+#include <algorithms/PrefixSum.h>
+
 using namespace clever;
 using namespace std;
 
@@ -40,14 +42,14 @@ public:
 	static std::string KERNEL_COMPUTE_EVT() {return "TripletThetaPhiPredict_COMPUTE";}
 	static std::string KERNEL_STORE_EVT() {return "TripletThetaPhiPredict_STORE";}
 
-	clever::vector<uint2,1> * run(HitCollectionTransfer & hits, const DetectorGeometryTransfer & geom, const DictionaryTransfer & dict,
+	clever::vector<uint2,1> * run(HitCollection & hits, const DetectorGeometry & geom, const Dictionary & dict,
 			int nThreads, int layers[], const LayerSupplement & layerSupplement,
 			float dThetaWindow, float dPhiWindow, const clever::vector<uint2,1> & pairs)
 	{
 
-		int nLayer1 = layerSupplement[layers[0]-1].nHits;
-		int nLayer2 = layerSupplement[layers[1]-1].nHits;
-		int nLayer3 = layerSupplement[layers[2]-1].nHits;
+		int nLayer1 = layerSupplement[layers[0]-1].getNHits();
+		int nLayer2 = layerSupplement[layers[1]-1].getNHits();
+		int nLayer3 = layerSupplement[layers[2]-1].getNHits();
 
 		int nMaxTriplets = pairs.get_count() * nLayer3;
 
@@ -62,13 +64,13 @@ public:
 		std::cout << "Running predict kernel...";
 		cl_event evt = tripletThetaPhiPredict.run(
 				//detector geometry
-				geom.buffer(RadiusDict()), dict.buffer(Radius()),
+				geom.transfer.buffer(RadiusDict()), dict.transfer.buffer(Radius()),
 				//configuration
 				dThetaWindow, dPhiWindow,
 				pairs.get_count(),
 				// input
 				pairs.get_mem(), (nLayer1+nLayer2), nLayer3,
-				hits.buffer(GlobalX()), hits.buffer(GlobalY()), hits.buffer(GlobalZ()), hits.buffer(DetectorId()), hits.buffer(HitId()),
+				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()), hits.transfer.buffer(DetectorId()), hits.transfer.buffer(HitId()),
 				// output
 				m_oracle.get_mem(), m_prefixSum.get_mem(),
 				//thread config
@@ -77,12 +79,11 @@ public:
 
 		ctx.add_profile_event(evt, KERNEL_COMPUTE_EVT());
 
+#ifdef DEBUG_OUT
 		std::cout << "Fetching prefix sum for prediction...";
 		std::vector<uint> prefixSum(m_prefixSum.get_count());
 		transfer::download(m_prefixSum,prefixSum,ctx);
 		std::cout << "done" << std::endl;
-
-#ifdef DEBUG_OUT
 		std::cout << "Prefix sum: ";
 		for(auto i : prefixSum){
 			std::cout << i << " ; ";
@@ -90,12 +91,11 @@ public:
 		std::cout << std::endl;
 #endif
 
+#ifdef DEBUG_OUT
 		std::cout << "Fetching oracle for prediction...";
 		std::vector<uint> oracle(m_oracle.get_count());
 		transfer::download(m_oracle,oracle,ctx);
 		std::cout << "done" << std::endl;
-
-#ifdef DEBUG_OUT
 		std::cout << "Oracle: ";
 		for(auto i : oracle){
 			std::cout << i << " ; ";
@@ -104,15 +104,14 @@ public:
 #endif
 
 		//Calculate prefix sum
-		//TODO[gpu] implement prefix sum as kernel
-		uint s = 0;
-		for(uint i = 0; i < prefixSum.size(); ++i){
-			int tmp = s;
-			s += prefixSum[i];
-			prefixSum[i] = tmp;
-		}
+		PrefixSum prefixSum(ctx);
+		int nCandidateTriplets = prefixSum.run(m_prefixSum, nThreads, true);
 
 #ifdef DEBUG_OUT
+		std::cout << "Fetching prefix sum for prediction...";
+		std::vector<uint> prefixSum(m_prefixSum.get_count());
+		transfer::download(m_prefixSum,prefixSum,ctx);
+		std::cout << "done" << std::endl;
 		std::cout << "Prefix sum: ";
 		for(auto i : prefixSum){
 			std::cout << i << " ; ";
@@ -120,11 +119,6 @@ public:
 		std::cout << std::endl;
 #endif
 
-		std::cout << "Storing prefix sum for prediction...";
-		transfer::upload(m_prefixSum,prefixSum,ctx);
-		std::cout << "done" << std::endl;
-
-		int nCandidateTriplets = prefixSum[nThreads]; //we allocated nThreads+1 so total sum is in prefixSum[nThreads]
 		std::cout << "Initializing triplet candidates...";
 		clever::vector<uint2, 1> * m_triplets = new clever::vector<uint2, 1>(ctx, nCandidateTriplets);
 		std::cout << "done[" << m_triplets->get_count()  << "]" << std::endl;
@@ -132,7 +126,7 @@ public:
 		std::cout << "Running predict store kernel...";
 		evt = tripletThetaPhiPredictStore.run(
 				//configuration
-				pairs.get_count(), layerSupplement[layers[2]-1].offset, nLayer3,
+				pairs.get_count(), layerSupplement[layers[2]-1].getOffset(), nLayer3,
 				//input
 				pairs.get_mem(),
 				m_oracle.get_mem(), m_prefixSum.get_mem(),

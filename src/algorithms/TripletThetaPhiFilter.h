@@ -9,6 +9,7 @@
 
 #include <algorithms/TripletThetaPhiPredictor.h>
 #include <algorithms/PairGeneratorSector.h>
+#include <algorithms/PrefixSum.h>
 
 using namespace clever;
 using namespace std;
@@ -43,8 +44,8 @@ public:
 	static std::string KERNEL_COMPUTE_EVT() {return "TripletThetaPhiFilter_COMPUTE";}
 	static std::string KERNEL_STORE_EVT() {return "TripletThetaPhiFilter_STORE";}
 
-	TrackletCollection * run(HitCollectionTransfer & hits, const DetectorGeometryTransfer & geom, const DictionaryTransfer & dict,
-			int nThreads, int layers[], const LayerSupplement & layerSupplement, float dThetaCut, float dPhiCut, int nSectors)
+	TrackletCollection * run(HitCollection & hits, const DetectorGeometry & geom, const Dictionary & dict,
+			int nThreads, int layers[], const LayerSupplement & layerSupplement, float dThetaCut, float dPhiCut)
 	{
 
 		clever::vector<uint2,1> * m_pairs = generateAllPairs(hits, nThreads, layers, layerSupplement);
@@ -73,7 +74,7 @@ public:
 				nTripletCandidates,
 				// input
 				m_pairs->get_mem(), m_triplets->get_mem(),
-				hits.buffer(GlobalX()), hits.buffer(GlobalY()), hits.buffer(GlobalZ()),
+				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
 				// output
 				m_oracle.get_mem(), m_prefixSum.get_mem(),
 				//thread config
@@ -82,12 +83,11 @@ public:
 
 		ctx.add_profile_event(evt, KERNEL_COMPUTE_EVT());
 
+#ifdef DEBUG_OUT
 		std::cout << "Fetching prefix sum...";
 		std::vector<uint> prefixSum(m_prefixSum.get_count());
 		transfer::download(m_prefixSum,prefixSum,ctx);
 		std::cout << "done" << std::endl;
-
-#ifdef DEBUG_OUT
 		std::cout << "Prefix sum: ";
 		for(auto i : prefixSum){
 			std::cout << i << " ; ";
@@ -95,12 +95,11 @@ public:
 		std::cout << std::endl;
 #endif
 
+#ifdef DEBUG_OUT
 		std::cout << "Fetching oracle...";
 		std::vector<uint> oracle(m_oracle.get_count());
 		transfer::download(m_oracle,oracle,ctx);
 		std::cout << "done" << std::endl;
-
-#ifdef DEBUG_OUT
 		std::cout << "Oracle: ";
 		for(auto i : oracle){
 			std::cout << i << " ; ";
@@ -109,15 +108,14 @@ public:
 #endif
 
 		//Calculate prefix sum
-		//TODO[gpu] implement prefix sum as kernel
-		uint s = 0;
-		for(uint i = 0; i < prefixSum.size(); ++i){
-			int tmp = s;
-			s += prefixSum[i];
-			prefixSum[i] = tmp;
-		}
+		PrefixSum prefixSum(ctx);
+		int nFoundTriplets = prefixSum.run(m_prefixSum, nThreads, true);
 
 #ifdef DEBUG_OUT
+		std::cout << "Fetching prefix sum...";
+		std::vector<uint> prefixSum(m_prefixSum.get_count());
+		transfer::download(m_prefixSum,prefixSum,ctx);
+		std::cout << "done" << std::endl;
 		std::cout << "Prefix sum: ";
 		for(auto i : prefixSum){
 			std::cout << i << " ; ";
@@ -125,16 +123,10 @@ public:
 		std::cout << std::endl;
 #endif
 
-		std::cout << "Storing prefix sum...";
-		transfer::upload(m_prefixSum,prefixSum,ctx);
-		std::cout << "done" << std::endl;
-
-		int nFoundTriplets = prefixSum[nThreads]; //we allocated nThreads+1 so total sum is in prefixSum[nThreads]
 		TrackletCollection * tracklets = new TrackletCollection(nFoundTriplets);
 		std::cout << "Reserving space for " << nFoundTriplets << " tracklets" << std::endl;
 
-		TrackletCollectionTransfer clTrans_tracklet;
-		clTrans_tracklet.initBuffers(ctx, *tracklets);
+		tracklets->transfer.initBuffers(ctx, *tracklets);
 
 		std::cout << "Running filter store kernel...";
 		evt = tripletThetaPhiStore.run(
@@ -145,7 +137,7 @@ public:
 				m_oracle.get_mem(), m_prefixSum.get_mem(),
 				//output
 				// output
-				clTrans_tracklet.buffer(TrackletHit1()), clTrans_tracklet.buffer(TrackletHit2()), clTrans_tracklet.buffer(TrackletHit3()),
+				tracklets->transfer.buffer(TrackletHit1()), tracklets->transfer.buffer(TrackletHit2()), tracklets->transfer.buffer(TrackletHit3()),
 				//thread config
 				nThreads);
 		std::cout << "done" << std::endl;
@@ -153,7 +145,7 @@ public:
 		ctx.add_profile_event(evt, KERNEL_STORE_EVT());
 
 		std::cout << "Fetching triplets...";
-		clTrans_tracklet.fromDevice(ctx, *tracklets);
+		tracklets->transfer.fromDevice(ctx, *tracklets);
 		std::cout <<"done[" << tracklets->size() << "]" << std::endl;
 
 		//clean up
@@ -163,16 +155,16 @@ public:
 		return tracklets;
 	}
 
-	clever::vector<uint2,1> * generateAllPairs(HitCollectionTransfer & hits, int nThreads, int layers[], const LayerSupplement & layerSupplement) {
+	clever::vector<uint2,1> * generateAllPairs(HitCollection & hits, int nThreads, int layers[], const LayerSupplement & layerSupplement) {
 
-		int nLayer1 = layerSupplement[layers[0]-1].nHits;
-		int nLayer2 = layerSupplement[layers[1]-1].nHits;
+		int nLayer1 = layerSupplement[layers[0]-1].getNHits();
+		int nLayer2 = layerSupplement[layers[1]-1].getNHits();
 
 		int nMaxPairs = nLayer1 * nLayer2;
 		std::vector<uint2> pairs;
 		for(int i = 0; i < nLayer1; ++i)
 			for(int j=0; j < nLayer2; ++j)
-				pairs.push_back(uint2(layerSupplement[layers[0]-1].offset + i,layerSupplement[layers[1]-1].offset + j));
+				pairs.push_back(uint2(layerSupplement[layers[0]-1].getOffset() + i,layerSupplement[layers[1]-1].getOffset() + j));
 
 		std::cout << "Transferring " << pairs.size() << " pairs...";
 		clever::vector<uint2,1> * m_pairs = new clever::vector<uint2,1>(pairs, nMaxPairs, ctx);
@@ -182,7 +174,7 @@ public:
 		return m_pairs;
 	}
 
-	clever::vector<uint2,1> * generateAllTriplets(HitCollectionTransfer & hits, int nThreads, int layers[], int hitCount[],
+	clever::vector<uint2,1> * generateAllTriplets(HitCollection & hits, int nThreads, int layers[], int hitCount[],
 			float dThetaWindow, float dPhiWindow, const clever::vector<uint2,1> & pairs) {
 
 		int nLayer1 = hitCount[layers[0]-1];

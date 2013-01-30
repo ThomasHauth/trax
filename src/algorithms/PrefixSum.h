@@ -48,6 +48,10 @@ public:
 		return n;
 	}
 
+	uint run(clever::vector<uint,1> & input, const uint nThreads, const bool storeTotalInLastElement = false){
+		return run(input, input.get_count(), nThreads, storeTotalInLastElement);
+	}
+
 	uint run(clever::vector<uint,1> & input, const uint size, const uint nThreads, const bool storeTotalInLastElement = false)
 	{
 

@@ -38,27 +38,22 @@ public:
 	static std::string KERNEL_COMPUTE_EVT() {return "SORT_COMPUTE";}
 	static std::string KERNEL_STORE_EVT() {return "";}
 
-	void run(HitCollectionTransfer & hits, int nThreads, uint maxLayer, const LayerSupplement & layerSupplement)
+	void run(HitCollection & hits, int nThreads, uint maxLayer, const LayerSupplement & layerSupplement)
 	{
-
-		clever::vector<uint, 1> layerHits(layerSupplement.getLayerHits(), ctx);
-		clever::vector<uint, 1> layerOffsets(layerSupplement.getLayerOffsets(), ctx);
 
 		for(uint layer = 1; layer <= maxLayer; ++layer){
 			cl_event evt = sortingKernel.run(
 					//configuration
-					layer, layerHits.get_mem(), layerOffsets.get_mem(),
+					layer, layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()),
 					// input
-					hits.buffer(GlobalX()), hits.buffer(GlobalY()), hits.buffer(GlobalZ()),
-					hits.buffer(DetectorLayer()), hits.buffer(DetectorId()), hits.buffer(HitId()), hits.buffer(EventNumber()),
+					hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
+					hits.transfer.buffer(DetectorLayer()), hits.transfer.buffer(DetectorId()), hits.transfer.buffer(HitId()), hits.transfer.buffer(EventNumber()),
 					//aux
-					local_param(sizeof(cl_uint), layerSupplement[layer-1].nHits), local_param(sizeof(cl_float), layerSupplement[layer-1].nHits),
-					local_param(sizeof(cl_float3), layerSupplement[layer-1].nHits), local_param(sizeof(cl_uint4), layerSupplement[layer-1].nHits),
+					local_param(sizeof(cl_uint), layerSupplement[layer-1].getNHits()), local_param(sizeof(cl_float), layerSupplement[layer-1].getNHits()),
+					local_param(sizeof(cl_float3), layerSupplement[layer-1].getNHits()), local_param(sizeof(cl_uint4), layerSupplement[layer-1].getNHits()),
 					//threads
 					nThreads);
 		}
-
-		ctx.finish_default_queue();
 	}
 
 	KERNEL14_CLASS( sortingKernel, uint, cl_mem, cl_mem,  cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,  cl_mem, cl_mem, local_param,local_param,local_param,local_param,
