@@ -53,37 +53,26 @@ public:
 		return n;
 	}
 
-	void run(HitCollectionTransfer & hits, int nThreads, uint maxLayer, const LayerSupplement & layerSupplement, Grid & grid)
+	void run(HitCollection & hits, int nThreads, uint maxLayer, const LayerSupplement & layerSupplement, Grid & grid)
 	{
-
-		std::vector<float> hBoundaryValues;
-		float step = (Grid::MAX_Z - Grid::MIN_Z) / grid.nSectorsZ;
-		for(uint i = 0; i <= grid.nSectorsZ; ++i){
-			hBoundaryValues.push_back(Grid::MIN_Z + i*step);
-		}
-		clever::vector<cl_float, 1> boundaryValues(hBoundaryValues, ctx);
 
 		for(uint layer = 1; layer <= maxLayer; ++layer){
 			cl_event evt = selectionKernel.run(
 					//configuration
 					layer, layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()),
-					boundaryValues.get_mem(),
-					grid.nSectorsZ, grid.nSectorsPhi,
+					grid.transfer.buffer(Boundary()), grid.config.getBoundaryValuesZ(),
+					grid.config.nSectorsZ, grid.config.nSectorsPhi,
 					// input
-					hits.buffer(GlobalZ()),
+					hits.transfer.buffer(GlobalZ()),
 					//aux
-					local_param(sizeof(cl_uint), layerSupplement[layer-1].getNHits()), local_param(sizeof(cl_ushort), getNextPowerOfTwo(layerSupplement[layer-1].getNHits()*(grid.nSectorsZ+1))),
-					local_param(sizeof(cl_ushort), getNextPowerOfTwo(grid.nSectorsZ+1)),
+					local_param(sizeof(cl_uint), layerSupplement[layer-1].getNHits()), local_param(sizeof(cl_ushort), getNextPowerOfTwo(layerSupplement[layer-1].getNHits()*(grid.config.nSectorsZ+1))),
+					local_param(sizeof(cl_ushort), getNextPowerOfTwo(grid.config.nSectorsZ+1)),
 					//threads
 					nThreads);
 		}
 
-		/*uint layer, __global const uint * layerHits, __global const uint * layerOffsets,
-					__global uint * sectorBoundaries, __global const uint * boundaryValues, uint nSectorsZ, uint nSectorsPhi,
-					// hit input
-					__global float * hitGlobalZ,
-					//local
-					__local uint * sBoundaryValues, __local ushort * sGlobalPrefix, __local ushort * sBoundaryPrefix)*/
+		ctx.finish_default_queue();
+		grid.transfer.fromDevice(ctx,grid);
 	}
 
 	KERNEL11_CLASS( selectionKernel, uint, cl_mem, cl_mem,  cl_mem, cl_mem, uint, uint,  cl_mem,local_param,local_param,local_param,

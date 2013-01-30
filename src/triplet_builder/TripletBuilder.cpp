@@ -23,6 +23,7 @@
 #include <algorithms/TripletThetaPhiFilter.h>
 #include <algorithms/HitSorter.h>
 #include <algorithms/PrefixSum.h>
+#include <algorithms/BoundarySelection.h>
 
 #include "RuntimeRecord.h"
 
@@ -142,15 +143,16 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	layerSupplement.transfer.toDevice(*contx,layerSupplement);
 	//initializating grid
 	grid.transfer.initBuffers(*contx,grid);
+	grid.config.upload(*contx);
 
-	for(int i = 0; i < hits.size(); ++i){
+	/*for(int i = 0; i < hits.size(); ++i){
 		Hit hit(hits, i);
 
 		std::cout << "[" << i << "]";
 		std::cout << " Coordinates: [" << hit.globalX() << ";" << hit.globalY() << ";" << hit.globalZ() << "]";
 		std::cout << " DetId: " << hit.getValue<DetectorId>() << " DetLayer: " << hit.getValue<DetectorLayer>();
 		std::cout << " Event: " << hit.getValue<EventNumber>() << " HitId: " << hit.getValue<HitId>() << std::endl;
-	}
+	}*/
 
 	//sort hits on device
 	HitSorter sorter(*contx);
@@ -176,14 +178,27 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	else
 		std::cout << "Sorted correctly" << std::endl;
 
-	for(int i = 0; i < hits.size(); ++i){
+	BoundarySelection boundSelect(*contx);
+	boundSelect.run(hits, threads, maxLayer, layerSupplement, grid);
+
+	//output grid
+	LayerGrid grid1(grid, 1);
+	for(uint i = 0; i <= grid.config.nSectorsZ; ++i){
+		std::cout << grid1(i) << "\t";
+	}
+
+	std::cout << std::endl;
+
+	return RuntimeRecord();
+
+	/*for(int i = 0; i < hits.size(); ++i){
 			Hit hit(hits, i);
 
 			std::cout << "[" << i << "]";
 			std::cout << " Coordinates: [" << hit.globalX() << ";" << hit.globalY() << ";" << hit.globalZ() << "]";
 			std::cout << " DetId: " << hit.getValue<DetectorId>() << " DetLayer: " << hit.getValue<DetectorLayer>();
 			std::cout << " Event: " << hit.getValue<EventNumber>() << " HitId: " << hit.getValue<HitId>() << std::endl;
-		}
+		}*/
 
 	//prefix sum test
 	/*std::vector<uint> uints(19,100);
