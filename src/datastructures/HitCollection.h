@@ -130,4 +130,12 @@ public:
 		return getValue<GlobalZ>();
 	}
 
+	float phi() const {
+		return atan2(globalY(), globalX());
+	}
+
+	float theta() const {
+		return atan2( sqrt(globalX()*globalX() + globalY()*globalY()) ,globalZ()*globalZ());
+	}
+
 };

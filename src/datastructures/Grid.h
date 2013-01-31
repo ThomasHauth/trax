@@ -10,14 +10,14 @@ public:
 		nLayers(_nLayers), nSectorsZ(_nSectorsZ), nSectorsPhi(_nSectorsPhi),
 		m_boundaryValuesZ(NULL), m_boundaryValuesPhi(NULL){
 
-		float step = (GridConfig::MAX_Z - GridConfig::MIN_Z) / this->nSectorsZ;
+		sectorSizeZ = (GridConfig::MAX_Z - GridConfig::MIN_Z) / this->nSectorsZ;
 		for(uint i = 0; i <= this->nSectorsZ; ++i){
-			boundaryValuesZ.push_back(GridConfig::MIN_Z + i*step);
+			boundaryValuesZ.push_back(GridConfig::MIN_Z + i*sectorSizeZ);
 		}
 
-		step = (GridConfig::MAX_PHI - GridConfig::MIN_PHI) / this->nSectorsPhi;
+		sectorSizePhi = (GridConfig::MAX_PHI - GridConfig::MIN_PHI) / this->nSectorsPhi;
 		for(uint i = 0; i <= this->nSectorsPhi; ++i){
-			boundaryValuesPhi.push_back(GridConfig::MIN_PHI + i*step);
+			boundaryValuesPhi.push_back(GridConfig::MIN_PHI + i*sectorSizePhi);
 		}
 	}
 
@@ -48,7 +48,9 @@ public:
 public:
 	uint nLayers;
 	uint nSectorsZ;
+	float sectorSizeZ;
 	uint nSectorsPhi;
+	float sectorSizePhi;
 
 	std::vector<cl_float> boundaryValuesZ;
 	std::vector<cl_float> boundaryValuesPhi;
@@ -59,8 +61,8 @@ private:
 
 public:
 
-	static constexpr float MIN_Z = -300;
-	static constexpr float MAX_Z = 300;
+	static constexpr float MIN_Z = -50; //-300;
+	static constexpr float MAX_Z = 50; //300;
 
 	static constexpr float MIN_PHI = -M_PI;
 	static constexpr float MAX_PHI =  M_PI;

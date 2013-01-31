@@ -21,9 +21,10 @@
 #include <datastructures/Grid.h>
 
 #include <algorithms/TripletThetaPhiFilter.h>
-#include <algorithms/HitSorter.h>
+#include <algorithms/HitSorterZ.h>
+#include <algorithms/HitSorterPhi.h>
 #include <algorithms/PrefixSum.h>
-#include <algorithms/BoundarySelection.h>
+#include <algorithms/BoundarySelectionZ.h>
 
 #include "RuntimeRecord.h"
 
@@ -71,9 +72,9 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	detectorGeometryFile.close();
 
 	//configure hit loader
-	const int maxLayer = 3;
-	const int nSectorsZ = 10;
-	const int nSectorsPhi = 8;
+	const uint maxLayer = 3;
+	const uint nSectorsZ = 10;
+	const uint nSectorsPhi = 8;
 	LayerSupplement layerSupplement(maxLayer);
 	Grid grid(maxLayer, nSectorsZ,nSectorsPhi);
 
@@ -83,7 +84,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	std::cout << "Loaded " << validTracks.size() << " tracks with minPt " << minPt << " GeV and " << hits.size() << " hits" << std::endl;
 
 	if(verbose){
-		for(int i = 1; i <= maxLayer; ++i)
+		for(uint i = 1; i <= maxLayer; ++i)
 			std::cout << "Layer " << i << ": " << layerSupplement[i-1].getNHits() << " hits" << "\t Offset: " << layerSupplement[i-1].getOffset() << std::endl;
 
 
@@ -154,16 +155,15 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 		std::cout << " Event: " << hit.getValue<EventNumber>() << " HitId: " << hit.getValue<HitId>() << std::endl;
 	}*/
 
-	//sort hits on device
-	HitSorter sorter(*contx);
-	sorter.run(hits, threads,maxLayer,layerSupplement);
+	//sort hits on device in Z
+	HitSorterZ sorterZ(*contx);
+	sorterZ.run(hits, threads,maxLayer,layerSupplement);
 
 	//verify sorting
 	bool valid = true;
-	hits.transfer.fromDevice(*contx, hits);
-	for(int l = 1; l <= maxLayer; ++l){
+	for(uint l = 1; l <= maxLayer; ++l){
 		float lastZ = -9999;
-		for(int i = 0; i < layerSupplement[l-1].getNHits(); ++i){
+		for(uint i = 0; i < layerSupplement[l-1].getNHits(); ++i){
 			Hit hit(hits, layerSupplement[l-1].getOffset() + i);
 			if(hit.globalZ() < lastZ){
 				std::cerr << "Layer " << l << " : " << lastZ <<  "|" << hit.globalZ() << std::endl;
@@ -174,20 +174,55 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	}
 
 	if(!valid)
-		std::cerr << "Not sorted properly" << std::endl;
+		std::cerr << "Not sorted properly in Z" << std::endl;
 	else
-		std::cout << "Sorted correctly" << std::endl;
+		std::cout << "Sorted correctly in Z" << std::endl;
 
-	BoundarySelection boundSelect(*contx);
-	boundSelect.run(hits, threads, maxLayer, layerSupplement, grid);
+	BoundarySelectionZ boundSelectZ(*contx);
+	boundSelectZ.run(hits, threads, maxLayer, layerSupplement, grid);
+
+	//sort hits on device in Phi
+	HitSorterPhi sorterPhi(*contx);
+	sorterPhi.run(hits, threads,maxLayer,layerSupplement, grid);
+
+	//verify sorting
+	valid = true;
+	for(uint l = 1; l <= maxLayer; ++l){
+		LayerGrid layerGrid(grid, l);
+		for(uint s = 1; s <= grid.config.nSectorsZ; ++s){
+
+			float lastPhi = - M_PI;
+			for(uint h = layerGrid(s-1); h < layerGrid(s); ++h){
+				Hit hit(hits, layerSupplement[l-1].getOffset() + h);
+
+				//check phi
+				if(hit.phi() < lastPhi){
+					std::cerr << "Layer " << l << " : " << lastPhi <<  "|" << hit.phi() << std::endl;
+					valid = false;
+				}
+				lastPhi = hit.phi();
+
+				//check correct z sector
+				if(!(grid.config.boundaryValuesZ[s-1] <= hit.globalZ() && hit.globalZ() <= grid.config.boundaryValuesZ[s])){
+					std::cerr << "Layer " << l << " : zAct: " << hit.globalZ() <<  " in sector [" << grid.config.boundaryValuesZ[s-1] << ", " << grid.config.boundaryValuesZ[s] << "]" << std::endl;
+					valid = false;
+				}
+			}
+		}
+	}
+
+	if(!valid)
+		std::cerr << "Not sorted properly in Phi" << std::endl;
+	else
+		std::cout << "Sorted correctly in Phi" << std::endl;
 
 	//output grid
 	for(uint i = 1; i <= maxLayer; ++i){
 		std::cout << "Layer: " << i << std::endl;
 
 		//output z boundaries
-		for(auto b : grid.config.boundaryValuesZ){
-			std::cout << b << "\t";
+		for(uint i = 0; i <= grid.config.nSectorsZ; ++i){
+			std::cout << grid.config.boundaryValuesZ[i] << "\t";
 		}
 		std::cout << std::endl;
 
@@ -198,16 +233,17 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 		std::cout << std::endl;
 	}
 
-	return RuntimeRecord();
 
-	/*for(int i = 0; i < hits.size(); ++i){
-			Hit hit(hits, i);
 
-			std::cout << "[" << i << "]";
-			std::cout << " Coordinates: [" << hit.globalX() << ";" << hit.globalY() << ";" << hit.globalZ() << "]";
-			std::cout << " DetId: " << hit.getValue<DetectorId>() << " DetLayer: " << hit.getValue<DetectorLayer>();
-			std::cout << " Event: " << hit.getValue<EventNumber>() << " HitId: " << hit.getValue<HitId>() << std::endl;
-		}*/
+	/*for(uint i = 0; i < hits.size(); ++i){
+		Hit hit(hits, i);
+
+		std::cout << "[" << i << "]";
+		std::cout << " Coordinates: [" << hit.globalX() << ";" << hit.globalY() << ";" << hit.globalZ() << "]";
+		//std::cout << " DetId: " << hit.getValue<DetectorId>() << " DetLayer: " << hit.getValue<DetectorLayer>();
+		//std::cout << " Event: " << hit.getValue<EventNumber>() << " HitId: " << hit.getValue<HitId>();
+		std::cout << std::endl;
+	}*/
 
 	//prefix sum test
 	/*std::vector<uint> uints(19,100);

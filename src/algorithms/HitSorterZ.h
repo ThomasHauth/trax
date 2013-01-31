@@ -15,7 +15,7 @@ using namespace std;
 	every hit with every other hit.
 	The man intention is to test the data transfer and the data structure
  */
-class HitSorter: private boost::noncopyable
+class HitSorterZ: private boost::noncopyable
 {
 private:
 
@@ -23,14 +23,14 @@ private:
 
 public:
 
-	HitSorter(clever::context & ctext) :
+	HitSorterZ(clever::context & ctext) :
 		ctx(ctext),
-		sortingKernel(ctext)
+		sortingZ_kernel(ctext)
 {
 		// create the buffers this algorithm will need to run
 #define DEBUG_OUT
 #ifdef DEBUG_OUT
-		std::cout << "Sorting Kernel WorkGroupSize: " << sortingKernel.getWorkGroupSize() << std::endl;
+		std::cout << "Sorting Kernel WorkGroupSize: " << sortingZ_kernel.getWorkGroupSize() << std::endl;
 #endif
 #undef DEBUG_OUT
 }
@@ -41,8 +41,9 @@ public:
 	void run(HitCollection & hits, int nThreads, uint maxLayer, const LayerSupplement & layerSupplement)
 	{
 
+		std::vector<cl_event> events;
 		for(uint layer = 1; layer <= maxLayer; ++layer){
-			cl_event evt = sortingKernel.run(
+			cl_event evt = sortingZ_kernel.run(
 					//configuration
 					layer, layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()),
 					// input
@@ -53,10 +54,13 @@ public:
 					local_param(sizeof(cl_float3), layerSupplement[layer-1].getNHits()), local_param(sizeof(cl_uint4), layerSupplement[layer-1].getNHits()),
 					//threads
 					nThreads);
+			events.push_back(evt);
 		}
+
+		hits.transfer.fromDevice(ctx, hits, &events);
 	}
 
-	KERNEL14_CLASS( sortingKernel, uint, cl_mem, cl_mem,  cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,  cl_mem, cl_mem, local_param,local_param,local_param,local_param,
+	KERNEL14_CLASS( sortingZ_kernel, uint, cl_mem, cl_mem,  cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,  cl_mem, cl_mem, local_param,local_param,local_param,local_param,
 
 	uint pow2i(uint exp){
 		return 1 << exp;
@@ -70,12 +74,7 @@ public:
 		return k-1;
 	}
 
-	inline float calcSearchCriterion(float3 a){
-		//return atan2( sign(a.y) * sqrt(a.x*a.x + a.y*a.y), a.z);
-		return a.z;
-	}
-
-	__kernel void sortingKernel(
+	__kernel void sortingZ_kernel(
 			//configuration
 			uint layer, __global const uint * layerHits, __global const uint * layerOffsets,
 			// hit input
@@ -96,9 +95,7 @@ public:
 				sData[i] = (uint4) (DetectorLayer[offset + i], DetectorId[offset + i], HitId[offset + i], EventNumber[offset + i]);
 
 				sIdx[i] = i;
-				//calculate theta and store it in w
-				//sSortCrit[i] = calcSearchCriterion(aux); //float3 == float4 -> .w is free
-				sSortCrit[i] = hitGlobalZ[offset + i];
+				sSortCrit[i] = sPos[i].z;
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 
