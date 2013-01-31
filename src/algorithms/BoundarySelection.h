@@ -56,6 +56,7 @@ public:
 	void run(HitCollection & hits, int nThreads, uint maxLayer, const LayerSupplement & layerSupplement, Grid & grid)
 	{
 
+		std::vector<cl_event> events;
 		for(uint layer = 1; layer <= maxLayer; ++layer){
 			cl_event evt = selectionKernel.run(
 					//configuration
@@ -65,17 +66,17 @@ public:
 					// input
 					hits.transfer.buffer(GlobalZ()),
 					//aux
-					local_param(sizeof(cl_uint), layerSupplement[layer-1].getNHits()), local_param(sizeof(cl_ushort), getNextPowerOfTwo(layerSupplement[layer-1].getNHits()*(grid.config.nSectorsZ+1))),
-					local_param(sizeof(cl_ushort), getNextPowerOfTwo(grid.config.nSectorsZ+1)),
+					local_param(sizeof(cl_float), grid.config.nSectorsZ+1),
+					local_param(sizeof(cl_ushort), getNextPowerOfTwo(layerSupplement[layer-1].getNHits()*(grid.config.nSectorsZ+1))),
 					//threads
 					nThreads);
+			events.push_back(evt);
 		}
 
-		ctx.finish_default_queue();
-		grid.transfer.fromDevice(ctx,grid);
+		grid.transfer.fromDevice(ctx,grid, &events);
 	}
 
-	KERNEL11_CLASS( selectionKernel, uint, cl_mem, cl_mem,  cl_mem, cl_mem, uint, uint,  cl_mem,local_param,local_param,local_param,
+	KERNEL10_CLASS( selectionKernel, uint, cl_mem, cl_mem,  cl_mem, cl_mem, uint, uint,  cl_mem,local_param,local_param,
 
 	inline uint getNextPowerOfTwo(uint n){
 		n--;
@@ -158,11 +159,11 @@ public:
 	__kernel void selectionKernel(
 			//configuration
 			uint layer, __global const uint * layerHits, __global const uint * layerOffsets,
-			__global uint * sectorBoundaries, __global const uint * boundaryValues, uint nSectorsZ, uint nSectorsPhi,
+			__global uint * sectorBoundaries, __global const float * boundaryValues, uint nSectorsZ, uint nSectorsPhi,
 			// hit input
 			__global float * hitGlobalZ,
 			//local
-			__local uint * sBoundaryValues, __local ushort * sGlobalPrefix, __local ushort * sBoundaryPrefix)
+			__local float * sBoundaryValues, __local ushort * sGlobalPrefix)
 	{
 		uint gid = get_global_id(0); // thread
 		uint threads = get_global_size(0);
@@ -188,17 +189,11 @@ public:
 		//compute prefix sum of sGlobalPrefix ==> must be of length 2^x
 		prefixSum(sGlobalPrefix, hits*(nSectorsZ+1));
 
-		//store last item of each boundary prefix sum in sBoundaryPrefix
-		for(uint i = gid; i <= nSectorsZ; i+= threads){
-			sBoundaryPrefix[gid] = sGlobalPrefix[(gid*hits)];
-		}
-		barrier(CLK_LOCAL_MEM_FENCE);
-		//calculate prefix sum ==> must be length of 2^x
-		prefixSum(sGlobalPrefix, nSectorsZ+1);
-
 		//store boundary borders
-		for(uint i = gid; i <= nSectorsZ; i+= threads){
-			sectorBoundaries[i*(nSectorsPhi+1)] = sGlobalPrefix[i*hits] - sBoundaryPrefix[i];
+		sectorBoundaries[(layer-1)*(nSectorsZ+1)*(nSectorsPhi+1)] = 0; // store element at zero: (layer-1)*(nSectorsZ+1)*(nSectorsPhi+1)+ZERO*(nSectorsPhi+1)
+		for(uint i = gid+1; i <= nSectorsZ; i+= threads){
+			sectorBoundaries[(layer-1)*(nSectorsZ+1)*(nSectorsPhi+1)+i*(nSectorsPhi+1)] = sGlobalPrefix[i*hits] - sGlobalPrefix[(i-1)*hits];
+			//printf("[%u]: Written %hu at %hu\n", gid, sGlobalPrefix[i*hits] - sGlobalPrefix[(i-1)*hits], (layer-1)*(nSectorsZ+1)*(nSectorsPhi+1)+i*(nSectorsPhi+1));
 		}
 
 	}

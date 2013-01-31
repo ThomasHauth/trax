@@ -72,7 +72,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 
 	//configure hit loader
 	const int maxLayer = 3;
-	const int nSectorsZ = 40;
+	const int nSectorsZ = 10;
 	const int nSectorsPhi = 8;
 	LayerSupplement layerSupplement(maxLayer);
 	Grid grid(maxLayer, nSectorsZ,nSectorsPhi);
@@ -182,12 +182,21 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	boundSelect.run(hits, threads, maxLayer, layerSupplement, grid);
 
 	//output grid
-	LayerGrid grid1(grid, 1);
-	for(uint i = 0; i <= grid.config.nSectorsZ; ++i){
-		std::cout << grid1(i) << "\t";
-	}
+	for(uint i = 1; i <= maxLayer; ++i){
+		std::cout << "Layer: " << i << std::endl;
 
-	std::cout << std::endl;
+		//output z boundaries
+		for(auto b : grid.config.boundaryValuesZ){
+			std::cout << b << "\t";
+		}
+		std::cout << std::endl;
+
+		LayerGrid layerGrid(grid, i);
+		for(uint i = 0; i <= grid.config.nSectorsZ; ++i){
+			std::cout << layerGrid(i) << "\t";
+		}
+		std::cout << std::endl;
+	}
 
 	return RuntimeRecord();
 
