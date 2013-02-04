@@ -6,6 +6,7 @@
  */
 
 #include <iostream>
+#include <iomanip>
 #include <set>
 
 #include <boost/program_options.hpp>
@@ -25,6 +26,7 @@
 #include <algorithms/HitSorterPhi.h>
 #include <algorithms/PrefixSum.h>
 #include <algorithms/BoundarySelectionZ.h>
+#include <algorithms/BoundarySelectionPhi.h>
 
 #include "RuntimeRecord.h"
 
@@ -216,21 +218,38 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	else
 		std::cout << "Sorted correctly in Phi" << std::endl;
 
+
+
+	/*for(int i = 0; i < hits.size(); ++i){
+		Hit hit(hits, i);
+
+		std::cout << "[" << i << "]";
+		std::cout << " Coordinates: [" << hit.globalX() << ";" << hit.globalY() << ";" << hit.globalZ() << "]";
+		std::cout << " Phi: " << atan2(hit.globalY(), hit.globalX()) << std::endl;
+	}*/
+
+	BoundarySelectionPhi boundSelectPhi(*contx);
+	boundSelectPhi.run(hits, threads, maxLayer, layerSupplement, grid);
+
 	//output grid
-	for(uint i = 1; i <= maxLayer; ++i){
-		std::cout << "Layer: " << i << std::endl;
+	for(uint l = 1; l <= maxLayer; ++l){
+		std::cout << "Layer: " << l << std::endl;
 
 		//output z boundaries
+		std::cout << "z/phi\t\t";
 		for(uint i = 0; i <= grid.config.nSectorsZ; ++i){
 			std::cout << grid.config.boundaryValuesZ[i] << "\t";
 		}
 		std::cout << std::endl;
 
-		LayerGrid layerGrid(grid, i);
-		for(uint i = 0; i <= grid.config.nSectorsZ; ++i){
-			std::cout << layerGrid(i) << "\t";
+		LayerGrid layerGrid(grid, l);
+		for(uint p = 0; p <= grid.config.nSectorsPhi; ++p){
+			std::cout << std::setprecision(3) << grid.config.boundaryValuesPhi[p] << "\t\t";
+			for(uint z = 0; z <= grid.config.nSectorsZ; ++z){
+				std::cout << layerGrid(z,p) << "\t";
+			}
+			std::cout << std::endl;
 		}
-		std::cout << std::endl;
 	}
 
 

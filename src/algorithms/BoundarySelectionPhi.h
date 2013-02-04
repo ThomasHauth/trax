@@ -186,8 +186,56 @@ public:
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 
+		/*if(gid == 0){
+			printf("Before prefix:\n");
+			for(uint b = 0; b <= nSectorsPhi; ++b){
+				printf("phi %u\t", b);
+
+				for(uint z = 0; z < nSectorsZ; ++z){
+					for(uint i = sectorBoundaries[z*(nSectorsPhi+1)]; i < sectorBoundaries[(z+1)*(nSectorsPhi+1)]; ++i){
+						printf("%hu; ", sGlobalPrefix[b*hits + i]);
+					}
+					printf("|");
+				}
+				printf("\n");
+			}
+		}
+		barrier(CLK_LOCAL_MEM_FENCE);*/
+
 		//compute prefix sum of sGlobalPrefix ==> must be of length 2^x
 		prefixSum(sGlobalPrefix, hits*(nSectorsPhi+1));
+
+		/*if(gid == 0){
+			printf("After prefix:\n");
+			for(uint b = 0; b <= nSectorsPhi; ++b){
+				printf("phi %u\t", b);
+
+				for(uint z = 0; z < nSectorsZ; ++z){
+					for(uint i = sectorBoundaries[z*(nSectorsPhi+1)]; i < sectorBoundaries[(z+1)*(nSectorsPhi+1)]; ++i){
+						printf("%hu; ", sGlobalPrefix[b*hits + i]);
+					}
+					printf("|");
+				}
+				printf("\n");
+			}
+		}
+		barrier(CLK_LOCAL_MEM_FENCE);
+		if(gid == 0){
+			printf("hit - sector start:\n");
+			for(uint b = 0; b <= nSectorsPhi; ++b){
+				printf("phi %u\t", b);
+
+				for(uint z = 0; z < nSectorsZ; ++z){
+					uint lowBound = sectorBoundaries[(layer-1)*(nSectorsZ+1)*(nSectorsPhi+1)+z*(nSectorsPhi+1)];
+					for(uint i = sectorBoundaries[z*(nSectorsPhi+1)]; i < sectorBoundaries[(z+1)*(nSectorsPhi+1)]; ++i){
+						printf("%hu; ", sGlobalPrefix[b*hits + i+1] - sGlobalPrefix[(b)*hits + lowBound] );
+					}
+					printf("|");
+				}
+				printf("\n");
+			}
+		}
+		barrier(CLK_LOCAL_MEM_FENCE);*/
 
 		//store boundary borders
 		/*sectorBoundaries[(layer-1)*(nSectorsZ+1)*(nSectorsPhi+1)] = 0; // store element at zero: (layer-1)*(nSectorsZ+1)*(nSectorsPhi+1)+ZERO*(nSectorsPhi+1)
@@ -196,17 +244,15 @@ public:
 			//printf("[%u]: Written %hu at %hu\n", gid, sGlobalPrefix[i*hits] - sGlobalPrefix[(i-1)*hits], (layer-1)*(nSectorsZ+1)*(nSectorsPhi+1)+i*(nSectorsPhi+1));
 		}*/
 
-		for(uint z = 0; z < nSectorsZ; ++z){
-			for(uint i = gid; i < nSectorsPhi; i+= threads){
+		for(uint z = gid; z <= nSectorsZ; z+= threads){
 
-				//sectorBoundaries[(layer-1)*(nSectorsZ+1)*(nSectorsPhi+1) + z*(nSectorsPhi+1)] this z sectors lower border
-				//sectorBoundaries[(layer-1)*(nSectorsZ+1)*(nSectorsPhi+1) + (z+1)*(nSectorsPhi+1)] this z sectors upper border
+			uint lowBound = sectorBoundaries[(layer-1)*(nSectorsZ+1)*(nSectorsPhi+1)+z*(nSectorsPhi+1)];
+			uint upBound = z < nSectorsZ ? sectorBoundaries[(layer-1)*(nSectorsZ+1)*(nSectorsPhi+1)+(z+1)*(nSectorsPhi+1)] : hits;
 
-				sectorBoundaries[(layer-1)*(nSectorsZ+1)*(nSectorsPhi+1)+z*(nSectorsPhi+1)+i] = sGlobalPrefix[i*hits + sectorBoundaries[(layer-1)*(nSectorsZ+1)*(nSectorsPhi+1) + (z+1)*(nSectorsPhi+1)]]
-				                                                                                              - sGlobalPrefix[i*hits + sectorBoundaries[(layer-1)*(nSectorsZ+1)*(nSectorsPhi+1) + (z+1)*(nSectorsPhi+1)]];
-				//printf("[%u]: Written %hu at %hu\n", gid, sGlobalPrefix[i*hits] - sGlobalPrefix[(i-1)*hits], (layer-1)*(nSectorsZ+1)*(nSectorsPhi+1)+i*(nSectorsPhi+1));
+			for(uint p = 1; p <= nSectorsPhi; ++p){
+				sectorBoundaries[(layer-1)*(nSectorsZ+1)*(nSectorsPhi+1) + z * (nSectorsPhi+1) + p] =
+						lowBound + sGlobalPrefix[p*hits + upBound] - sGlobalPrefix[p*hits + lowBound];
 			}
-			//sectorBoundaries[(layer-1)*(nSectorsZ+1)*(nSectorsPhi+1)+nSectorsZ*(nSectorsPhi+1)] = hits; // store last divider == layer border
 		}
 
 	}

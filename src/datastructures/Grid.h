@@ -136,12 +136,12 @@ public:
 
 	}
 
-	uint operator()(uint i, uint j){
-		return m_data[i*(nSectorsPhi+1)+j];
+	uint operator()(uint z, uint p){
+		return m_data[z*(nSectorsPhi+1)+p];
 	}
 
-	uint operator()(uint i){
-			return m_data[i*(nSectorsPhi+1)];
+	uint operator()(uint z){
+			return m_data[z*(nSectorsPhi+1)];
 	}
 
 public:
