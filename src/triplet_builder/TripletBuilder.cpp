@@ -287,11 +287,12 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 
 	float dTheta = 0.01;
 	float dPhi = 0.1;
+	int pairSpreadZ = 1;
 
 	//run it
 	TripletThetaPhiFilter tripletThetaPhi(*contx);
 	TrackletCollection * tracklets = tripletThetaPhi.run(hits, geom, dict, threads, layers,
-			layerSupplement, dTheta, dPhi);
+			layerSupplement, grid, dTheta, dPhi, pairSpreadZ);
 
 	//evaluate it
 	std::set<uint> foundTracks;
