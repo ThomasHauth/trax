@@ -38,7 +38,7 @@ public:
 #undef DEBUG_OUT
 }
 
-	static std::string KERNEL_COMPUTE_EVT() {return "SELECTION_COMPUTE";}
+	static std::string KERNEL_COMPUTE_EVT() {return "SELECTION_Z_COMPUTE";}
 	static std::string KERNEL_STORE_EVT() {return "";}
 
 	uint getNextPowerOfTwo(uint n){
@@ -53,7 +53,7 @@ public:
 		return n;
 	}
 
-	void run(HitCollection & hits, int nThreads, uint maxLayer, const LayerSupplement & layerSupplement, Grid & grid)
+	cl_ulong run(HitCollection & hits, int nThreads, uint maxLayer, const LayerSupplement & layerSupplement, Grid & grid)
 	{
 
 		std::vector<cl_event> events;
@@ -74,6 +74,14 @@ public:
 		}
 
 		grid.transfer.fromDevice(ctx,grid, &events);
+
+		cl_ulong runtime = 0;
+		for(cl_event evt : events){
+			profile_info pinfo = ctx.report_profile(evt);
+			runtime += pinfo.runtime();
+		}
+
+		return runtime;
 	}
 
 	KERNEL10_CLASS( selectionZ_kernel, uint, cl_mem, cl_mem,  cl_mem, cl_mem, uint, uint,  cl_mem,local_param,local_param,

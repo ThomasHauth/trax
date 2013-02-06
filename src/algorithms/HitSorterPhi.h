@@ -35,10 +35,10 @@ public:
 #undef DEBUG_OUT
 }
 
-	static std::string KERNEL_COMPUTE_EVT() {return "SORT_COMPUTE";}
+	static std::string KERNEL_COMPUTE_EVT() {return "SORT_PHI_COMPUTE";}
 	static std::string KERNEL_STORE_EVT() {return "";}
 
-	void run(HitCollection & hits, int nThreads, uint maxLayer, const LayerSupplement & layerSupplement, const Grid & grid)
+	cl_ulong run(HitCollection & hits, int nThreads, uint maxLayer, const LayerSupplement & layerSupplement, const Grid & grid)
 	{
 
 		std::vector<cl_event> events;
@@ -59,6 +59,14 @@ public:
 		}
 
 		hits.transfer.fromDevice(ctx, hits, &events);
+
+		cl_ulong runtime = 0;
+		for(cl_event evt : events){
+			profile_info pinfo = ctx.report_profile(evt);
+			runtime += pinfo.runtime();
+		}
+
+		return runtime;
 	}
 
 	KERNEL16_CLASS( sortingPhi_kernel, uint, cl_mem, cl_mem, cl_float, cl_float, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,  cl_mem, cl_mem, local_param,local_param,local_param,local_param,

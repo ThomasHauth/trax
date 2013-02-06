@@ -181,9 +181,11 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 		std::cout << " Event: " << hit.getValue<EventNumber>() << " HitId: " << hit.getValue<HitId>() << std::endl;
 	}*/
 
+	cl_ulong runtimeBuildGrid = 0;
+
 	//sort hits on device in Z
 	HitSorterZ sorterZ(*contx);
-	sorterZ.run(hits, threads,maxLayer,layerSupplement);
+	runtimeBuildGrid += sorterZ.run(hits, threads,maxLayer,layerSupplement);
 
 	//verify sorting
 	bool valid = true;
@@ -205,11 +207,11 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 		std::cout << "Sorted correctly in Z" << std::endl;
 
 	BoundarySelectionZ boundSelectZ(*contx);
-	boundSelectZ.run(hits, threads, maxLayer, layerSupplement, grid);
+	runtimeBuildGrid += boundSelectZ.run(hits, threads, maxLayer, layerSupplement, grid);
 
 	//sort hits on device in Phi
 	HitSorterPhi sorterPhi(*contx);
-	sorterPhi.run(hits, threads,maxLayer,layerSupplement, grid);
+	runtimeBuildGrid += sorterPhi.run(hits, threads,maxLayer,layerSupplement, grid);
 
 	//verify sorting
 	valid = true;
@@ -253,7 +255,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	}*/
 
 	BoundarySelectionPhi boundSelectPhi(*contx);
-	boundSelectPhi.run(hits, threads, maxLayer, layerSupplement, grid);
+	runtimeBuildGrid += boundSelectPhi.run(hits, threads, maxLayer, layerSupplement, grid);
 
 	//output grid
 	for(uint l = 1; l <= maxLayer; ++l){
@@ -363,6 +365,9 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	}
 
 	//determine runtimes
+	result.buildGrid = runtimeBuildGrid;
+	std::cout << "Build Grid: " << runtimeBuildGrid << "ns" << std::endl;
+
 	profile_info pinfo = contx->report_profile(contx->PROFILE_WRITE);
 	result.dataTransferWrite = pinfo.runtime();
 	std::cout << "Data Transfer\tWritten: " << pinfo.runtime() << "ns\tRead: ";
@@ -435,12 +440,12 @@ int main(int argc, char *argv[]) {
 
 		std::ofstream results("timings.csv", std::ios::trunc);
 
-		results << "#nTracks, dataTransfer, pairGen, tripletPredict, tripletFilter, computation, runtime, efficiency, fakeRate" << std::endl;
+		results << "#nTracks, dataTransfer, buildGrid, pairGen, tripletPredict, tripletFilter, computation, runtime, efficiency, fakeRate" << std::endl;
 
 		for(uint i : testCases){
 			RuntimeRecord res = buildTriplets(i,minPt, threads);
 
-			results << res.nTracks << ", " << res.totalDataTransfer() << ", " << res.totalPairGen() << ", " << res.totalTripletPredict() << ", " << res.totalTripletCheck() << ", "  << res.totalComputation() << ", " << res.totalRuntime()
+			results << res.nTracks << ", " << res.totalDataTransfer() << ", " << res.buildGrid << ", " << res.totalPairGen() << ", " << res.totalTripletPredict() << ", " << res.totalTripletCheck() << ", "  << res.totalComputation() << ", " << res.totalRuntime()
 						<< ", " << res.efficiency << ", " << res.fakeRate << std::endl;
 		}
 
@@ -465,6 +470,7 @@ int main(int argc, char *argv[]) {
 	std::cout << "Found: " << res.nTracks << " Tracks with mintPt=" << minPt << " using "
 			<< threads << " threads in " << res.totalRuntime() << " ns" << std::endl;
 	std::cout << "\tData transfer " << res.totalDataTransfer() << " ns" << std::endl;
+	std::cout << "\tBuild grid " << res.buildGrid << " ns" << std::endl;
 	std::cout << "\tPairGen "	<< res.totalPairGen() << " ns" << std::endl;
 	std::cout << "\tTripletPredict " << res.totalTripletPredict() << " ns" << std::endl;
 	std::cout << "\tTripletCheck " << res.totalTripletCheck() << " ns" << std::endl;
