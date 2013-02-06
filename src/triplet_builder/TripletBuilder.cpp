@@ -17,6 +17,7 @@
 #include <datastructures/HitCollection.h>
 #include <datastructures/TrackletCollection.h>
 #include <datastructures/DetectorGeometry.h>
+#include <datastructures/GeometrySupplement.h>
 #include <datastructures/Dictionary.h>
 #include <datastructures/LayerSupplement.h>
 #include <datastructures/Grid.h>
@@ -66,12 +67,32 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	//load detectorGeometry
 	DetectorGeometry geom;
 
+	std::map<uint, float> maxRadius;
+
+	for(int i = 1; i <= 13; ++i){
+		maxRadius[i]= 0;
+	}
+
 	std::ifstream detectorGeometryFile("detectorRadius.dat");
 	while(detectorGeometryFile >> row)
 	{
-		geom.addWithValue(atoi(row[0].c_str()), atoi(row[1].c_str()));
+		uint detId = atoi(row[0].c_str());
+		uint layer = atoi(row[2].c_str());
+		uint dictEntry = atoi(row[1].c_str());
+
+		geom.addWithValue(detId, layer, dictEntry);
+		DictionaryEntry entry(dict, dictEntry);
+
+		if(entry.radius() > maxRadius[layer])
+			maxRadius[layer] = entry.radius();
+
 	}
 	detectorGeometryFile.close();
+
+	GeometrySupplement geomSupplement;
+	for(auto mr : maxRadius){
+		geomSupplement.addWithValue(mr.first, mr.second);
+	}
 
 	//configure hit loader
 	const uint maxLayer = 3;
@@ -137,6 +158,9 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 
 	geom.transfer.initBuffers(*contx, geom);
 	geom.transfer.toDevice(*contx, geom);
+
+	geomSupplement.transfer.initBuffers(*contx, geomSupplement);
+	geomSupplement.transfer.toDevice(*contx, geomSupplement);
 
 	dict.transfer.initBuffers(*contx, dict);
 	dict.transfer.toDevice(*contx, dict);
@@ -254,15 +278,16 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 
 
 
-	/*for(uint i = 0; i < hits.size(); ++i){
+	for(uint i = 0; i < hits.size(); ++i){
 		Hit hit(hits, i);
 
 		std::cout << "[" << i << "]";
-		std::cout << " Coordinates: [" << hit.globalX() << ";" << hit.globalY() << ";" << hit.globalZ() << "]";
+		std::cout << "\tTrack: " << hit.getValue<HitId>();
+		std::cout << " \tCoordinates: [" << hit.globalX() << ";" << hit.globalY() << ";" << hit.globalZ() << "]";
 		//std::cout << " DetId: " << hit.getValue<DetectorId>() << " DetLayer: " << hit.getValue<DetectorLayer>();
 		//std::cout << " Event: " << hit.getValue<EventNumber>() << " HitId: " << hit.getValue<HitId>();
 		std::cout << std::endl;
-	}*/
+	}
 
 	//prefix sum test
 	/*std::vector<uint> uints(19,100);
@@ -291,7 +316,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 
 	//run it
 	TripletThetaPhiFilter tripletThetaPhi(*contx);
-	TrackletCollection * tracklets = tripletThetaPhi.run(hits, geom, dict, threads, layers,
+	TrackletCollection * tracklets = tripletThetaPhi.run(hits, geom, geomSupplement, dict, threads, layers,
 			layerSupplement, grid, dTheta, dPhi, pairSpreadZ);
 
 	//evaluate it
@@ -346,12 +371,12 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	std::cout << pinfo.runtime() << " ns" << std::endl;
 
 
-	/*
 	pinfo = contx->report_profile(PairGeneratorSector::KERNEL_COMPUTE_EVT());
 	std::cout << "Pair Generation\tCompute: " << pinfo.runtime() << " ns\tStore: ";
+	result.pairGenComp = pinfo.runtime();
 	pinfo = contx->report_profile(PairGeneratorSector::KERNEL_STORE_EVT());
+	result.pairGenStore = pinfo.runtime();
 	std::cout << pinfo.runtime() << " ns" << std::endl;
-	*/
 
 
 	pinfo = contx->report_profile(TripletThetaPhiPredictor::KERNEL_COMPUTE_EVT());

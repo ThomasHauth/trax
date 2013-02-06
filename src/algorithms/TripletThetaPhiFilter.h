@@ -6,6 +6,7 @@
 #include <datastructures/HitCollection.h>
 #include <datastructures/TrackletCollection.h>
 #include <datastructures/LayerSupplement.h>
+#include <datastructures/GeometrySupplement.h>
 
 #include <algorithms/TripletThetaPhiPredictor.h>
 #include <algorithms/PairGeneratorSector.h>
@@ -44,7 +45,7 @@ public:
 	static std::string KERNEL_COMPUTE_EVT() {return "TripletThetaPhiFilter_COMPUTE";}
 	static std::string KERNEL_STORE_EVT() {return "TripletThetaPhiFilter_STORE";}
 
-	TrackletCollection * run(HitCollection & hits, const DetectorGeometry & geom, const Dictionary & dict,
+	TrackletCollection * run(HitCollection & hits, const DetectorGeometry & geom, const GeometrySupplement & geomSupplement, const Dictionary & dict,
 			int nThreads, int layers[], const LayerSupplement & layerSupplement, const Grid & grid, float dThetaCut, float dPhiCut, int pairSpreadZ)
 	{
 
@@ -56,7 +57,7 @@ public:
 		TripletThetaPhiPredictor predictor(ctx);
 		float dThetaWindow = 0.1;
 		float dPhiWindow = 0.1;
-		clever::vector<uint2,1> * m_triplets = predictor.run(hits, geom, dict, nThreads, layers, layerSupplement, dThetaWindow, dPhiWindow, *m_pairs);
+		clever::vector<uint2,1> * m_triplets = predictor.run(hits, geom, geomSupplement, dict, nThreads, layers, layerSupplement, grid, dThetaWindow, dPhiWindow, *m_pairs);
 		int nTripletCandidates = m_triplets->get_count();
 
 		std::cout << "Initializing oracle...";

@@ -14,7 +14,7 @@ struct RadiusDict: public clever::UCharDictionaryItem
 {
 };
 
-#define DETECTOR_GEOMETRY_ITEMS DetectorId, RadiusDict
+#define DETECTOR_GEOMETRY_ITEMS DetectorId, DetectorLayer, RadiusDict
 
 typedef clever::Collection<DETECTOR_GEOMETRY_ITEMS> DetectorGeometryItems;
 

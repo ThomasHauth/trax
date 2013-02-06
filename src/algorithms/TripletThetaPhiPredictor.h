@@ -6,6 +6,8 @@
 #include <datastructures/HitCollection.h>
 #include <datastructures/TrackletCollection.h>
 #include <datastructures/LayerSupplement.h>
+#include <datastructures/Grid.h>
+#include <datastructures/GeometrySupplement.h>
 
 #include <algorithms/PrefixSum.h>
 
@@ -42,8 +44,8 @@ public:
 	static std::string KERNEL_COMPUTE_EVT() {return "TripletThetaPhiPredict_COMPUTE";}
 	static std::string KERNEL_STORE_EVT() {return "TripletThetaPhiPredict_STORE";}
 
-	clever::vector<uint2,1> * run(HitCollection & hits, const DetectorGeometry & geom, const Dictionary & dict,
-			int nThreads, int layers[], const LayerSupplement & layerSupplement,
+	clever::vector<uint2,1> * run(HitCollection & hits, const DetectorGeometry & geom, const GeometrySupplement & geomSupplement, const Dictionary & dict,
+			int nThreads, int layers[], const LayerSupplement & layerSupplement, const Grid & grid,
 			float dThetaWindow, float dPhiWindow, const clever::vector<uint2,1> & pairs)
 	{
 
@@ -64,12 +66,13 @@ public:
 		std::cout << "Running predict kernel...";
 		cl_event evt = tripletThetaPhiPredict.run(
 				//detector geometry
-				geom.transfer.buffer(RadiusDict()), dict.transfer.buffer(Radius()),
+				geom.transfer.buffer(RadiusDict()), dict.transfer.buffer(Radius()), geomSupplement.transfer.buffer(MaxRadius()),
+				grid.config.MIN_Z, grid.config.sectorSizeZ, grid.transfer.buffer(Boundary()), grid.config.nSectorsZ, grid.config.nSectorsPhi,
 				//configuration
 				dThetaWindow, dPhiWindow,
 				pairs.get_count(),
 				// input
-				pairs.get_mem(), (nLayer1+nLayer2), nLayer3,
+				pairs.get_mem(), (nLayer1+nLayer2), nLayer3, layers[2],
 				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()), hits.transfer.buffer(DetectorId()), hits.transfer.buffer(HitId()),
 				// output
 				m_oracle.get_mem(), m_prefixSum.get_mem(),
@@ -154,14 +157,15 @@ public:
 		return m_triplets;
 	}
 
-	KERNEL15_CLASS( tripletThetaPhiPredict, cl_mem, cl_mem, double, double, uint,  cl_mem, uint, uint, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL22_CLASS( tripletThetaPhiPredict, cl_mem, cl_mem, cl_mem, float, float, cl_mem, uint, uint, double, double, uint,  cl_mem, uint, uint, uint, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
 			__kernel void tripletThetaPhiPredict(
 					//detector geometry
-					__global const uchar * detRadius, __global const float * radiusDict,
+					__global const uchar * detRadius, __global const float * radiusDict, __global const float * maxRadius,
+					float minZ, float sectorSizeZ, __global const uint * sectorBoundaries, uint nSectorsZ, uint nSectorsPhi,
 					//configuration
 					double dThetaWindow, double dPhiWindow, uint nPairs,
 					// hit input
-					__global const uint2 * pairs, uint offset, uint nThirdHits,
+					__global const uint2 * pairs, uint offset, uint nThirdHits, uint layer3,
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
 					__global const uint * detId, __global const int * hitId,
 					// intermeditate data: oracle for hit pair + candidate combination, prefix sum for found tracklets
@@ -207,21 +211,32 @@ public:
 
 			//radius
 			float r = signRadius * radiusDict[detRadius[detId[secondHit]]];
+			float maxR = signRadius * maxRadius[layer3-1];
+
+			float dr = maxR - r;
+
+			//z_3 = z_2 + dr * cot(theta) => cot(theta) = tan(pi/2 - theta)
+			tmp = hitGlobalZ[secondHit] + dr * cotThetaLow;
+			float zHigh = hitGlobalZ[secondHit] + dr * cotThetaHigh;
+
+			float zLow = (tmp < zHigh) * tmp + (tmp > zHigh) * zHigh;
+			zHigh = (tmp < zHigh) * zHigh + (tmp > zHigh) * tmp;
+
+			uint zLowSector = max((int) floor((zLow - minZ) / sectorSizeZ), 0);
+			uint zHighSector = min((uint) floor((zHigh - minZ) / sectorSizeZ)+1, nSectorsZ);
+
+			/*printf("[%lu] pair %u sectorLow %u sectorHigh %u, borderLow %u, borderHigh %u\n",
+					gid, i, zLowSector, zHighSector,
+					sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zLowSector*(nSectorsPhi+1)],
+					sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zHighSector*(nSectorsPhi+1)]);*/
 
 			//loop over all third hits
 			//TODO[gpu] store hits in more suitable data structure, with phi pre-calculated and (z,phi) sorted
-			for(uint j = 0; j < nThirdHits; ++j){
+			for(uint j = sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zLowSector*(nSectorsPhi+1)];
+								j < sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zHighSector*(nSectorsPhi+1)];
+								++j){
 				// check z range
 				uint index = offset+j;
-
-				float dr = (signRadius * radiusDict[detRadius[detId[index]]]) - r;
-
-				//z_3 = z_2 + dr * cot(theta) => cot(theta) = tan(pi/2 - theta)
-				float tmp = hitGlobalZ[secondHit] + dr * cotThetaLow;
-				float zHigh = hitGlobalZ[secondHit] + dr * cotThetaHigh;
-
-				float zLow = (tmp < zHigh) * tmp + (tmp > zHigh) * zHigh;
-				zHigh = (tmp < zHigh) * zHigh + (tmp > zHigh) * tmp;
 
 				bool valid = zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh;
 
