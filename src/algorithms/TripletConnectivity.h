@@ -43,15 +43,14 @@ public:
 	}
 
 	/*
-	 	 by default, only the outermost hits of both triplets are compared for compatibility.
-	 	 The tightPacking option can be set to true to compute the connectivity for overlapping
-	 	 triplets, meaning that two hits must be shared by the triplets
+	 by default, only the outermost hits of both triplets are compared for compatibility.
+	 The tightPacking option can be set to true to compute the connectivity for overlapping
+	 triplets, meaning that two hits must be shared by the triplets
 
 	 */
-	void run(TrackletCollectionTransfer const& trackletsBase,
-			TrackletCollectionTransfer & trackletsFollowing,
-			bool iterateBackwards = false,
-			bool tightPacking = false ) const;
+	void run(TrackletCollection const& trackletsBase,
+			TrackletCollection & trackletsFollowing,
+			bool iterateBackwards = false, bool tightPacking = false) const;
 
 	KERNEL6_CLASS( tripletConnectivityWide, cl_mem, cl_mem, cl_mem, cl_mem, cl_uint, cl_uint,
 			__kernel void tripletConnectivityWide(
@@ -83,10 +82,13 @@ public:
 
 					// this is the branch-less version, test the performance
 					// the following triplet inherits the connectivity from the base
-					if ( connected )
-					{
-						atomic_add( tripletFollowCon + i , ( tripletBaseCon[ gid ] + 1 ) );
-					}
+
+					tripletFollowCon[i] = connected * (tripletBaseCon[ gid ] + 1);
+
+					//if ( connected )
+					//{
+					//	atomic_add( tripletFollowCon + i , ( tripletBaseCon[ gid ] + 1 ) );
+					//}
 
 					//printf("  connectivity is now %i\n" , tripletFollowCon [ i ] );
 				}
@@ -118,7 +120,7 @@ public:
 					//printf("Doing %i\n" , gid );
 					// the comparison has to be made criss / cross
 					const bool connected = ( tripletBaseHit1[ gid ] == tripletFollowHit1[ i ] ) &&
-										   ( tripletBaseHit2[ gid ] == tripletFollowHit2[ i ] );
+					( tripletBaseHit2[ gid ] == tripletFollowHit2[ i ] );
 
 					//printf("  id1 : %i  f_id1 : %i\n", tripletBaseHit1[ gid ], tripletFollowHit1[ i ]);
 					//printf("  id2 : %i  f_id2 : %i\n", tripletBaseHit2[ gid ], tripletFollowHit2[ i ]);
@@ -133,16 +135,17 @@ public:
 
 					// this is the branch-less version, test the performance
 					// the following triplet inherits the connectivity from the base
-					if ( connected )
-					{
-						atomic_add( tripletFollowCon + i , ( tripletBaseCon[ gid ] + 1 ) );
-					}
+					//if ( connected )
+					//{
+					//	atomic_add( tripletFollowCon + i , ( tripletBaseCon[ gid ] + 1 ) );
+					//}
+
+					tripletFollowCon[i] = connected * (tripletBaseCon[ gid ] + 1);
 
 					//printf("  connectivity is now %i\n" , tripletFollowCon [ i ] );
 				}
 
 			})
 	;
-
 
 };

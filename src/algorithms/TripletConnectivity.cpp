@@ -17,8 +17,8 @@ TripletConnectivity::TripletConnectivity(clever::context & ctext) :
 }
 
 void TripletConnectivity::run(
-		TrackletCollectionTransfer const& trackletsInitial,
-		TrackletCollectionTransfer & trackletsFollowing,
+		TrackletCollection const& trackletsInitial,
+		TrackletCollection & trackletsFollowing,
 		bool iterateBackwards,
 		bool tightPacking) const
 {
@@ -30,27 +30,27 @@ void TripletConnectivity::run(
 
 	if (! iterateBackwards)
 	{
-		intialHits1 = trackletsInitial.buffer(TrackletHit3());
-		followingHits1 = trackletsFollowing.buffer(TrackletHit1());
+		intialHits1 = trackletsInitial.transfer.buffer(TrackletHit3());
+		followingHits1 = trackletsFollowing.transfer.buffer(TrackletHit1());
 	}
 	else
 	{
-		intialHits1 = trackletsInitial.buffer(TrackletHit1());
-		followingHits1 = trackletsFollowing.buffer(TrackletHit3());
+		intialHits1 = trackletsInitial.transfer.buffer(TrackletHit1());
+		followingHits1 = trackletsFollowing.transfer.buffer(TrackletHit3());
 	}
 
-	const size_t maxFollowingItem = std::max((unsigned int) 0, (unsigned int) trackletsFollowing.defaultRange().getSize() - 1);
+	const size_t maxFollowingItem = std::max((unsigned int) 0, (unsigned int) trackletsFollowing.transfer.defaultRange().getSize() - 1);
 
 	if ( ! tightPacking)
 	{
 		tripletConnectivityWide.run(
 				intialHits1,
-				trackletsInitial.buffer(TrackletConnectivity()),
+				trackletsInitial.transfer.buffer(TrackletConnectivity()),
 				followingHits1,
-				trackletsFollowing.buffer(TrackletConnectivity()), 0,
+				trackletsFollowing.transfer.buffer(TrackletConnectivity()), 0,
 				// be sure to not produce -1 ( >> unsigned ) if there are not triplets
 				maxFollowingItem,
-				trackletsInitial.defaultRange());
+				trackletsInitial.transfer.defaultRange());
 	}
 	else
 	{
@@ -58,20 +58,20 @@ void TripletConnectivity::run(
 
 		// get the other two needed hits
 		intialHits2 = intialHits1;
-		intialHits1 = trackletsInitial.buffer(TrackletHit2());
+		intialHits1 = trackletsInitial.transfer.buffer(TrackletHit2());
 
-		followingHits2 = trackletsFollowing.buffer(TrackletHit2());
+		followingHits2 = trackletsFollowing.transfer.buffer(TrackletHit2());
 		// ... and fire away
 		tripletConnectivityTight.run(
 				intialHits1,
 				intialHits2,
-				trackletsInitial.buffer(TrackletConnectivity()),
+				trackletsInitial.transfer.buffer(TrackletConnectivity()),
 				followingHits1,
 				followingHits2,
-				trackletsFollowing.buffer(TrackletConnectivity()), 0,
+				trackletsFollowing.transfer.buffer(TrackletConnectivity()), 0,
 				// be sure to not produce -1 ( >> unsigned ) if there are not triplets
 				maxFollowingItem,
-				trackletsInitial.defaultRange());
+				trackletsInitial.transfer.defaultRange());
 	}
 	/*
 	 clever::vector<uint2, 1> * m_pairs = generateAllPairs(hits, nThreads,

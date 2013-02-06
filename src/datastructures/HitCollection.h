@@ -47,7 +47,10 @@ public:
 
 	HitCollection(const PB_Event::PEvent & event) ;
 
-	tTrackList addEvent(const PB_Event::PEvent& event, const DetectorGeometry& geom, LayerSupplement & layerSupplement, int nSectors = 0, float minPt = 0, int numTracks = -1, bool onlyTracks = false, uint maxLayer = 99) ;
+	tTrackList addEvent(const PB_Event::PEvent& event, const DetectorGeometry& geom, LayerSupplement & layerSupplement, float minPt = 0, int numTracks = -1, bool onlyTracks = false, uint maxLayer = 99) ;
+
+public:
+	clever::OpenCLTransfer<HIT_COLLECTION_ITEMS> transfer;
 
 };
 /*
@@ -87,9 +90,8 @@ public:
 	 }
 };
 */
-typedef clever::OpenCLTransfer<HIT_COLLECTION_ITEMS> HitCollectionTransfer;
 
-class Hit: private clever::CollectionView<HitCollection>
+class Hit: public clever::CollectionView<HitCollection>
 {
 public:
 // get a pointer to one hit in the collection
@@ -105,6 +107,14 @@ public:
 	{
 	}
 
+	bool operator==(const Hit & rhs) const {
+		return getValue<EventNumber>() == rhs.getValue<EventNumber>()
+				&& getValue<HitId>() == rhs.getValue<HitId>()
+				&& getValue<DetectorId>() == rhs.getValue<DetectorId>()
+				&& getValue<DetectorLayer>() == rhs.getValue<DetectorLayer>()
+				&& globalX() == rhs.globalX() && globalY() == rhs.globalY() && globalZ() == rhs.globalZ(); //values are only copied ==> should be bitwise identical
+	}
+
 	float globalX() const
 	{
 		return getValue<GlobalX>();
@@ -118,6 +128,14 @@ public:
 	float globalZ() const
 	{
 		return getValue<GlobalZ>();
+	}
+
+	float phi() const {
+		return atan2(globalY(), globalX());
+	}
+
+	float theta() const {
+		return atan2( sqrt(globalX()*globalX() + globalY()*globalY()) ,globalZ()*globalZ());
 	}
 
 };

@@ -1,19 +1,97 @@
 #pragma once
 
 #include <vector>
+#include <clever/clever.hpp>
 
-class LayerInformation {
+struct NHits: public clever::UIntItem
+{
+};
+struct Offset: public clever::UIntItem
+{
+};
+
+#define LAYER_SUPPLEMENT_COLLECTION_ITEMS NHits, Offset
+
+typedef clever::Collection<LAYER_SUPPLEMENT_COLLECTION_ITEMS> LayerSupplementItems;
+
+class LayerInfo;
+
+class LayerSupplement: public LayerSupplementItems
+{
+public:
+	typedef LayerSupplementItems dataitems_type;
+
+	LayerSupplement(uint _nLayers) :
+			clever::Collection<LAYER_SUPPLEMENT_COLLECTION_ITEMS>(_nLayers), nLayers(_nLayers)
+	{
+
+	}
+
+	LayerInfo operator[](uint i);
+	const LayerInfo operator[](uint i) const;
+
+public:
+	uint nLayers;
+
+	clever::OpenCLTransfer<LAYER_SUPPLEMENT_COLLECTION_ITEMS> transfer;
+};
+
+class LayerInfo: private clever::CollectionView<LayerSupplement>
+{
+public:
+// get a pointer to one hit in the collection
+	LayerInfo(LayerSupplement & collection, index_type i) :
+			clever::CollectionView<LayerSupplement>(collection, i)
+	{
+	}
+
+	LayerInfo(const LayerSupplement & collection, index_type i) :
+		clever::CollectionView<LayerSupplement>(collection, i)
+		{
+		}
+
+// create a new hit in the collection
+	LayerInfo(LayerSupplement & collection) :
+			clever::CollectionView<LayerSupplement>(collection)
+	{
+	}
+
+	uint getNHits() const
+	{
+		return getValue<NHits>();
+	}
+
+	uint getOffset() const
+	{
+		return getValue<Offset>();
+	}
+
+	void setNHits(uint i){
+		setValue<NHits>(i);
+	}
+
+	void setOffset(uint i){
+		setValue<Offset>(i);
+	}
+
+};
+
+/*class LayerInformation {
 
 public:
 
-	LayerInformation(uint nSectors)
-		: nHits(0), offset(0), sectorBorders(nSectors)
-	{ }
+	LayerInformation(uint nSectorsZ, uint nSectorsPhi)
+		: nHits(0), offset(0)
+	{
+
+		sectorBorders = new uint[nSectorsZ*nSectorsPhi];
+
+	}
 
 public:
 	uint nHits;
 	uint offset;
-	std::vector<uint> sectorBorders;
+	uint *sectorBorders;
 
 };
 
@@ -21,10 +99,11 @@ class LayerSupplement : public std::vector<LayerInformation>{
 
 public:
 
-	LayerSupplement(uint nLayers, uint nSectors){
+	LayerSupplement(uint _nLayers, uint _nSectorsZ, uint _nSectorsPhi)
+	: nLayers(_nLayers), nSectorsZ(_nSectorsZ), nSectorsPhi(_nSectorsPhi) {
 
 		for(uint i = 0; i < nLayers; ++i)
-			this->push_back(LayerInformation(nSectors));
+			this->push_back(LayerInformation(nSectorsZ, nSectorsPhi));
 	}
 
 	LayerInformation & operator[](uint i){
@@ -61,8 +140,16 @@ public:
 
 	}
 
+public:
+	uint nLayers;
+	uint nSectorsZ;
+	uint nSectorsPhi;
+
+	static constexpr float MIN_Z = -300;
+	static constexpr float MAX_Z = 300;
+
 private:
 	mutable std::vector<uint> layerHits;
 	mutable std::vector<uint> layerOffsets;
 
-};
+};*/

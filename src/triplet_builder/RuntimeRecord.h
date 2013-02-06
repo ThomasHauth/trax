@@ -11,6 +11,7 @@ public:
 	float pairGenComp, pairGenStore;
 	float tripletPredictComp, tripletPredictStore;
 	float tripletCheckComp, tripletCheckStore;
+	float buildGrid;
 
 	float totalDataTransfer() const {
 		return dataTransferRead+dataTransferWrite;

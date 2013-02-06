@@ -6,6 +6,7 @@
  */
 
 #include <iostream>
+#include <iomanip>
 #include <set>
 
 #include <boost/program_options.hpp>
@@ -15,17 +16,22 @@
 #include <datastructures/test/HitCollectionData.h>
 #include <datastructures/HitCollection.h>
 #include <datastructures/TrackletCollection.h>
-#include <datastructures/DetectorGeometry.cpp>
+#include <datastructures/DetectorGeometry.h>
+#include <datastructures/GeometrySupplement.h>
 #include <datastructures/Dictionary.h>
 #include <datastructures/LayerSupplement.h>
+#include <datastructures/Grid.h>
 
 #include <algorithms/TripletThetaPhiFilter.h>
-#include <algorithms/HitSorter.h>
+#include <algorithms/HitSorterZ.h>
+#include <algorithms/HitSorterPhi.h>
 #include <algorithms/PrefixSum.h>
+#include <algorithms/BoundarySelectionZ.h>
+#include <algorithms/BoundarySelectionPhi.h>
 
 #include "RuntimeRecord.h"
 
-#include "lib/ccolor.cpp"
+#include "lib/ccolor.h"
 #include "lib/CSV.h"
 
 RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose = false) {
@@ -61,42 +67,64 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	//load detectorGeometry
 	DetectorGeometry geom;
 
+	std::map<uint, float> maxRadius;
+
+	for(int i = 1; i <= 13; ++i){
+		maxRadius[i]= 0;
+	}
+
 	std::ifstream detectorGeometryFile("detectorRadius.dat");
 	while(detectorGeometryFile >> row)
 	{
-		geom.addWithValue(atoi(row[0].c_str()), atoi(row[1].c_str()));
+		uint detId = atoi(row[0].c_str());
+		uint layer = atoi(row[2].c_str());
+		uint dictEntry = atoi(row[1].c_str());
+
+		geom.addWithValue(detId, layer, dictEntry);
+		DictionaryEntry entry(dict, dictEntry);
+
+		if(entry.radius() > maxRadius[layer])
+			maxRadius[layer] = entry.radius();
+
 	}
 	detectorGeometryFile.close();
 
+	GeometrySupplement geomSupplement;
+	for(auto mr : maxRadius){
+		geomSupplement.addWithValue(mr.first, mr.second);
+	}
+
 	//configure hit loader
-	const int maxLayer = 3;
-	const int nSectors = 8;
-	LayerSupplement layerSupplement(maxLayer, nSectors);
+	const uint maxLayer = 3;
+	const uint nSectorsZ = 10;
+	const uint nSectorsPhi = 8;
+	LayerSupplement layerSupplement(maxLayer);
+	Grid grid(maxLayer, nSectorsZ,nSectorsPhi);
 
 	HitCollection hits;
-	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "hitsPXB.pb", geom, layerSupplement, nSectors, minPt, tracks,true, maxLayer);
+	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "hitsPXB.pb", geom, layerSupplement, minPt, tracks,true, maxLayer);
 
 	std::cout << "Loaded " << validTracks.size() << " tracks with minPt " << minPt << " GeV and " << hits.size() << " hits" << std::endl;
 
 	if(verbose){
-		for(int i = 1; i <= maxLayer; ++i)
-			std::cout << "Layer " << i << ": " << layerSupplement[i-1].nHits << " hits" << std::endl;
+		for(uint i = 1; i <= maxLayer; ++i)
+			std::cout << "Layer " << i << ": " << layerSupplement[i-1].getNHits() << " hits" << "\t Offset: " << layerSupplement[i-1].getOffset() << std::endl;
 
 
 		//output sector borders
-		std::cout << "Layer";
-		for(int i = 0; i <= nSectors; ++i){
-			std::cout << "\t" << -M_PI + i * (2*M_PI / nSectors);
+		/*std::cout << "Layer";
+		for(int i = 0; i <= nSectorsPhi; ++i){
+			std::cout << "\t" << -M_PI + i * (2*M_PI / nSectorsPhi);
 		}
 		std::cout << std::endl;
 
 		for(int i = 0; i < maxLayer; i++){
 			std::cout << i+1;
-			for(int j = 0; j <= nSectors; j++){
+			for(int j = 0; j <= nSectorsPhi; j++){
 				std::cout << "\t" << layerSupplement[i].sectorBorders[j];
 			}
 			std::cout << std::endl;
-		}
+		}*/
 	}
 
 	/*****
@@ -125,32 +153,48 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	 ********/
 
 	//transer everything to gpu
-	HitCollectionTransfer hitTransfer;
-	hitTransfer.initBuffers(*contx, hits);
-	hitTransfer.toDevice(*contx, hits);
+	hits.transfer.initBuffers(*contx, hits);
+	hits.transfer.toDevice(*contx, hits);
 
-	DetectorGeometryTransfer geomTransfer;
-	geomTransfer.initBuffers(*contx, geom);
-	geomTransfer.toDevice(*contx, geom);
+	geom.transfer.initBuffers(*contx, geom);
+	geom.transfer.toDevice(*contx, geom);
 
-	DictionaryTransfer dictTransfer;
-	dictTransfer.initBuffers(*contx, dict);
-	dictTransfer.toDevice(*contx, dict);
+	geomSupplement.transfer.initBuffers(*contx, geomSupplement);
+	geomSupplement.transfer.toDevice(*contx, geomSupplement);
 
-	//sort hits on device
-	HitSorter sorter(*contx);
-	sorter.run(hitTransfer, threads,maxLayer,layerSupplement);
+	dict.transfer.initBuffers(*contx, dict);
+	dict.transfer.toDevice(*contx, dict);
+
+	//transferring layer supplement
+	layerSupplement.transfer.initBuffers(*contx, layerSupplement);
+	layerSupplement.transfer.toDevice(*contx,layerSupplement);
+	//initializating grid
+	grid.transfer.initBuffers(*contx,grid);
+	grid.config.upload(*contx);
+
+	/*for(int i = 0; i < hits.size(); ++i){
+		Hit hit(hits, i);
+
+		std::cout << "[" << i << "]";
+		std::cout << " Coordinates: [" << hit.globalX() << ";" << hit.globalY() << ";" << hit.globalZ() << "]";
+		std::cout << " DetId: " << hit.getValue<DetectorId>() << " DetLayer: " << hit.getValue<DetectorLayer>();
+		std::cout << " Event: " << hit.getValue<EventNumber>() << " HitId: " << hit.getValue<HitId>() << std::endl;
+	}*/
+
+	cl_ulong runtimeBuildGrid = 0;
+
+	//sort hits on device in Z
+	HitSorterZ sorterZ(*contx);
+	runtimeBuildGrid += sorterZ.run(hits, threads,maxLayer,layerSupplement);
 
 	//verify sorting
 	bool valid = true;
-	HitCollection hits2(hits.size());
-	hitTransfer.fromDevice(*contx, hits2);
-	for(int l = 1; l <= maxLayer; ++l){
+	for(uint l = 1; l <= maxLayer; ++l){
 		float lastZ = -9999;
-		for(int i = 0; i < layerSupplement[0].nHits; ++i){
-			Hit hit(hits2, i);
+		for(uint i = 0; i < layerSupplement[l-1].getNHits(); ++i){
+			Hit hit(hits, layerSupplement[l-1].getOffset() + i);
 			if(hit.globalZ() < lastZ){
-				std::cerr << lastZ <<  "--" << hit.globalZ() << std::endl;
+				std::cerr << "Layer " << l << " : " << lastZ <<  "|" << hit.globalZ() << std::endl;
 				valid = false;
 			}
 			lastZ = hit.globalZ();
@@ -158,15 +202,102 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	}
 
 	if(!valid)
-		std::cerr << "Not sorted properly" << std::endl;
+		std::cerr << "Not sorted properly in Z" << std::endl;
+	else
+		std::cout << "Sorted correctly in Z" << std::endl;
+
+	BoundarySelectionZ boundSelectZ(*contx);
+	runtimeBuildGrid += boundSelectZ.run(hits, threads, maxLayer, layerSupplement, grid);
+
+	//sort hits on device in Phi
+	HitSorterPhi sorterPhi(*contx);
+	runtimeBuildGrid += sorterPhi.run(hits, threads,maxLayer,layerSupplement, grid);
+
+	//verify sorting
+	valid = true;
+	for(uint l = 1; l <= maxLayer; ++l){
+		LayerGrid layerGrid(grid, l);
+		for(uint s = 1; s <= grid.config.nSectorsZ; ++s){
+
+			float lastPhi = - M_PI;
+			for(uint h = layerGrid(s-1); h < layerGrid(s); ++h){
+				Hit hit(hits, layerSupplement[l-1].getOffset() + h);
+
+				//check phi
+				if(hit.phi() < lastPhi){
+					std::cerr << "Layer " << l << " : " << lastPhi <<  "|" << hit.phi() << std::endl;
+					valid = false;
+				}
+				lastPhi = hit.phi();
+
+				//check correct z sector
+				if(!(grid.config.boundaryValuesZ[s-1] <= hit.globalZ() && hit.globalZ() <= grid.config.boundaryValuesZ[s])){
+					std::cerr << "Layer " << l << " : zAct: " << hit.globalZ() <<  " in sector [" << grid.config.boundaryValuesZ[s-1] << ", " << grid.config.boundaryValuesZ[s] << "]" << std::endl;
+					valid = false;
+				}
+			}
+		}
+	}
+
+	if(!valid)
+		std::cerr << "Not sorted properly in Phi" << std::endl;
+	else
+		std::cout << "Sorted correctly in Phi" << std::endl;
+
+
+
+	/*for(int i = 0; i < hits.size(); ++i){
+		Hit hit(hits, i);
+
+		std::cout << "[" << i << "]";
+		std::cout << " Coordinates: [" << hit.globalX() << ";" << hit.globalY() << ";" << hit.globalZ() << "]";
+		std::cout << " Phi: " << atan2(hit.globalY(), hit.globalX()) << std::endl;
+	}*/
+
+	BoundarySelectionPhi boundSelectPhi(*contx);
+	runtimeBuildGrid += boundSelectPhi.run(hits, threads, maxLayer, layerSupplement, grid);
+
+	//output grid
+	for(uint l = 1; l <= maxLayer; ++l){
+		std::cout << "Layer: " << l << std::endl;
+
+		//output z boundaries
+		std::cout << "z/phi\t\t";
+		for(uint i = 0; i <= grid.config.nSectorsZ; ++i){
+			std::cout << grid.config.boundaryValuesZ[i] << "\t";
+		}
+		std::cout << std::endl;
+
+		LayerGrid layerGrid(grid, l);
+		for(uint p = 0; p <= grid.config.nSectorsPhi; ++p){
+			std::cout << std::setprecision(3) << grid.config.boundaryValuesPhi[p] << "\t\t";
+			for(uint z = 0; z <= grid.config.nSectorsZ; ++z){
+				std::cout << layerGrid(z,p) << "\t";
+			}
+			std::cout << std::endl;
+		}
+	}
+
+
+
+	for(uint i = 0; i < hits.size(); ++i){
+		Hit hit(hits, i);
+
+		std::cout << "[" << i << "]";
+		std::cout << "\tTrack: " << hit.getValue<HitId>();
+		std::cout << " \tCoordinates: [" << hit.globalX() << ";" << hit.globalY() << ";" << hit.globalZ() << "]";
+		//std::cout << " DetId: " << hit.getValue<DetectorId>() << " DetLayer: " << hit.getValue<DetectorLayer>();
+		//std::cout << " Event: " << hit.getValue<EventNumber>() << " HitId: " << hit.getValue<HitId>();
+		std::cout << std::endl;
+	}
 
 	//prefix sum test
-	std::vector<uint> uints(19,100);
+	/*std::vector<uint> uints(19,100);
 	uints.push_back(0);
 	clever::vector<uint,1> dUints(uints, *contx);
 
 	PrefixSum psum(*contx);
-	uint res = psum.run(dUints.get_mem(), uints.size(), 4, true);
+	uint res = psum.run(dUints, uints.size(), 4, true);
 	transfer::download(dUints, uints, *contx);
 
 	for(uint i = 0; i < uints.size(); ++i){
@@ -175,7 +306,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 
 	std::cout << std::endl << "Result: " << res << std::endl;
 
-	return RuntimeRecord();
+	return RuntimeRecord();*/
 
 	// configure kernel
 
@@ -183,11 +314,12 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 
 	float dTheta = 0.01;
 	float dPhi = 0.1;
+	int pairSpreadZ = 1;
 
 	//run it
 	TripletThetaPhiFilter tripletThetaPhi(*contx);
-	TrackletCollection * tracklets = tripletThetaPhi.run(hitTransfer, geomTransfer, dictTransfer, threads, layers,
-			layerSupplement, dTheta, dPhi, nSectors);
+	TrackletCollection * tracklets = tripletThetaPhi.run(hits, geom, geomSupplement, dict, threads, layers,
+			layerSupplement, grid, dTheta, dPhi, pairSpreadZ);
 
 	//evaluate it
 	std::set<uint> foundTracks;
@@ -199,7 +331,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 
 		if(tracklet.isValid(hits)){
 			//valid triplet
-			foundTracks.insert(hits.getValue(HitId(),tracklet.hit1()));
+			foundTracks.insert(tracklet.trackId(hits));
 			if(verbose){
 				std::cout << zkr::cc::fore::green;
 				std::cout << "Track " << tracklet.trackId(hits) << " : " << tracklet.hit1() << "-" << tracklet.hit2() << "-" << tracklet.hit3();
@@ -209,7 +341,6 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 		else {
 			//fake triplet
 			++fakeTracks;
-			foundTracks.insert(hits.getValue(HitId(),tracklet.hit1()));
 			if(verbose){
 				std::cout << zkr::cc::fore::red;
 				std::cout << "Fake: " << tracklet.hit1() << "[" << hits.getValue(HitId(),tracklet.hit1()) << "]";
@@ -234,6 +365,9 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	}
 
 	//determine runtimes
+	result.buildGrid = runtimeBuildGrid;
+	std::cout << "Build Grid: " << runtimeBuildGrid << "ns" << std::endl;
+
 	profile_info pinfo = contx->report_profile(contx->PROFILE_WRITE);
 	result.dataTransferWrite = pinfo.runtime();
 	std::cout << "Data Transfer\tWritten: " << pinfo.runtime() << "ns\tRead: ";
@@ -242,12 +376,12 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	std::cout << pinfo.runtime() << " ns" << std::endl;
 
 
-	/*
 	pinfo = contx->report_profile(PairGeneratorSector::KERNEL_COMPUTE_EVT());
 	std::cout << "Pair Generation\tCompute: " << pinfo.runtime() << " ns\tStore: ";
+	result.pairGenComp = pinfo.runtime();
 	pinfo = contx->report_profile(PairGeneratorSector::KERNEL_STORE_EVT());
+	result.pairGenStore = pinfo.runtime();
 	std::cout << pinfo.runtime() << " ns" << std::endl;
-	*/
 
 
 	pinfo = contx->report_profile(TripletThetaPhiPredictor::KERNEL_COMPUTE_EVT());
@@ -286,7 +420,7 @@ int main(int argc, char *argv[]) {
 			("help", "produce help message")
 			("minPt", po::value<float>(&minPt)->default_value(1.0), "minimum track Pt")
 			("tracks", po::value<uint>(&tracks)->default_value(100), "number of valid tracks to load")
-			("threads", po::value<uint>(&threads)->default_value(1024), "number of threads to use")
+			("threads", po::value<uint>(&threads)->default_value(256), "number of threads to use")
 			("silent", po::value<bool>(&silent)->zero_tokens(), "supress all messages from TripletFinder")
 			("verbose", po::value<bool>(&verbose)->zero_tokens(), "elaborate information")
 			("testSuite", "run entire testSuite");
@@ -306,12 +440,12 @@ int main(int argc, char *argv[]) {
 
 		std::ofstream results("timings.csv", std::ios::trunc);
 
-		results << "#nTracks, dataTransfer, pairGen, tripletPredict, tripletFilter, computation, runtime, efficiency, fakeRate" << std::endl;
+		results << "#nTracks, dataTransfer, buildGrid, pairGen, tripletPredict, tripletFilter, computation, runtime, efficiency, fakeRate" << std::endl;
 
 		for(uint i : testCases){
 			RuntimeRecord res = buildTriplets(i,minPt, threads);
 
-			results << res.nTracks << ", " << res.totalDataTransfer() << ", " << res.totalPairGen() << ", " << res.totalTripletPredict() << ", " << res.totalTripletCheck() << ", "  << res.totalComputation() << ", " << res.totalRuntime()
+			results << res.nTracks << ", " << res.totalDataTransfer() << ", " << res.buildGrid << ", " << res.totalPairGen() << ", " << res.totalTripletPredict() << ", " << res.totalTripletCheck() << ", "  << res.totalComputation() << ", " << res.totalRuntime()
 						<< ", " << res.efficiency << ", " << res.fakeRate << std::endl;
 		}
 
@@ -336,6 +470,7 @@ int main(int argc, char *argv[]) {
 	std::cout << "Found: " << res.nTracks << " Tracks with mintPt=" << minPt << " using "
 			<< threads << " threads in " << res.totalRuntime() << " ns" << std::endl;
 	std::cout << "\tData transfer " << res.totalDataTransfer() << " ns" << std::endl;
+	std::cout << "\tBuild grid " << res.buildGrid << " ns" << std::endl;
 	std::cout << "\tPairGen "	<< res.totalPairGen() << " ns" << std::endl;
 	std::cout << "\tTripletPredict " << res.totalTripletPredict() << " ns" << std::endl;
 	std::cout << "\tTripletCheck " << res.totalTripletCheck() << " ns" << std::endl;

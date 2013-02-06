@@ -32,9 +32,10 @@ public:
 	{
 
 	}
-};
 
-typedef clever::OpenCLTransfer<DICTIONARY_ITEMS> DictionaryTransfer;
+public:
+	clever::OpenCLTransfer<DICTIONARY_ITEMS> transfer;
+};
 
 class DictionaryEntry: private clever::CollectionView<Dictionary>
 {

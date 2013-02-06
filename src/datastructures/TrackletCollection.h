@@ -48,9 +48,10 @@ public:
 	{
 
 	}
-};
 
-typedef clever::OpenCLTransfer<TRACKLET_COLLECTION_ITEMS> TrackletCollectionTransfer;
+public:
+	clever::OpenCLTransfer<TRACKLET_COLLECTION_ITEMS> transfer;
+};
 
 class Tracklet: private clever::CollectionView<TrackletCollection>
 {

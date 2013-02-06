@@ -5,6 +5,7 @@ add_library(datastructures
 	Hit.cpp
 	HitCollection.cpp
 	DetectorGeometry.cpp
+	LayerSupplement.cpp
 	serialize/Event.pb.cc
 )
 

@@ -2,6 +2,7 @@ cmake_minimum_required (VERSION 2.6)
 project (trax)
 
 add_executable(tripletBuilder
+	lib/ccolor.cpp
 	TripletBuilder.cpp
 )
 

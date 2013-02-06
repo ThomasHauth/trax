@@ -14,7 +14,7 @@ struct RadiusDict: public clever::UCharDictionaryItem
 {
 };
 
-#define DETECTOR_GEOMETRY_ITEMS DetectorId, RadiusDict
+#define DETECTOR_GEOMETRY_ITEMS DetectorId, DetectorLayer, RadiusDict
 
 typedef clever::Collection<DETECTOR_GEOMETRY_ITEMS> DetectorGeometryItems;
 
@@ -35,9 +35,10 @@ public:
 	}
 
 	int resolveDetId(uint detId) const;
-};
 
-typedef clever::OpenCLTransfer<DETECTOR_GEOMETRY_ITEMS> DetectorGeometryTransfer;
+public:
+	clever::OpenCLTransfer<DETECTOR_GEOMETRY_ITEMS> transfer;
+};
 
 class DetUnit: private clever::CollectionView<DetectorGeometry>
 {
