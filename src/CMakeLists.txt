@@ -23,6 +23,9 @@ include_directories (${EXTERNAL_BASE}/clever/src)
 #include_directories (${trax_SOURCE_DIR}/src/eval) 
 #include_directories (${trax_SOURCE_DIR}/src/algo) 
 
+include_directories (/build/hauth/dev/protobuf-bin/include/) 
+link_directories(/build/hauth/dev/protobuf-bin/lib/)
+
 #boost
 FIND_PACKAGE(Boost)
 
