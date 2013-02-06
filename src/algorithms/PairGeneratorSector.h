@@ -45,7 +45,6 @@ public:
 
 			int nLayer1 = layerSupplement[layers[0]-1].getNHits();
 			int nLayer2 = layerSupplement[layers[1]-1].getNHits();
-
 			int nMaxPairs = nLayer1 * nLayer2;
 
 			std::cout << "Initializing oracle for pair gen...";
@@ -58,7 +57,7 @@ public:
 
 			//ctx.select_profile_event(KERNEL_COMPUTE_EVT());
 
-			std::cout << "Running pair gen kernels...";
+			std::cout << "Running pair gen kernel...";
 			cl_event evt = pairSectorGen.run(
 						//configuration
 						layers[0], layers[1],
@@ -67,21 +66,23 @@ public:
 						grid.config.nSectorsZ, grid.config.nSectorsPhi,
 						spreadZ,
 						// hit input
-						hits.transfer.buffer(GlobalZ()),
+						hits.transfer.buffer(GlobalZ()), hits.transfer.buffer(HitId()),
 						// intermeditate data: oracle for hit pairs, prefix sum for found pairs
 						m_oracle.get_mem(), m_prefixSum.get_mem(),
 						//thread config
 						nThreads);
 			std::cout << "done" << std::endl;
 
+			ctx.add_profile_event(evt, KERNEL_COMPUTE_EVT());
+
 #ifdef DEBUG_OUT
 			std::cout << "Fetching prefix sum for pair gen...";
-			std::vector<uint> prefixSum(m_prefixSum.get_count());
-			transfer::download(m_prefixSum,prefixSum,ctx);
+			std::vector<uint> vPrefixSum(m_prefixSum.get_count());
+			transfer::download(m_prefixSum,vPrefixSum,ctx);
 			std::cout << "done" << std::endl;
 
 			std::cout << "Prefix sum: ";
-			for(auto i : prefixSum){
+			for(auto i : vPrefixSum){
 				std::cout << i << " ; ";
 			}
 			std::cout << std::endl;
@@ -101,17 +102,16 @@ public:
 #endif
 
 			//Calculate prefix sum
-			PrefixSum prefixSum(ctx);
-			int nFoundPairs = prefixSum.run(m_prefixSum, nThreads, true);
+			PrefixSum PrefixSum(ctx);
+			int nFoundPairs = PrefixSum.run(m_prefixSum, nThreads, true);
 
 #ifdef DEBUG_OUT
 			std::cout << "Fetching prefix sum for pair gen...";
-			std::vector<uint> prefixSum(m_prefixSum.get_count());
-			transfer::download(m_prefixSum,prefixSum,ctx);
+			transfer::download(m_prefixSum,vPrefixSum,ctx);
 			std::cout << "done" << std::endl;
 
 			std::cout << "Prefix sum: ";
-			for(auto i : prefixSum){
+			for(auto i : vPrefixSum){
 				std::cout << i << " ; ";
 			}
 			std::cout << std::endl;
@@ -122,7 +122,7 @@ public:
 
 
 			std::cout << "Running pair gen store kernel...";
-			pairStore.run(
+			evt = pairStore.run(
 					//configuration
 					layers[0], layers[1],
 					layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()),
@@ -134,6 +134,8 @@ public:
 					nThreads);
 			std::cout << "done" << std::endl;
 
+			ctx.add_profile_event(evt, KERNEL_STORE_EVT());
+
 #ifdef DEBUG_OUT
 			std::cout << "Fetching pairs...";
 			std::vector<uint2> pairs(nFoundPairs);
@@ -141,15 +143,15 @@ public:
 			std::cout <<"done[" << pairs.size() << "]" << std::endl;
 
 			std::cout << "Pairs:" << std::endl;
-			for(uint2 i : pairs){
-				std::cout << i.x << "-" << i.y << std::endl;
+			for(uint i = 0; i < nFoundPairs; ++i){
+				std::cout << "[" << i << "] "  << pairs[i].x << "-" << pairs[i].y << std::endl;
 			}
 #endif
 
 			return m_pairs;
 		}
 
-	KERNEL13_CLASS( pairSectorGen, uint, uint, cl_mem, cl_mem,  cl_mem, cl_float, cl_float, uint, uint, uint, cl_mem, cl_mem, cl_mem,
+	KERNEL14_CLASS( pairSectorGen, uint, uint, cl_mem, cl_mem,  cl_mem, cl_float, cl_float, uint, uint, uint, cl_mem, cl_mem, cl_mem, cl_mem,
 			__kernel void pairSectorGen(
 					//configuration
 					uint layer1, uint layer2, __global const uint * layerHits, __global const uint * layerOffsets,
@@ -157,7 +159,7 @@ public:
 					//how many sectors to cover
 					uint spread,
 					//hit z
-					__global const float * hitGlobalZ,
+					__global const float * hitGlobalZ, __global const uint * hitId,
 					__global uint * oracle, __global uint * prefixSum )
 	{
 		const size_t gid = get_global_id( 0 );
@@ -169,7 +171,7 @@ public:
 		uint hits2 = layerHits[layer2-1];
 		uint offset2 = layerOffsets[layer2-1];
 
-		uint workload = (hits1) / threads + 1;
+		uint workload = hits1 / threads + 1;
 		uint i = gid * workload;
 		uint end = min(i + workload, hits1); // for last thread, if not a full workload is present
 		uint nFound = 0;
@@ -178,12 +180,12 @@ public:
 
 		for(; i < end; ++i){
 
-			uint minSector = floor((hitGlobalZ[i] - minZ) / sectorSizeZ);
-			uint maxSector = min(minSector + spread, nSectorsZ);
-			minSector = max(0u, minSector-spread);
+			uint minSectorBorder = floor((hitGlobalZ[offset1 + i] - minZ) / sectorSizeZ); //register used to store sector
+			uint maxSectorBorder = min(minSectorBorder + spread+1, nSectorsZ); // upper sector border equals sectorNumber + 1
+			minSectorBorder = max(0u, minSectorBorder-spread); //lower sector border equals sectorNumber
 
-			for(uint j = sectorBoundaries[(layer1-1)*(nSectorsZ+1)*(nSectorsPhi+1) + minSector*(nSectorsPhi+1)];
-					j < sectorBoundaries[(layer1-1)*(nSectorsZ+1)*(nSectorsPhi+1) + maxSector*(nSectorsPhi+1)];
+			for(uint j = sectorBoundaries[(layer2-1)*(nSectorsZ+1)*(nSectorsPhi+1) + minSectorBorder*(nSectorsPhi+1)];
+					j < sectorBoundaries[(layer2-1)*(nSectorsZ+1)*(nSectorsPhi+1) + maxSectorBorder*(nSectorsPhi+1)];
 					++j){
 
 				++nFound;
@@ -196,7 +198,9 @@ public:
 
 		} // end workload loop
 
-		prefixSum[gid] += nFound;
+		prefixSum[gid] = nFound;
+
+		//printf("[%lu] Found %u pairs\n", gid, nFound);
 	});
 
 	KERNEL7_CLASS( pairStore, uint, uint, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
@@ -217,26 +221,29 @@ public:
 		uint hits2 = layerHits[layer2-1];
 		uint offset2 = layerOffsets[layer2-1];
 
-		uint workload = (hits1*hits2) / threads + 1;
+		uint workload = hits1 / threads + 1;
 		uint i = gid * workload;
-		uint end = min(i + workload, hits1*hits2); // for last thread, if not a full workload is present
+		uint end = min(i + workload, hits1); // for last thread, if not a full workload is present
 
 		uint pos = prefixSum[gid];
 
-		for(; (i < end) & (pos < prefixSum[gid+1]); ++i){ // pos < prefixSum[id+1] can lead to thread divergence
+		for(; i < end; ++i){
+			for(uint j = 0; j < hits2 && pos < prefixSum[gid+1]; ++j){ // pos < prefixSum[id+1] can lead to thread divergence
 
-			//is this a valid triplet?
-			bool valid = oracle[i / 32] & (1 << (i % 32));
+				//is this a valid triplet?
+				uint index = i * hits2 + j;
+				bool valid = oracle[index / 32] & (1 << (index % 32));
 
-			//last triplet written on [pos] is valid one
-			pairs[pos].x = valid * (offset1 + (i / hits2));
-			pairs[pos].y = valid * (offset2 + (i % hits2));
+				//last triplet written on [pos] is valid one
+				pairs[pos].x = valid * (offset1 + i);
+				pairs[pos].y = valid * (offset2 + j);
 
-			//if(valid)
-			//	printf("[ %lu ] Written at %i: %i-%i-%i\n", id, pos, trackletHitId1[pos],trackletHitId2[pos],trackletHitId3[pos]);
+				//if(valid)
+				//printf("[ %lu ] Written at %i: %i-%i\n", gid, pos, pairs[pos].x,pairs[pos].y);
 
-			//advance pos if valid
-			pos += valid;
+				//advance pos if valid
+				pos += valid;
+			}
 		}
 		});
 
