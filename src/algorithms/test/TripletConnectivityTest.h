@@ -159,10 +159,10 @@ TEST( TripletConnectivity, test_run )
 			testSupport.trFollowing);
 
 	// check if the connectivity has been increased correctly
-	auto it = testSupport.trFollowing.getIterator();
-	GTEST_ASSERT_EQ( 1, it.getValue<TrackletConnectivity>( ));
+	auto it = testSupport.trFollowing.begin();
+	GTEST_ASSERT_EQ( 1, it->getValue<TrackletConnectivity>( ));
 	it++;
-	GTEST_ASSERT_EQ( 0, it.getValue<TrackletConnectivity>( ));
+	GTEST_ASSERT_EQ( 0, it->getValue<TrackletConnectivity>( ));
 }
 
 TEST( TripletConnectivity, test_run_backward )
@@ -180,10 +180,10 @@ TEST( TripletConnectivity, test_run_backward )
 			testSupport.trFollowing);
 
 	// check if the connectivity has been increased correctly
-	auto it = testSupport.trFollowing.getIterator();
-	GTEST_ASSERT_EQ( 1, it.getValue<TrackletConnectivity>( ));
+	auto it = testSupport.trFollowing.begin();
+	GTEST_ASSERT_EQ( 1, it->getValue<TrackletConnectivity>( ));
 	it++;
-	GTEST_ASSERT_EQ( 0, it.getValue<TrackletConnectivity>( ));
+	GTEST_ASSERT_EQ( 0, it->getValue<TrackletConnectivity>( ));
 }
 
 TEST( TripletConnectivity, test_run_multilayer )
@@ -212,14 +212,14 @@ TEST( TripletConnectivity, test_run_multilayer )
 
 	// check if the connectivity has been increased correctly
 	// the first one should be the tracklet which is part of a track
-	auto it = testSupport.trFollowingThree.getIterator();
-	GTEST_ASSERT_EQ( 3, it.getValue<TrackletConnectivity>( ));
+	auto it = testSupport.trFollowingThree.begin();
+	GTEST_ASSERT_EQ( 3, it->getValue<TrackletConnectivity>( ));
 	it++;
-	GTEST_ASSERT_EQ( 0, it.getValue<TrackletConnectivity>( ));
+	GTEST_ASSERT_EQ( 0, it->getValue<TrackletConnectivity>( ));
 	it++;
-	GTEST_ASSERT_EQ( 0, it.getValue<TrackletConnectivity>( ));
+	GTEST_ASSERT_EQ( 0, it->getValue<TrackletConnectivity>( ));
 	it++;
-	GTEST_ASSERT_EQ( 1, it.getValue<TrackletConnectivity>( ));
+	GTEST_ASSERT_EQ( 1, it->getValue<TrackletConnectivity>( ));
 }
 
 TEST( TripletConnectivity, test_run_tight_multilayer )
@@ -248,14 +248,14 @@ TEST( TripletConnectivity, test_run_tight_multilayer )
 
 	// check if the connectivity has been increased correctly
 	// the first one should be the tracklet which is part of a track
-	auto it = testSupport.trFollowingThree.getIterator();
-	GTEST_ASSERT_EQ( 3, it.getValue<TrackletConnectivity>( ));
+	auto it = testSupport.trFollowingThree.begin();
+	GTEST_ASSERT_EQ( 3, it->getValue<TrackletConnectivity>( ));
 	it++;
-	GTEST_ASSERT_EQ( 0, it.getValue<TrackletConnectivity>( ));
+	GTEST_ASSERT_EQ( 0, it->getValue<TrackletConnectivity>( ));
 	it++;
-	GTEST_ASSERT_EQ( 0, it.getValue<TrackletConnectivity>( ));
+	GTEST_ASSERT_EQ( 0, it->getValue<TrackletConnectivity>( ));
 	it++;
-	GTEST_ASSERT_EQ( 0, it.getValue<TrackletConnectivity>( ));
+	GTEST_ASSERT_EQ( 0, it->getValue<TrackletConnectivity>( ));
 }
 
 //global variables
