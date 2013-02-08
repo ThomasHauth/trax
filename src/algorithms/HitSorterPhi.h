@@ -38,10 +38,13 @@ public:
 	static std::string KERNEL_COMPUTE_EVT() {return "SORT_PHI_COMPUTE";}
 	static std::string KERNEL_STORE_EVT() {return "";}
 
-	cl_ulong run(HitCollection & hits, int nThreads, uint maxLayer, const LayerSupplement & layerSupplement, const Grid & grid)
+	cl_ulong run(HitCollection & hits, uint nThreads, uint maxLayer, const LayerSupplement & layerSupplement, const Grid & grid)
 	{
 
+		nThreads = min(nThreads, sortingPhi_kernel.getWorkGroupSize());
+
 		std::vector<cl_event> events;
+
 		for(uint layer = 1; layer <= maxLayer; ++layer){
 			cl_event evt = sortingPhi_kernel.run(
 					//configuration

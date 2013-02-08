@@ -52,10 +52,11 @@ public:
 		return run(input, input.get_count(), nThreads, storeTotalInLastElement);
 	}
 
-	uint run(clever::vector<uint,1> & input, const uint size, const uint nThreads, const bool storeTotalInLastElement = false)
+	uint run(clever::vector<uint,1> & input, const uint size, uint nThreads, const bool storeTotalInLastElement = false)
 	{
 
 		uint lSize = size - storeTotalInLastElement;
+		nThreads = min(nThreads, prefixSumKernel.getWorkGroupSize());
 
 		cl_bool clStoreTotalInLastElement = storeTotalInLastElement ? CL_TRUE : CL_FALSE;
 

@@ -53,8 +53,10 @@ public:
 		return n;
 	}
 
-	cl_ulong run(HitCollection & hits, int nThreads, uint maxLayer, const LayerSupplement & layerSupplement, Grid & grid)
+	cl_ulong run(HitCollection & hits, uint nThreads, uint maxLayer, const LayerSupplement & layerSupplement, Grid & grid)
 	{
+
+		nThreads = min(nThreads, selectionPhi_kernel.getWorkGroupSize());
 
 		std::vector<cl_event> events;
 		for(uint layer = 1; layer <= maxLayer; ++layer){

@@ -38,8 +38,10 @@ public:
 	static std::string KERNEL_COMPUTE_EVT() {return "SORT_Z_COMPUTE";}
 	static std::string KERNEL_STORE_EVT() {return "";}
 
-	cl_ulong run(HitCollection & hits, int nThreads, uint maxLayer, const LayerSupplement & layerSupplement)
+	cl_ulong run(HitCollection & hits, uint nThreads, uint maxLayer, const LayerSupplement & layerSupplement)
 	{
+
+		nThreads = min(nThreads, sortingZ_kernel.getWorkGroupSize());
 
 		std::vector<cl_event> events;
 		for(uint layer = 1; layer <= maxLayer; ++layer){
