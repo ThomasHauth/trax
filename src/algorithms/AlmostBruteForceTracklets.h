@@ -120,12 +120,17 @@ public:
 								hitGlobalX[thirdHit] * hitGlobalX[thirdHit] + hitGlobalY[thirdHit] * hitGlobalY[thirdHit]);
 
 						//span two vectors
-						float3 a = pP2 - pP1;
-						float3 b = pP3 - pP1;
+
+						/// DONT COMMIT commented because not commited in clever right now
+						//
+						//float3 a = pP2 - pP1;
+						//float3 b = pP3 - pP1;
+						float3 a;
+						float3 b;
 
 						//compute unit cross product
-						float3 n = cross(a,b);
-						n = normalize(n);
+						float3 n;// dito = cross(a,b);
+						//n = normalize(n);
 
 						//formula for orign and radius of circle from Strandlie et al.
 						float2 cOrigin = (float2) ((-n.x) / (2*n.z),
