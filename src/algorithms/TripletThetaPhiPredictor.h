@@ -271,8 +271,8 @@ public:
 			 */
 			for(uint zSector = zLowSector; zSector < zHighSector; ++ zSector){
 
-				uint j = sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zLowSector*(nSectorsPhi+1)+phiLowSector];
-				uint end2 = sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zHighSector*(nSectorsPhi+1)+phiHighSector];
+				uint j = sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zSector*(nSectorsPhi+1)+phiLowSector];
+				uint end2 = sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zSector*(nSectorsPhi+1)+phiHighSector];
 				for(; j < end2; ++j){
 					// check z range
 					uint index = offset+j;
