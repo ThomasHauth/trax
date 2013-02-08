@@ -67,7 +67,8 @@ public:
 		cl_event evt = tripletThetaPhiPredict.run(
 				//detector geometry
 				geom.transfer.buffer(RadiusDict()), dict.transfer.buffer(Radius()), geomSupplement.transfer.buffer(MinRadius()), geomSupplement.transfer.buffer(MaxRadius()),
-				grid.config.MIN_Z, grid.config.sectorSizeZ, grid.transfer.buffer(Boundary()), grid.config.nSectorsZ, grid.config.nSectorsPhi,
+				grid.config.MIN_Z, grid.config.sectorSizeZ, grid.config.MIN_PHI, grid.config.sectorSizePhi,
+				grid.transfer.buffer(Boundary()), grid.config.nSectorsZ, grid.config.nSectorsPhi,
 				//configuration
 				dThetaWindow, dPhiWindow,
 				pairs.get_count(),
@@ -157,12 +158,12 @@ public:
 		return m_triplets;
 	}
 
-	KERNEL23_CLASS( tripletThetaPhiPredict, cl_mem, cl_mem, cl_mem, cl_mem, float, float, cl_mem, uint, uint, double, double, uint,  cl_mem, uint, uint, uint, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL25_CLASS( tripletThetaPhiPredict, cl_mem, cl_mem, cl_mem, cl_mem, float, float, float, float, cl_mem, uint, uint, double, double, uint,  cl_mem, uint, uint, uint, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
 
 	__kernel void tripletThetaPhiPredict(
 					//detector geometry
 					__global const uchar * detRadius, __global const float * radiusDict,__global const float * minLayerRadius, __global const float * maxLayerRadius,
-					float minZ, float sectorSizeZ, __global const uint * sectorBoundaries, uint nSectorsZ, uint nSectorsPhi,
+					float minZ, float sectorSizeZ, float minPhi, float sectorSizePhi, __global const uint * sectorBoundaries, uint nSectorsZ, uint nSectorsPhi,
 					//configuration
 					double dThetaWindow, double dPhiWindow, uint nPairs,
 					// hit input
@@ -186,8 +187,6 @@ public:
 		uint rejZ = 0;
 		uint rejP = 0;
 		uint rejB = 0;*/
-
-		uint cOverflow = 0;
 
 		//printf("id %lu threads %lu workload %i start %i end %i maxEnd %i \n", id, threads, workload, i, end, nPairs);
 
@@ -224,15 +223,13 @@ public:
 			float phi = atan2((hitGlobalY[secondHit] - hitGlobalY[firstHit]) , ( hitGlobalX[secondHit] - hitGlobalX[firstHit] ));
 
 			tmp = (1-dPhiWindow) * phi;
-			//tmp -= (tmp > M_PI_F) * 2 * M_PI_F;
-			//tmp += (tmp < -M_PI_F) * 2 * M_PI_F;
+			tmp -= (tmp > M_PI_F) * 2 * M_PI_F;
+			tmp += (tmp < -M_PI_F) * 2 * M_PI_F;
 			float phiHigh = (1+dPhiWindow) * phi;
-			//phiHigh -= (phiHigh > M_PI_F) * 2 * M_PI_F;
-			//phiHigh += (phiHigh < -M_PI_F) * 2 * M_PI_F;
+			phiHigh -= (phiHigh > M_PI_F) * 2 * M_PI_F;
+			phiHigh += (phiHigh < -M_PI_F) * 2 * M_PI_F;
 			float phiLow = (tmp < phiHigh) * tmp + (tmp > phiHigh) * phiHigh;
 			phiHigh = (tmp < phiHigh) * phiHigh + (tmp > phiHigh) * tmp;
-
-			cOverflow += (fabs(phiLow) > M_PI_F ) || (fabs(phiHigh) > M_PI_F);
 
 			//radius
 			float r = signRadius * radiusDict[detRadius[detId[secondHit]]];
@@ -262,74 +259,78 @@ public:
 			uint zLowSector = max((int) floor((zLow - minZ) / sectorSizeZ), 0); // signed int because zLow could be lower than minZ
 			uint zHighSector = min((uint) floor((zHigh - minZ) / sectorSizeZ)+1, nSectorsZ);
 
-			//loop over compatible third hits
-			//TODO[gpu] store hits in more suitable data structure, with phi pre-calculated and (z,phi) sorted
+			uint phiLowSector = max((int) floor((phiLow - minPhi) / sectorSizePhi), 0); // signed int because zLow could be lower than minZ
+			uint phiHighSector = min((uint) floor((phiHigh - minPhi) / sectorSizePhi)+1, nSectorsPhi);
+
 			uint j = sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zLowSector*(nSectorsPhi+1)];
 			uint end2 = sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zHighSector*(nSectorsPhi+1)];
 
 			/*if(hitId[firstHit] ==238 && hitId[secondHit] == 238)
 				printf("theta: %f - %f - %f; z[%f]: %f - %f; sector: %u - %u; hits %u (%u) - %u (%u)\n",
 						(1-dThetaWindow) * theta, theta,  (1+dThetaWindow) * theta, hitGlobalZ[secondHit], zLow, zHigh, zLowSector, zHighSector, j, offset + j, end2, offset+end2);
-			*/
+			 */
+			for(uint zSector = zLowSector; zSector < zHighSector; ++ zSector){
 
-			for(; j < end2; ++j){
-				// check z range
-				uint index = offset+j;
+				uint j = sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zLowSector*(nSectorsPhi+1)+phiLowSector];
+				uint end2 = sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zHighSector*(nSectorsPhi+1)+phiHighSector];
+				for(; j < end2; ++j){
+					// check z range
+					uint index = offset+j;
 
-				bool valid = zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh;
-//#define DEVICE_CPU
+					bool valid = zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh;
+					//#define DEVICE_CPU
 #ifdef DEVICE_CPU
-				if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[offset+j]){
-					printf("%i-%i-%i [%i]: z exp[%f]: %f - %f; z act: %f\n", firstHit, secondHit, offset+j, hitId[firstHit], hitGlobalZ[secondHit], zLow, zHigh, hitGlobalZ[offset+j]);
-					float thetaAct = atan2(sign(hitGlobalY[offset+j])*sqrt((hitGlobalX[offset+j] - hitGlobalX[secondHit])*(hitGlobalX[offset+j] - hitGlobalX[secondHit])
-							+ (hitGlobalY[offset+j] - hitGlobalY[secondHit])*(hitGlobalY[offset+j] - hitGlobalY[secondHit]))
-							, ( hitGlobalZ[offset+j] - hitGlobalZ[secondHit] ));
-					//if(!(thetaLow <= thetaAct && thetaAct <= thetaHigh))
-					printf("\ttheta exp[%f]: %f - %f; theta act: %f\n", theta, atan(1/cotThetaLow), atan(1/cotThetaHigh), thetaAct);
-					//else {
-					float r2 = sqrt(hitGlobalX[secondHit]*hitGlobalX[secondHit] + hitGlobalY[secondHit]*hitGlobalY[secondHit]);
-					float r3 = sqrt(hitGlobalX[offset+j]*hitGlobalX[offset+j] + hitGlobalY[offset+j]*hitGlobalY[offset+j]);
+					if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[offset+j]){
+						printf("%i-%i-%i [%i]: z exp[%f]: %f - %f; z act: %f\n", firstHit, secondHit, offset+j, hitId[firstHit], hitGlobalZ[secondHit], zLow, zHigh, hitGlobalZ[offset+j]);
+						float thetaAct = atan2(sign(hitGlobalY[offset+j])*sqrt((hitGlobalX[offset+j] - hitGlobalX[secondHit])*(hitGlobalX[offset+j] - hitGlobalX[secondHit])
+								+ (hitGlobalY[offset+j] - hitGlobalY[secondHit])*(hitGlobalY[offset+j] - hitGlobalY[secondHit]))
+								, ( hitGlobalZ[offset+j] - hitGlobalZ[secondHit] ));
+						//if(!(thetaLow <= thetaAct && thetaAct <= thetaHigh))
+						printf("\ttheta exp[%f]: %f - %f; theta act: %f\n", theta, atan(1/cotThetaLow), atan(1/cotThetaHigh), thetaAct);
+						//else {
+						float r2 = sqrt(hitGlobalX[secondHit]*hitGlobalX[secondHit] + hitGlobalY[secondHit]*hitGlobalY[secondHit]);
+						float r3 = sqrt(hitGlobalX[offset+j]*hitGlobalX[offset+j] + hitGlobalY[offset+j]*hitGlobalY[offset+j]);
 
-					printf("\tdr exp: %f - %f; dr act: %f\n", dRmin, dRmax, r3-r2);
-					//}
-				}
+						printf("\tdr exp: %f - %f; dr act: %f\n", dRmin, dRmax, r3-r2);
+						//}
+					}
 #endif
 
-				// check phi range
-				float actPhi = atan2(hitGlobalY[index],hitGlobalX[index]);
-				valid = valid * (phiLow <= actPhi && actPhi <= phiHigh);
+					// check phi range
+					float actPhi = atan2(hitGlobalY[index],hitGlobalX[index]);
+					valid = valid * (phiLow <= actPhi && actPhi <= phiHigh);
 
 #ifdef DEVICE_CPU
-				if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[offset+j]){
-					printf("%i-%i-%i [%i]: phi exp: %f - %f; phi act: %f\n", firstHit, secondHit, offset+j, hitId[firstHit], phiLow, phiHigh, actPhi);
-					//}
-				}
+					if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[offset+j]){
+						printf("%i-%i-%i [%i]: phi exp: %f - %f; phi act: %f\n", firstHit, secondHit, offset+j, hitId[firstHit], phiLow, phiHigh, actPhi);
+						//}
+					}
 #endif
 
-				/* 124 special
+					/* 124 special
 				if(hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[offset+j] && hitId[firstHit] == 124){
 					rejZ += (zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh);
 					rejP += ((phiLow <= actPhi && actPhi <= phiHigh));
 					rejB += (((zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh)) && (phiLow <= actPhi && actPhi <= phiHigh));
 				}*/
 
-				//if valid update nFound
-				nFound = nFound + valid;
+					//if valid update nFound
+					nFound = nFound + valid;
 
-				//update oracle
-				index = i*nThirdHits + j;
-				atomic_or(&oracle[index / 32], (valid << (index % 32)));
+					//update oracle
+					index = i*nThirdHits + j;
+					atomic_or(&oracle[index / 32], (valid << (index % 32)));
 
-				//if(valid)
+					//if(valid)
 					//printf("[ %lu ] Found valid candidate %i (%i-%i-%i). Word %i Bit %i\n", id, index, firstHit, secondHit, offset+j, index / 32, index % 32);
-			} // end hit loop
+				} // end hit loop
+			} // end sector loop
 
 		} //end workload loop
 
 		prefixSum[gid] = nFound;
 
 		//printf("[%lu] rejZ: %u, rejP: %u, rejB: %u\n", gid, rejZ, rejP, rejB);
-		printf("[%lu] number overflows in phi: %u\n", gid, cOverflow);
 	});
 
 	KERNEL7_CLASS( tripletThetaPhiPredictStore, uint, uint, uint, cl_mem, cl_mem, cl_mem, cl_mem,
