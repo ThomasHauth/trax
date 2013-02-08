@@ -19,19 +19,23 @@ void generatHitTestData(HitCollection & ht, const unsigned int hitCount = 20000)
 HitCollection::tTrackList loadHitDataFromPB(HitCollection &ht, std::string filename, const DetectorGeometry & geom, LayerSupplement & layerSupplement,
 		float minPt = 0, int numTracks = -1, bool onlyTracks = false, uint maxLayer = 99) {
 
+	HitCollection::tTrackList result;
+
 	PB_Event::PEventContainer pContainer;
 	std::fstream in(filename, std::ios::in | std::ios::binary);
 
 	if(!pContainer.ParseFromIstream(&in)){
 		std::cerr << "Could not read protocol buffer" << std::endl;
-		return HitCollection::tTrackList();
+		return result;
 	}
 
 	for(auto event : pContainer.events()){
-		return ht.addEvent(event, geom, layerSupplement, minPt, numTracks, onlyTracks, maxLayer);
+		HitCollection::tTrackList evt = ht.addEvent(event, geom, layerSupplement, minPt, numTracks, onlyTracks, maxLayer);
+
+		result.insert(evt.begin(), evt.end());
 	}
 
-	return HitCollection::tTrackList();
+	return result;
 
 }
 

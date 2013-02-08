@@ -46,7 +46,8 @@ public:
 	static std::string KERNEL_STORE_EVT() {return "TripletThetaPhiFilter_STORE";}
 
 	TrackletCollection * run(HitCollection & hits, const DetectorGeometry & geom, const GeometrySupplement & geomSupplement, const Dictionary & dict,
-			int nThreads, int layers[], const LayerSupplement & layerSupplement, const Grid & grid, float dThetaCut, float dPhiCut, int pairSpreadZ)
+			int nThreads, int layers[], const LayerSupplement & layerSupplement, const Grid & grid,
+			float dThetaCut, float dThetaWindow, float dPhiCut, float dPhiWindow, int pairSpreadZ)
 	{
 
 		//clever::vector<uint2,1> * m_pairs = generateAllPairs(hits, nThreads, layers, layerSupplement);
@@ -55,8 +56,6 @@ public:
 
 		//clever::vector<uint2,1> * m_triplets = generateAllTriplets(hits, nThreads, layers, hitCount, 1.2*dThetaCut, 1.2*dPhiCut, *m_pairs);
 		TripletThetaPhiPredictor predictor(ctx);
-		float dThetaWindow = 0.1;
-		float dPhiWindow = 0.1;
 		clever::vector<uint2,1> * m_triplets = predictor.run(hits, geom, geomSupplement, dict, nThreads, layers, layerSupplement, grid, dThetaWindow, dPhiWindow, *m_pairs);
 		int nTripletCandidates = m_triplets->get_count();
 

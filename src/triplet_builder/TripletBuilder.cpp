@@ -67,10 +67,9 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	//load detectorGeometry
 	DetectorGeometry geom;
 
-	std::map<uint, float> maxRadius;
-
+	std::map<uint, std::pair<float, float> > exRadius; //min, max
 	for(int i = 1; i <= 13; ++i){
-		maxRadius[i]= 0;
+		exRadius[i]= std::make_pair(10000.0, 0.0);
 	}
 
 	std::ifstream detectorGeometryFile("detectorRadius.dat");
@@ -83,15 +82,17 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 		geom.addWithValue(detId, layer, dictEntry);
 		DictionaryEntry entry(dict, dictEntry);
 
-		if(entry.radius() > maxRadius[layer])
-			maxRadius[layer] = entry.radius();
+		if(entry.radius() > exRadius[layer].second) //maxiRadius
+			exRadius[layer].second = entry.radius();
+		if(entry.radius() < exRadius[layer].first) //minRadius
+			exRadius[layer].first = entry.radius();
 
 	}
 	detectorGeometryFile.close();
 
 	GeometrySupplement geomSupplement;
-	for(auto mr : maxRadius){
-		geomSupplement.addWithValue(mr.first, mr.second);
+	for(auto mr : exRadius){
+		geomSupplement.addWithValue(mr.first, mr.second.first, mr.second.second);
 	}
 
 	//configure hit loader
@@ -312,14 +313,16 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 
 	int layers[] = {1,2,3};
 
-	float dTheta = 0.01;
-	float dPhi = 0.1;
+	float dThetaCut = 0.05;
+	float dThetaWindow = 0.1;
+	float dPhiCut = 0.1;
+	float dPhiWindow = 0.1;
 	int pairSpreadZ = 1;
 
 	//run it
 	TripletThetaPhiFilter tripletThetaPhi(*contx);
 	TrackletCollection * tracklets = tripletThetaPhi.run(hits, geom, geomSupplement, dict, threads, layers,
-			layerSupplement, grid, dTheta, dPhi, pairSpreadZ);
+			layerSupplement, grid, dThetaCut, dThetaWindow, dPhiCut, dPhiWindow, pairSpreadZ);
 
 	//evaluate it
 	std::set<uint> foundTracks;

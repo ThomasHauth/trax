@@ -9,11 +9,16 @@
 
 #include "CommonTypes.h"
 
+struct MinRadius: public clever::FloatItem
+{
+
+};
+
 struct MaxRadius: public clever::FloatItem
 {
 };
 
-#define GEOMETRY_SUPPLEMENT_ITEMS DetectorLayer, MaxRadius
+#define GEOMETRY_SUPPLEMENT_ITEMS DetectorLayer, MinRadius, MaxRadius
 
 typedef clever::Collection<GEOMETRY_SUPPLEMENT_ITEMS> GeometrySupplementItems;
 
