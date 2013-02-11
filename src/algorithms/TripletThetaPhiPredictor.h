@@ -262,9 +262,6 @@ public:
 			uint phiLowSector = max((int) floor((phiLow - minPhi) / sectorSizePhi), 0); // signed int because zLow could be lower than minZ
 			uint phiHighSector = min((uint) floor((phiHigh - minPhi) / sectorSizePhi)+1, nSectorsPhi);
 
-			uint j = sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zLowSector*(nSectorsPhi+1)];
-			uint end2 = sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zHighSector*(nSectorsPhi+1)];
-
 			/*if(hitId[firstHit] ==238 && hitId[secondHit] == 238)
 				printf("theta: %f - %f - %f; z[%f]: %f - %f; sector: %u - %u; hits %u (%u) - %u (%u)\n",
 						(1-dThetaWindow) * theta, theta,  (1+dThetaWindow) * theta, hitGlobalZ[secondHit], zLow, zHigh, zLowSector, zHighSector, j, offset + j, end2, offset+end2);

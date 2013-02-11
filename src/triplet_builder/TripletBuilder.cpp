@@ -103,7 +103,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	Grid grid(maxLayer, nSectorsZ,nSectorsPhi);
 
 	HitCollection hits;
-	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "hitsPXB.pb", geom, layerSupplement, minPt, tracks,true, maxLayer);
+	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "hitsPXB_1k_SingleMu.pb", geom, layerSupplement, minPt, tracks,true, maxLayer);
 
 	std::cout << "Loaded " << validTracks.size() << " tracks with minPt " << minPt << " GeV and " << hits.size() << " hits" << std::endl;
 
