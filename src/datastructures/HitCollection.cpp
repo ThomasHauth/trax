@@ -47,6 +47,11 @@ HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event,
 		//skip unassociated hits
 		if(onlyTracks && itTrack->first == 0)
 			continue;
+
+		//TODO[gpu] REMOVE again - intermediate fix for singleMu
+		if(onlyTracks && itTrack->first == 1)
+					continue;
+
 		//skip tracks with missing hits
 		if(onlyTracks){
 			uint covLayers = 0;

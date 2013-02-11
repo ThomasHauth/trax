@@ -450,7 +450,7 @@ int main(int argc, char *argv[]) {
 
 	if(vm.count("testSuite")){
 
-		uint testCases[] = {1, 10, 50, 100, 200, 400, 600, 800 };
+		uint testCases[] = {1, 10, 50, 100, 200, 300, 500 };
 
 		std::ofstream results("timings.csv", std::ios::trunc);
 
