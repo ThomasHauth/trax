@@ -434,9 +434,9 @@ int main(int argc, char *argv[]) {
 			("minPt", po::value<float>(&minPt)->default_value(1.0), "minimum track Pt")
 			("tracks", po::value<uint>(&tracks)->default_value(100), "number of valid tracks to load")
 			("threads", po::value<uint>(&threads)->default_value(256), "number of threads to use")
-			("silent", po::value<bool>(&silent)->zero_tokens(), "supress all messages from TripletFinder")
-			("verbose", po::value<bool>(&verbose)->zero_tokens(), "elaborate information")
-			("use-cpu", po::value<bool>(&useCPU)->zero_tokens(), "force using CPU instead of GPU")
+			("silent", po::value<bool>(&silent)->default_value(false)->zero_tokens(), "supress all messages from TripletFinder")
+			("verbose", po::value<bool>(&verbose)->default_value(false)->zero_tokens(), "elaborate information")
+			("use-cpu", po::value<bool>(&useCPU)->default_value(false)->zero_tokens(), "force using CPU instead of GPU")
 			("testSuite", "run entire testSuite");
 
 	po::variables_map vm;
@@ -450,7 +450,7 @@ int main(int argc, char *argv[]) {
 
 	if(vm.count("testSuite")){
 
-		uint testCases[] = {1, 10, 50, 100, 200, 300, 500 };
+		uint testCases[] = {1, 10, 50, 100, 200, 400, 600, 800 };
 
 		std::ofstream results("timings.csv", std::ios::trunc);
 
@@ -459,7 +459,7 @@ int main(int argc, char *argv[]) {
 		for(uint i : testCases){
 			RuntimeRecord res = buildTriplets(i,minPt, threads, useCPU);
 
-			results << res.nTracks << ", " << res.totalDataTransfer() << ", " << res.buildGrid << ", " << res.totalPairGen() << ", " << res.totalTripletPredict() << ", " << res.totalTripletCheck() << ", "  << res.totalComputation() << ", " << res.totalRuntime()
+			results << i << ", " << res.totalDataTransfer() << ", " << res.buildGrid << ", " << res.totalPairGen() << ", " << res.totalTripletPredict() << ", " << res.totalTripletCheck() << ", "  << res.totalComputation() << ", " << res.totalRuntime()
 						<< ", " << res.efficiency << ", " << res.fakeRate << std::endl;
 		}
 
