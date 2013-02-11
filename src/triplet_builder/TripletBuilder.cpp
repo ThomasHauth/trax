@@ -34,18 +34,27 @@
 #include "lib/ccolor.h"
 #include "lib/CSV.h"
 
-RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose = false) {
+RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose = false, bool useCPU = false) {
 	//
 	clever::context *contx;
-	try{
-		//try gpu
-		clever::context_settings settings = clever::context_settings::default_gpu();
-		settings.m_profile = true;
 
-		contx = new clever::context(settings);
-		std::cout << "Using GPGPU" << std::endl;
-	} catch (const std::runtime_error & e){
-		//if not use cpu
+	if(useCPU){
+		try{
+			//try gpu
+			clever::context_settings settings = clever::context_settings::default_gpu();
+			settings.m_profile = true;
+
+			contx = new clever::context(settings);
+			std::cout << "Using GPGPU" << std::endl;
+		} catch (const std::runtime_error & e){
+			//if not use cpu
+			clever::context_settings settings = clever::context_settings::default_cpu();
+			settings.m_profile = true;
+
+			contx = new clever::context(settings);
+			std::cout << "Using CPU" << std::endl;
+		}
+	} else {
 		clever::context_settings settings = clever::context_settings::default_cpu();
 		settings.m_profile = true;
 
@@ -417,6 +426,7 @@ int main(int argc, char *argv[]) {
 	uint threads;
 	bool silent;
 	bool verbose;
+	bool useCPU;
 
 	po::options_description desc("Allowed Options");
 	desc.add_options()
@@ -426,6 +436,7 @@ int main(int argc, char *argv[]) {
 			("threads", po::value<uint>(&threads)->default_value(256), "number of threads to use")
 			("silent", po::value<bool>(&silent)->zero_tokens(), "supress all messages from TripletFinder")
 			("verbose", po::value<bool>(&verbose)->zero_tokens(), "elaborate information")
+			("use-cpu", po::value<bool>(&useCPU)->zero_tokens(), "force using CPU instead of GPU")
 			("testSuite", "run entire testSuite");
 
 	po::variables_map vm;
@@ -446,7 +457,7 @@ int main(int argc, char *argv[]) {
 		results << "#nTracks, dataTransfer, buildGrid, pairGen, tripletPredict, tripletFilter, computation, runtime, efficiency, fakeRate" << std::endl;
 
 		for(uint i : testCases){
-			RuntimeRecord res = buildTriplets(i,minPt, threads);
+			RuntimeRecord res = buildTriplets(i,minPt, threads, useCPU);
 
 			results << res.nTracks << ", " << res.totalDataTransfer() << ", " << res.buildGrid << ", " << res.totalPairGen() << ", " << res.totalTripletPredict() << ", " << res.totalTripletCheck() << ", "  << res.totalComputation() << ", " << res.totalRuntime()
 						<< ", " << res.efficiency << ", " << res.fakeRate << std::endl;
@@ -464,7 +475,7 @@ int main(int argc, char *argv[]) {
 		std::cout.rdbuf(devNull.rdbuf());
 	}
 
-	RuntimeRecord res = buildTriplets(tracks,minPt, threads, verbose);
+	RuntimeRecord res = buildTriplets(tracks,minPt, threads, verbose, useCPU);
 
 	if(silent){
 		std::cout.rdbuf(coutSave);
