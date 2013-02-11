@@ -349,19 +349,36 @@ public:
 			uint end = min(i + workload, nPairs); // for last thread, if not a full workload is present
 
 			uint pos = prefixSum[id];
+			uint nextThread = prefixSum[id+1];
+
+			//performance gain?
+			uint byte = (i*nThirdHits) / 32;
+			uint bit = (i*nThirdHits) % 32;
+			uint sOracle = oracle[byte];
 
 			for(; i < end; ++i){
 
-				for(uint j = 0; j < nThirdHits && pos < prefixSum[id+1]; ++j){ // pos < prefixSum[id+1] can lead to thread divergence
+				for(uint j = 0; j < nThirdHits && pos < nextThread; ++j){ // pos < prefixSum[id+1] can lead to thread divergence
 
 					//is this a valid triplet?
-					uint index = i*nThirdHits+j;
-					bool valid = oracle[index / 32] & (1 << (index % 32));
+					//uint index = i*nThirdHits+j;
+					//bool valid = oracle[index / 32] & (1 << (index % 32));
+
+					//performance gain?
+					bool valid = sOracle & (1 << bit);
+					++bit;
+					if(bit == 32){
+						bit = 0;
+						++byte;
+						sOracle=oracle[byte];
+					}
 
 					//last triplet written on [pos] is valid one
-					index = offset + j;
-					triplets[pos].x = valid * i;
-					triplets[pos].y = valid * index;
+					uint index = offset + j;
+					if(valid){
+						triplets[pos].x = valid * i;
+						triplets[pos].y = valid * index;
+					}
 
 					//if(valid)
 					//	printf("[ %lu ] Written at %i: %i-%i-%i\n", id, pos, trackletHitId1[pos],trackletHitId2[pos],trackletHitId3[pos]);
