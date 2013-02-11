@@ -38,7 +38,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	//
 	clever::context *contx;
 
-	if(useCPU){
+	if(!useCPU){
 		try{
 			//try gpu
 			clever::context_settings settings = clever::context_settings::default_gpu();
