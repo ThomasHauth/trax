@@ -112,7 +112,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	Grid grid(maxLayer, nSectorsZ,nSectorsPhi);
 
 	HitCollection hits;
-	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "hitsPXB_1k_SingleMu.pb", geom, layerSupplement, minPt, tracks,true, maxLayer);
+	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "hitsPXB.pb", geom, layerSupplement, minPt, tracks,true, maxLayer);
 
 	std::cout << "Loaded " << validTracks.size() << " tracks with minPt " << minPt << " GeV and " << hits.size() << " hits" << std::endl;
 
@@ -329,9 +329,15 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	int pairSpreadZ = 1;
 
 	//run it
+	PairGeneratorSector pairGen(*contx);
+	clever::vector<uint2,1> * pairs = pairGen.run(hits, threads, layers, layerSupplement , grid, pairSpreadZ);
+
+	TripletThetaPhiPredictor predictor(*contx);
+	clever::vector<uint2,1> * tripletCandidates = predictor.run(hits, geom, geomSupplement, dict, threads, layers, layerSupplement, grid, dThetaWindow, dPhiWindow, *pairs);
+
 	TripletThetaPhiFilter tripletThetaPhi(*contx);
-	TrackletCollection * tracklets = tripletThetaPhi.run(hits, geom, geomSupplement, dict, threads, layers,
-			layerSupplement, grid, dThetaCut, dThetaWindow, dPhiCut, dPhiWindow, pairSpreadZ);
+	TrackletCollection * tracklets = tripletThetaPhi.run(hits, geom, geomSupplement, dict, pairs, tripletCandidates,
+			threads, layers, layerSupplement, grid, dThetaCut, dThetaWindow, dPhiCut, dPhiWindow, pairSpreadZ);
 
 	//evaluate it
 	std::set<uint> foundTracks;
@@ -412,6 +418,8 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	std::cout << pinfo.runtime() << " ns" << std::endl;
 
 	delete tracklets;
+	delete pairs;
+	delete tripletCandidates;
 	delete contx;
 
 	return result;

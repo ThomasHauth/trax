@@ -46,18 +46,11 @@ public:
 	static std::string KERNEL_STORE_EVT() {return "TripletThetaPhiFilter_STORE";}
 
 	TrackletCollection * run(HitCollection & hits, const DetectorGeometry & geom, const GeometrySupplement & geomSupplement, const Dictionary & dict,
+			clever::vector<uint2,1> * pairs, clever::vector<uint2,1> * tripletCandidates,
 			int nThreads, int layers[], const LayerSupplement & layerSupplement, const Grid & grid,
 			float dThetaCut, float dThetaWindow, float dPhiCut, float dPhiWindow, int pairSpreadZ)
 	{
-
-		//clever::vector<uint2,1> * m_pairs = generateAllPairs(hits, nThreads, layers, layerSupplement);
-		PairGeneratorSector pairGen(ctx);
-		clever::vector<uint2,1> * m_pairs = pairGen.run(hits, nThreads, layers, layerSupplement , grid, pairSpreadZ);
-
-		//clever::vector<uint2,1> * m_triplets = generateAllTriplets(hits, nThreads, layers, hitCount, 1.2*dThetaCut, 1.2*dPhiCut, *m_pairs);
-		TripletThetaPhiPredictor predictor(ctx);
-		clever::vector<uint2,1> * m_triplets = predictor.run(hits, geom, geomSupplement, dict, nThreads, layers, layerSupplement, grid, dThetaWindow, dPhiWindow, *m_pairs);
-		int nTripletCandidates = m_triplets->get_count();
+		int nTripletCandidates = tripletCandidates->get_count();
 
 		std::cout << "Initializing oracle...";
 		clever::vector<uint, 1> m_oracle(0, std::ceil(nTripletCandidates / 32.0), ctx);
@@ -73,7 +66,7 @@ public:
 				dThetaCut, dPhiCut,
 				nTripletCandidates,
 				// input
-				m_pairs->get_mem(), m_triplets->get_mem(),
+				pairs->get_mem(), tripletCandidates->get_mem(),
 				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
 				// output
 				m_oracle.get_mem(), m_prefixSum.get_mem(),
@@ -133,7 +126,7 @@ public:
 				//configuration
 				nTripletCandidates,
 				//input
-				m_pairs->get_mem(), m_triplets->get_mem(),
+				pairs->get_mem(), tripletCandidates->get_mem(),
 				m_oracle.get_mem(), m_prefixSum.get_mem(),
 				//output
 				// output
@@ -147,10 +140,6 @@ public:
 		std::cout << "Fetching triplets...";
 		tracklets->transfer.fromDevice(ctx, *tracklets);
 		std::cout <<"done[" << tracklets->size() << "]" << std::endl;
-
-		//clean up
-		delete m_pairs;
-		delete m_triplets;
 
 		return tracklets;
 	}

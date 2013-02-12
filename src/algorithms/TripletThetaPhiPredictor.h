@@ -219,18 +219,6 @@ public:
 			//int thetaHighSgn = 1 - (fabs(thetaHigh) > M_PI_2_F) * 2;
 			//thetaHigh = (fabs(thetaHigh) <= M_PI_2_F) * thetaHigh + (fabs(thetaHigh) > M_PI_2_F) * (sign(thetaHigh)*M_PI_F - thetaHigh);
 
-			//phi
-			float phi = atan2((hitGlobalY[secondHit] - hitGlobalY[firstHit]) , ( hitGlobalX[secondHit] - hitGlobalX[firstHit] ));
-
-			tmp = (1-dPhiWindow) * phi;
-			tmp -= (tmp > M_PI_F) * 2 * M_PI_F;
-			tmp += (tmp < -M_PI_F) * 2 * M_PI_F;
-			float phiHigh = (1+dPhiWindow) * phi;
-			phiHigh -= (phiHigh > M_PI_F) * 2 * M_PI_F;
-			phiHigh += (phiHigh < -M_PI_F) * 2 * M_PI_F;
-			float phiLow = (tmp < phiHigh) * tmp + (tmp > phiHigh) * phiHigh;
-			phiHigh = (tmp < phiHigh) * phiHigh + (tmp > phiHigh) * tmp;
-
 			//radius
 			float r = signRadius * radiusDict[detRadius[detId[secondHit]]];
 			float dRmax = signRadius * maxLayerRadius[layer3-1] - r;
@@ -259,34 +247,74 @@ public:
 			uint zLowSector = max((int) floor((zLow - minZ) / sectorSizeZ), 0); // signed int because zLow could be lower than minZ
 			uint zHighSector = min((uint) floor((zHigh - minZ) / sectorSizeZ)+1, nSectorsZ);
 
-			uint phiLowSector = max((int) floor((phiLow - minPhi) / sectorSizePhi), 0); // signed int because zLow could be lower than minZ
+			//phi
+			float phi = atan2((hitGlobalY[secondHit] - hitGlobalY[firstHit]) , ( hitGlobalX[secondHit] - hitGlobalX[firstHit] ));
+
+			tmp = (1-dPhiWindow) * phi; //phi low may be smaller than -PI
+			float phiHigh = (1+dPhiWindow) * phi; // phi high may be greater than PI
+			float phiLow = (tmp < phiHigh) * tmp + (tmp > phiHigh) * phiHigh; //we sort before handling wrap around
+			phiHigh = (tmp < phiHigh) * phiHigh + (tmp > phiHigh) * tmp; // if wrap around occurs, phiLow will be second quadrant and phiHigh will be third quadrant
+
+			if(hitId[firstHit] ==20 && hitId[secondHit] == 20)
+				printf("phi: %f, phiPred: %f - %f; ",
+						phi, phiLow, phiHigh);
+
+			//deal with wrap around
+			bool wrapAround = phiLow < -M_PI_F || phiHigh > M_PI_F || phiLow > M_PI_F || phiHigh < -M_PI_F;
+
+			phiLow -= (phiLow > M_PI_F) * 2 * M_PI_F;
+			phiLow += (phiLow < -M_PI_F) * 2 * M_PI_F;
+
+			phiHigh -= (phiHigh > M_PI_F) * 2 * M_PI_F;
+			phiHigh += (phiHigh < -M_PI_F) * 2 * M_PI_F;
+
+			if(hitId[firstHit] ==20 && hitId[secondHit] == 20)
+				printf("phiWrapped: %f - %f; ",
+						phiLow, phiHigh);
+
+			uint phiLowSector= max((uint) floor((phiLow - minPhi) / sectorSizePhi), 0u);
 			uint phiHighSector = min((uint) floor((phiHigh - minPhi) / sectorSizePhi)+1, nSectorsPhi);
 
-			/*if(hitId[firstHit] ==238 && hitId[secondHit] == 238)
-				printf("theta: %f - %f - %f; z[%f]: %f - %f; sector: %u - %u; hits %u (%u) - %u (%u)\n",
-						(1-dThetaWindow) * theta, theta,  (1+dThetaWindow) * theta, hitGlobalZ[secondHit], zLow, zHigh, zLowSector, zHighSector, j, offset + j, end2, offset+end2);
-			 */
+			if(hitId[firstHit] ==20 && hitId[secondHit] == 20)
+				printf("phiSectors: %u - %u ",
+						phiLowSector, phiHighSector);
+
 			for(uint zSector = zLowSector; zSector < zHighSector; ++ zSector){
 
+				uint zSectorStart = sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + (zSector)*(nSectorsPhi+1)];
+				uint zSectorEnd = sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + (zSector+1)*(nSectorsPhi+1)];
+				uint zSectorLength = zSectorEnd - zSectorStart;
+
 				uint j = sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zSector*(nSectorsPhi+1)+phiLowSector];
-				uint end2 = sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zSector*(nSectorsPhi+1)+phiHighSector];
+				uint end2 = wrapAround * zSectorEnd + //add end of layer
+						sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zSector*(nSectorsPhi+1)+phiHighSector] //actual end of sector
+						                 - wrapAround * (zSectorStart); //substract start of zSector
+
+				if(hitId[firstHit] ==20 && hitId[secondHit] == 20)
+					printf("hits: %u (%u) - %u (%u), sectorEnd: %u (%u)\n",
+							j, offset + (j%zSectorEnd), end2, offset + (zSectorStart + end2%zSectorEnd), zSectorEnd, offset + zSectorEnd);
+
+
 				for(; j < end2; ++j){
 					// check z range
-					uint index = offset+j;
+					uint index = offset + j - (j >= zSectorEnd) * zSectorLength;
+					if(hitId[firstHit] ==20 && hitId[secondHit] == 20)
+						printf("index: %u (%u)\n",
+								index, j);
 
 					bool valid = zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh;
-					//#define DEVICE_CPU
+					#define DEVICE_CPU
 #ifdef DEVICE_CPU
-					if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[offset+j]){
-						printf("%i-%i-%i [%i]: z exp[%f]: %f - %f; z act: %f\n", firstHit, secondHit, offset+j, hitId[firstHit], hitGlobalZ[secondHit], zLow, zHigh, hitGlobalZ[offset+j]);
-						float thetaAct = atan2(sign(hitGlobalY[offset+j])*sqrt((hitGlobalX[offset+j] - hitGlobalX[secondHit])*(hitGlobalX[offset+j] - hitGlobalX[secondHit])
-								+ (hitGlobalY[offset+j] - hitGlobalY[secondHit])*(hitGlobalY[offset+j] - hitGlobalY[secondHit]))
-								, ( hitGlobalZ[offset+j] - hitGlobalZ[secondHit] ));
+					if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[index]){
+						printf("%i-%i-%i [%i]: z exp[%f]: %f - %f; z act: %f\n", firstHit, secondHit, index, hitId[firstHit], hitGlobalZ[secondHit], zLow, zHigh, hitGlobalZ[index]);
+						float thetaAct = atan2(sign(hitGlobalY[index])*sqrt((hitGlobalX[index] - hitGlobalX[secondHit])*(hitGlobalX[index] - hitGlobalX[secondHit])
+								+ (hitGlobalY[index] - hitGlobalY[secondHit])*(hitGlobalY[index] - hitGlobalY[secondHit]))
+								, ( hitGlobalZ[index] - hitGlobalZ[secondHit] ));
 						//if(!(thetaLow <= thetaAct && thetaAct <= thetaHigh))
 						printf("\ttheta exp[%f]: %f - %f; theta act: %f\n", theta, atan(1/cotThetaLow), atan(1/cotThetaHigh), thetaAct);
 						//else {
 						float r2 = sqrt(hitGlobalX[secondHit]*hitGlobalX[secondHit] + hitGlobalY[secondHit]*hitGlobalY[secondHit]);
-						float r3 = sqrt(hitGlobalX[offset+j]*hitGlobalX[offset+j] + hitGlobalY[offset+j]*hitGlobalY[offset+j]);
+						float r3 = sqrt(hitGlobalX[index]*hitGlobalX[index] + hitGlobalY[index]*hitGlobalY[index]);
 
 						printf("\tdr exp: %f - %f; dr act: %f\n", dRmin, dRmax, r3-r2);
 						//}
@@ -295,11 +323,12 @@ public:
 
 					// check phi range
 					float actPhi = atan2(hitGlobalY[index],hitGlobalX[index]);
-					valid = valid * (phiLow <= actPhi && actPhi <= phiHigh);
+					valid = valid * ((!wrapAround && (phiLow <= actPhi && actPhi <= phiHigh))
+							|| (wrapAround && ((phiLow <= actPhi && actPhi <= M_PI_F) || (-M_PI_F <= actPhi && actPhi <= phiHigh))));
 
 #ifdef DEVICE_CPU
-					if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[offset+j]){
-						printf("%i-%i-%i [%i]: phi exp: %f - %f; phi act: %f\n", firstHit, secondHit, offset+j, hitId[firstHit], phiLow, phiHigh, actPhi);
+					if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[index]){
+						printf("%i-%i-%i [%i]: phi exp: %f - %f; phi act: %f\n", firstHit, secondHit, index, hitId[firstHit], phiLow, phiHigh, actPhi);
 						//}
 					}
 #endif
@@ -311,11 +340,15 @@ public:
 					rejB += (((zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh)) && (phiLow <= actPhi && actPhi <= phiHigh));
 				}*/
 
+					if(hitId[firstHit] ==20 && hitId[secondHit] == 20 && hitId[index] == 20)
+						printf("valid: %i\n",
+								valid);
+
 					//if valid update nFound
 					nFound = nFound + valid;
 
 					//update oracle
-					index = i*nThirdHits + j;
+					index = i*nThirdHits + j - (j >= zSectorEnd) * zSectorLength;
 					atomic_or(&oracle[index / 32], (valid << (index % 32)));
 
 					//if(valid)
