@@ -199,7 +199,8 @@ public:
 		const size_t lid = get_local_id( 0 );
 		const size_t threads = get_global_size( 0 );
 
-		uint workload = nTriplets / threads + 1;
+		uint workload = nTriplets / threads + 1; //nTriplets/threads may loose the last couple candidates
+		workload = ((workload - 1) / 32 +1) * 32; //make it a multiple of 32 --> no atomic needed
 		uint i = gid * workload;
 		uint end = min(i + workload, nTriplets); // for last thread, if not a full workload is present
 		uint nValid = 0;
@@ -238,7 +239,8 @@ public:
 			//if(valid)
 			//	printf("[ %lu ] Found valid track %i (%i-%i-%i). Word %i Bit %i\n", id, i, firstHit, secondHit, thirdHit, i / 32, i % 32);
 
-			atomic_or(&oracle[i / 32], (valid << (i % 32)));
+			//atomic_or(&oracle[i / 32], (valid << (i % 32)));
+			oracle[i / 32] |= (valid << (i % 32));
 
 		} // end triplet candidate loop
 
@@ -259,7 +261,8 @@ public:
 			size_t id = get_global_id( 0 );
 			size_t threads = get_global_size( 0 );
 
-			uint workload = nTriplets / threads + 1;
+			uint workload = nTriplets / threads + 1; //nTriplets/threads may loose the last couple candidates
+			workload = ((workload - 1) / 32 +1) * 32; //make it a multiple of 32 --> no atomic needed
 			uint i = id * workload;
 			uint end = min(i + workload, nTriplets); // for last thread, if not a full workload is present
 
@@ -279,7 +282,7 @@ public:
 				//performance gain?
 				bool valid = sOracle & (1 << bit);
 				++bit;
-				if(bit == 32){
+				if(bit == 32){ //no divergence, all threads enter branch at the same time
 					bit = 0;
 					++byte;
 					sOracle=oracle[byte];
