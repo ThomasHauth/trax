@@ -255,10 +255,6 @@ public:
 			float phiLow = (tmp < phiHigh) * tmp + (tmp > phiHigh) * phiHigh; //we sort before handling wrap around
 			phiHigh = (tmp < phiHigh) * phiHigh + (tmp > phiHigh) * tmp; // if wrap around occurs, phiLow will be second quadrant and phiHigh will be third quadrant
 
-			if(hitId[firstHit] ==20 && hitId[secondHit] == 20)
-				printf("phi: %f, phiPred: %f - %f; ",
-						phi, phiLow, phiHigh);
-
 			//deal with wrap around
 			bool wrapAround = phiLow < -M_PI_F || phiHigh > M_PI_F || phiLow > M_PI_F || phiHigh < -M_PI_F;
 
@@ -268,16 +264,8 @@ public:
 			phiHigh -= (phiHigh > M_PI_F) * 2 * M_PI_F;
 			phiHigh += (phiHigh < -M_PI_F) * 2 * M_PI_F;
 
-			if(hitId[firstHit] ==20 && hitId[secondHit] == 20)
-				printf("phiWrapped: %f - %f; ",
-						phiLow, phiHigh);
-
 			uint phiLowSector= max((uint) floor((phiLow - minPhi) / sectorSizePhi), 0u);
 			uint phiHighSector = min((uint) floor((phiHigh - minPhi) / sectorSizePhi)+1, nSectorsPhi);
-
-			if(hitId[firstHit] ==20 && hitId[secondHit] == 20)
-				printf("phiSectors: %u - %u ",
-						phiLowSector, phiHighSector);
 
 			for(uint zSector = zLowSector; zSector < zHighSector; ++ zSector){
 
@@ -290,20 +278,11 @@ public:
 						sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zSector*(nSectorsPhi+1)+phiHighSector] //actual end of sector
 						                 - wrapAround * (zSectorStart); //substract start of zSector
 
-				if(hitId[firstHit] ==20 && hitId[secondHit] == 20)
-					printf("hits: %u (%u) - %u (%u), sectorEnd: %u (%u)\n",
-							j, offset + (j%zSectorEnd), end2, offset + (zSectorStart + end2%zSectorEnd), zSectorEnd, offset + zSectorEnd);
-
-
 				for(; j < end2; ++j){
 					// check z range
 					uint index = offset + j - (j >= zSectorEnd) * zSectorLength;
-					if(hitId[firstHit] ==20 && hitId[secondHit] == 20)
-						printf("index: %u (%u)\n",
-								index, j);
-
 					bool valid = zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh;
-					#define DEVICE_CPU
+//#define DEVICE_CPU
 #ifdef DEVICE_CPU
 					if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[index]){
 						printf("%i-%i-%i [%i]: z exp[%f]: %f - %f; z act: %f\n", firstHit, secondHit, index, hitId[firstHit], hitGlobalZ[secondHit], zLow, zHigh, hitGlobalZ[index]);
@@ -332,17 +311,6 @@ public:
 						//}
 					}
 #endif
-
-					/* 124 special
-				if(hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[offset+j] && hitId[firstHit] == 124){
-					rejZ += (zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh);
-					rejP += ((phiLow <= actPhi && actPhi <= phiHigh));
-					rejB += (((zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh)) && (phiLow <= actPhi && actPhi <= phiHigh));
-				}*/
-
-					if(hitId[firstHit] ==20 && hitId[secondHit] == 20 && hitId[index] == 20)
-						printf("valid: %i\n",
-								valid);
 
 					//if valid update nFound
 					nFound = nFound + valid;
