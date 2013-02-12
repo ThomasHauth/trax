@@ -226,17 +226,34 @@ public:
 		uint end = min(i + workload, hits1); // for last thread, if not a full workload is present
 
 		uint pos = prefixSum[gid];
+		uint nextThread = prefixSum[gid+1];
+
+		//performance gain?
+		uint byte = (i*hits2) / 32;
+		uint bit = (i*hits2) % 32;
+		uint sOracle = oracle[byte];
 
 		for(; i < end; ++i){
-			for(uint j = 0; j < hits2 && pos < prefixSum[gid+1]; ++j){ // pos < prefixSum[id+1] can lead to thread divergence
+			for(uint j = 0; j < hits2 && pos < nextThread; ++j){ // pos < prefixSum[id+1] can lead to thread divergence
 
 				//is this a valid triplet?
-				uint index = i * hits2 + j;
-				bool valid = oracle[index / 32] & (1 << (index % 32));
+				//uint index = i * hits2 + j;
+				//bool valid = oracle[index / 32] & (1 << (index % 32));
+
+				//performance gain?
+				bool valid = sOracle & (1 << bit);
+				++bit;
+				if(bit == 32){
+					bit = 0;
+					++byte;
+					sOracle=oracle[byte];
+				}
 
 				//last triplet written on [pos] is valid one
-				pairs[pos].x = valid * (offset1 + i);
-				pairs[pos].y = valid * (offset2 + j);
+				if(valid){
+					pairs[pos].x = valid * (offset1 + i);
+					pairs[pos].y = valid * (offset2 + j);
+				}
 
 				//if(valid)
 				//printf("[ %lu ] Written at %i: %i-%i\n", gid, pos, pairs[pos].x,pairs[pos].y);
