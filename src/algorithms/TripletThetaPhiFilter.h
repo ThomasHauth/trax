@@ -48,7 +48,7 @@ public:
 	TrackletCollection * run(HitCollection & hits, const DetectorGeometry & geom, const GeometrySupplement & geomSupplement, const Dictionary & dict,
 			clever::vector<uint2,1> * pairs, clever::vector<uint2,1> * tripletCandidates,
 			int nThreads, int layers[], const LayerSupplement & layerSupplement, const Grid & grid,
-			float dThetaCut, float dThetaWindow, float dPhiCut, float dPhiWindow, int pairSpreadZ)
+			float dThetaCut, float dPhiCut, float tipCut)
 	{
 		int nTripletCandidates = tripletCandidates->get_count();
 
@@ -63,7 +63,7 @@ public:
 		std::cout << "Running filter kernel...";
 		cl_event evt = tripletThetaPhiCheck.run(
 				//configuration
-				dThetaCut, dPhiCut,
+				dThetaCut, dPhiCut, tipCut,
 				nTripletCandidates,
 				// input
 				pairs->get_mem(), tripletCandidates->get_mem(),
@@ -185,10 +185,10 @@ public:
 		return m_triplets;
 	}
 
-	KERNEL10_CLASS( tripletThetaPhiCheck, float, float, uint, cl_mem, cl_mem,  cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL11_CLASS( tripletThetaPhiCheck, float, float, float, uint, cl_mem, cl_mem,  cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
 			__kernel void tripletThetaPhiCheck(
 					//configuration
-					float dThetaCut, float dPhiCut, uint nTriplets,
+					float dThetaCut, float dPhiCut, float tipCut, uint nTriplets,
 					// hit input
 					__global const uint2 * pairs, __global const uint2 * triplets,
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
@@ -232,6 +232,46 @@ public:
 
 			ratio = angle2/angle1;
 			valid = valid * (1-dPhiCut <= ratio && ratio <= 1+dPhiCut);
+
+			//circle fit
+			//map points to parabloid: (x,y) -> (x,y,x^2+y^2)
+			float3 pP1 = (float3) (hitGlobalX[firstHit],
+					hitGlobalY[firstHit],
+					hitGlobalX[firstHit] * hitGlobalX[firstHit] + hitGlobalY[firstHit] * hitGlobalY[firstHit]);
+
+			float3 pP2 = (float3) (hitGlobalX[secondHit],
+					hitGlobalY[secondHit],
+					hitGlobalX[secondHit] * hitGlobalX[secondHit] + hitGlobalY[secondHit] * hitGlobalY[secondHit]);
+
+			float3 pP3 = (float3) (hitGlobalX[thirdHit],
+					hitGlobalY[thirdHit],
+					hitGlobalX[thirdHit] * hitGlobalX[thirdHit] + hitGlobalY[thirdHit] * hitGlobalY[thirdHit]);
+
+			//span two vectors
+			float3 a = pP2 - pP1;
+			float3 b = pP3 - pP1;
+
+			//compute unit cross product
+			float3 n = cross(a,b);
+			n = normalize(n);
+
+			//formula for orign and radius of circle from Strandlie et al.
+			float2 cOrigin = (float2) ((-n.x) / (2*n.z),
+					(-n.y) / (2*n.z));
+
+			float c = -(n.x*pP1.x + n.y*pP1.y + n.z*pP1.z);
+
+			float cR = sqrt((1 - n.z*n.z - 4 * c * n.z) / (4*n.z*n.z));
+
+			//find point of closest approach to (0,0) = cOrigin + cR * unitVec(toOrigin)
+			float2 v = -cOrigin; v = normalize(v);
+			float2 pCA = (float2) (cOrigin.x + cR*v.x,
+					cOrigin.y + cR*v.y);
+
+			//TIP = distance of point of closest approach to origin
+			float tip = sqrt(pCA.x*pCA.x + pCA.y*pCA.y);
+
+			valid = valid * (tip <= tipCut);
 
 			//found good triplet?
 			nValid += + valid;

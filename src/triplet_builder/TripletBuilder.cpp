@@ -327,6 +327,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	float dPhiCut = 0.1;
 	float dPhiWindow = 0.1;
 	int pairSpreadZ = 1;
+	float tipCut = 1;
 
 	//run it
 	PairGeneratorSector pairGen(*contx);
@@ -337,7 +338,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 
 	TripletThetaPhiFilter tripletThetaPhi(*contx);
 	TrackletCollection * tracklets = tripletThetaPhi.run(hits, geom, geomSupplement, dict, pairs, tripletCandidates,
-			threads, layers, layerSupplement, grid, dThetaCut, dThetaWindow, dPhiCut, dPhiWindow, pairSpreadZ);
+			threads, layers, layerSupplement, grid, dThetaCut, dPhiCut, tipCut);
 
 	//evaluate it
 	std::set<uint> foundTracks;
