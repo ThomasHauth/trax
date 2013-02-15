@@ -69,22 +69,22 @@ public:
 	{
 	}
 
-	float hit1() const
+	uint hit1() const
 	{
 		return getValue<TrackletHit1>();
 	}
 
-	float hit2() const
+	uint hit2() const
 	{
 		return getValue<TrackletHit2>();
 	}
 
-	float hit3() const
+	uint hit3() const
 	{
 		return getValue<TrackletHit3>();
 	}
 
-	float id() const {
+	uint id() const {
 		return getValue<TrackletId>();
 	}
 

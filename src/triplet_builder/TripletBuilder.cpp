@@ -34,6 +34,54 @@
 #include "lib/ccolor.h"
 #include "lib/CSV.h"
 
+float getTIP(const Hit & p1, const Hit & p2, const Hit & p3){
+	//circle fit
+	//map points to parabloid: (x,y) -> (x,y,x^2+y^2)
+	float3 pP1 (p1.globalX(),
+			p1.globalY(),
+			p1.globalX() * p1.globalX() + p1.globalY() * p1.globalY());
+
+	float3 pP2 (p2.globalX(),
+			p2.globalY(),
+			p2.globalX() * p2.globalX() + p2.globalY() * p2.globalY());
+
+	float3 pP3 (p3.globalX(),
+			p3.globalY(),
+			p3.globalX() * p3.globalX() + p3.globalY() * p3.globalY());
+
+	//span two vectors
+	float3 a(pP2.x - pP1.x, pP2.y - pP1.y, pP2.z - pP1.z);
+	float3 b(pP3.x - pP1.x, pP3.y - pP1.y, pP3.z - pP1.z);
+
+	//compute unit cross product
+	float3 n(a.y*b.z - a.z*b.y,
+			 a.z*b.x - a.x*b.z,
+			 a.x*b.y - a.y*b.x );
+	float value = sqrt(n.x*n.x+n.y*n.y+n.z*n.z);
+	n.x /= value; n.y /= value; n.z /= value;
+
+	//formula for orign and radius of circle from Strandlie et al.
+	float2 cOrigin((-n.x) / (2*n.z),
+				   (-n.y) / (2*n.z));
+
+	float c = -(n.x*pP1.x + n.y*pP1.y + n.z*pP1.z);
+
+	float cR = sqrt((1 - n.z*n.z - 4 * c * n.z) / (4*n.z*n.z));
+
+	//find point of closest approach to (0,0) = cOrigin + cR * unitVec(toOrigin)
+	float2 v(-cOrigin.x, -cOrigin.y);
+	value = sqrt(v.x*v.x+v.y*v.y);
+	v.x /= value; v.y /= value;;
+
+	float2 pCA = (cOrigin.x + cR*v.x,
+			cOrigin.y + cR*v.y);
+
+	//TIP = distance of point of closest approach to origin
+	float tip = sqrt(pCA.x*pCA.x + pCA.y*pCA.y);
+
+	return tip;
+}
+
 RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose = false, bool useCPU = false) {
 	//
 	clever::context *contx;
@@ -112,7 +160,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	Grid grid(maxLayer, nSectorsZ,nSectorsPhi);
 
 	HitCollection hits;
-	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "hitsPXB.pb", geom, layerSupplement, minPt, tracks,true, maxLayer);
+	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "hitsPXB.sim.pb", geom, layerSupplement, minPt, tracks,true, maxLayer);
 
 	std::cout << "Loaded " << validTracks.size() << " tracks with minPt " << minPt << " GeV and " << hits.size() << " hits" << std::endl;
 
@@ -327,7 +375,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	float dPhiCut = 0.1;
 	float dPhiWindow = 0.1;
 	int pairSpreadZ = 1;
-	float tipCut = 1;
+	float tipCut = 10;
 
 	//run it
 	PairGeneratorSector pairGen(*contx);
@@ -344,6 +392,9 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	std::set<uint> foundTracks;
 	uint fakeTracks = 0;
 
+	std::ofstream validTIP("validTIP.csv", std::ios::trunc);
+	std::ofstream fakeTIP("fakeTIP.csv", std::ios::trunc);
+
 	std::cout << "Found " << tracklets->size() << " triplets:" << std::endl;
 	for(uint i = 0; i < tracklets->size(); ++i){
 		Tracklet tracklet(*tracklets, i);
@@ -351,24 +402,33 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 		if(tracklet.isValid(hits)){
 			//valid triplet
 			foundTracks.insert(tracklet.trackId(hits));
+
+			validTIP << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())) << std::endl;
 			if(verbose){
 				std::cout << zkr::cc::fore::green;
 				std::cout << "Track " << tracklet.trackId(hits) << " : " << tracklet.hit1() << "-" << tracklet.hit2() << "-" << tracklet.hit3();
+				std::cout << " TIP: " << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
 				std::cout << zkr::cc::console << std::endl;
 			}
 		}
 		else {
 			//fake triplet
 			++fakeTracks;
+
+			fakeTIP << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())) << std::endl;
 			if(verbose){
 				std::cout << zkr::cc::fore::red;
 				std::cout << "Fake: " << tracklet.hit1() << "[" << hits.getValue(HitId(),tracklet.hit1()) << "]";
 				std::cout << "-" << tracklet.hit2() << "[" << hits.getValue(HitId(),tracklet.hit2()) << "]";
 				std::cout << "-" << tracklet.hit3() << "[" << hits.getValue(HitId(),tracklet.hit3()) << "]";
+				std::cout << " TIP: " << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
 				std::cout << zkr::cc::console << std::endl;
 			}
 		}
 	}
+
+	validTIP.close();
+	fakeTIP.close();
 
 	std::cout << "Efficiency: " << ((double) foundTracks.size()) / validTracks.size() << " FakeRate: " << ((double) fakeTracks) / tracklets->size() << std::endl;
 
