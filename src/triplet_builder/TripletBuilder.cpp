@@ -160,7 +160,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	Grid grid(maxLayer, nSectorsZ,nSectorsPhi);
 
 	HitCollection hits;
-	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "hitsPXB.sim.pb", geom, layerSupplement, minPt, tracks,true, maxLayer);
+	HitCollection::tTrackList validTracks = HitCollectionData::loadHitDataFromPB(hits, "hits_ttbar.reco.pb", geom, layerSupplement, minPt, tracks,true, maxLayer);
 
 	std::cout << "Loaded " << validTracks.size() << " tracks with minPt " << minPt << " GeV and " << hits.size() << " hits" << std::endl;
 
@@ -375,7 +375,7 @@ RuntimeRecord buildTriplets(uint tracks, float minPt, uint threads, bool verbose
 	float dPhiCut = 0.1;
 	float dPhiWindow = 0.1;
 	int pairSpreadZ = 1;
-	float tipCut = 10;
+	float tipCut = 0.75;
 
 	//run it
 	PairGeneratorSector pairGen(*contx);
