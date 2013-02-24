@@ -37,4 +37,41 @@ public:
 		return totalComputation() + totalDataTransfer();
 	}
 
+	RuntimeRecord operator+(const RuntimeRecord& rhs) const {
+		RuntimeRecord result(*this);
+
+		result.nTracks += rhs.nTracks;
+		result.dataTransferRead += rhs.dataTransferRead;
+		result.dataTransferWrite += rhs.dataTransferWrite;
+		result.pairGenComp += rhs.pairGenComp;
+		result.pairGenStore += rhs.pairGenStore;
+		result.tripletPredictComp += rhs.tripletPredictComp;
+		result.tripletPredictStore += rhs.tripletPredictStore;
+		result.tripletCheckComp += rhs.tripletCheckComp;
+		result.tripletCheckStore += rhs.tripletCheckStore;
+		result.buildGrid += rhs.buildGrid;
+
+		result.efficiency = (this->nTracks*this->efficiency + rhs.nTracks*rhs.efficiency) / result.nTracks;
+		result.fakeRate = (this->nTracks*this->fakeRate + rhs.nTracks*rhs.fakeRate) / result.nTracks;
+
+		return result;
+	}
+
+	void operator+=(const RuntimeRecord& rhs) {
+		this->dataTransferRead += rhs.dataTransferRead;
+		this->dataTransferWrite += rhs.dataTransferWrite;
+		this->pairGenComp += rhs.pairGenComp;
+		this->pairGenStore += rhs.pairGenStore;
+		this->tripletPredictComp += rhs.tripletPredictComp;
+		this->tripletPredictStore += rhs.tripletPredictStore;
+		this->tripletCheckComp += rhs.tripletCheckComp;
+		this->tripletCheckStore += rhs.tripletCheckStore;
+		this->buildGrid += rhs.buildGrid;
+
+		this->efficiency = (this->nTracks*this->efficiency + rhs.nTracks*rhs.efficiency) / (this->nTracks + rhs.nTracks);
+		this->fakeRate = (this->nTracks*this->fakeRate + rhs.nTracks*rhs.fakeRate) / (this->nTracks + rhs.nTracks);
+
+		this->nTracks += rhs.nTracks;
+	}
+
 };

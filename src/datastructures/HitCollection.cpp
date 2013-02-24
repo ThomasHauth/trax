@@ -41,42 +41,43 @@ HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event,
 					return a.layer() < b.layer();
 				});
 
-	tTrackList filteredTracks;
+	tTrackList layers; // hits bucket sorted into layers
+	tTrackList findableTracks; //findable tracks = collection of tracks that count towards efficiency
 	int foundTracks = 0; //found tracks initialized to 0; if no limit on track, i.e. numTracks=-1, found track will never be equal to numTracks
 	for(tTrackList::const_iterator itTrack = allTracks.begin(); itTrack != allTracks.end() && foundTracks != numTracks; ++itTrack){
 		//skip unassociated hits
 		if(onlyTracks && itTrack->first == 0)
 			continue;
 
-		//TODO[gpu] REMOVE again - intermediate fix for singleMu
-		if(onlyTracks && itTrack->first == 1)
-					continue;
-
-		//skip tracks with missing hits
-		if(onlyTracks){
-			uint covLayers = 0;
-			for(auto hit : itTrack->second){
-				if(hit.layer() == (covLayers + 1)){
-					++covLayers;
-				}
+		//check for missing hits
+		bool missingHits = false;
+		uint covLayers = 0;
+		for(auto hit : itTrack->second){
+			if(hit.layer() == (covLayers + 1)){
+				++covLayers;
 			}
-			if(covLayers < maxLayer)
-				continue;
 		}
+		if(covLayers < maxLayer)
+			missingHits = true;
+
 		//skip tracks with to low pt
 		if(itTrack->second[0].simtrackpt() < minPt)
 			continue;
 
 		//add all hits to track
-		for(auto & hit : itTrack->second)
-			filteredTracks[itTrack->first].push_back(hit);
+		for(auto & hit : itTrack->second){
+			if(!missingHits)
+				findableTracks[itTrack->first].push_back(hit);
+			else if(!onlyTracks)
+				layers[hit.layer()].push_back(hit);
+		}
 
-		++foundTracks;
+		if(!missingHits)
+			++foundTracks;
 	}
 
-	//bucket sort hits into layers
-	tTrackList layers;
-	for(tTrackList::const_iterator itTrack = filteredTracks.begin(); itTrack != filteredTracks.end(); ++itTrack){
+	//bucket sort findable trakc hits into layers
+	for(tTrackList::const_iterator itTrack = findableTracks.begin(); itTrack != findableTracks.end(); ++itTrack){
 
 		for (auto& hit : itTrack->second) {
 			if(hit.layer() <= maxLayer){
@@ -124,5 +125,5 @@ HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event,
 		}
 	}
 
-	return filteredTracks;
+	return findableTracks;
 }
