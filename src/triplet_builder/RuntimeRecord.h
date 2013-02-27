@@ -13,6 +13,23 @@ public:
 	float tripletCheckComp, tripletCheckStore;
 	float buildGrid;
 
+	RuntimeRecord() {
+		dataTransferRead =0;
+		dataTransferWrite =0;
+		pairGenComp =0;
+		pairGenStore =0;
+		tripletPredictComp =0;
+		tripletPredictStore =0;
+		tripletCheckComp =0;
+		tripletCheckStore =0;
+		buildGrid =0;
+
+		efficiency = 0;
+		fakeRate = 0;
+
+		nTracks =0;
+	}
+
 	float totalDataTransfer() const {
 		return dataTransferRead+dataTransferWrite;
 	}
