@@ -4,49 +4,50 @@
 #include <clever/clever.hpp>
 #include "CommonTypes.h"
 
-#define LAYER_SUPPLEMENT_COLLECTION_ITEMS NHits, Offset
 
-typedef clever::Collection<LAYER_SUPPLEMENT_COLLECTION_ITEMS> LayerSupplementItems;
+#define EVENT_SUPPLEMENT_COLLECTION_ITEMS NHits, Offset
 
-class LayerInfo;
+typedef clever::Collection<EVENT_SUPPLEMENT_COLLECTION_ITEMS> EventSupplementItems;
 
-class LayerSupplement: public LayerSupplementItems
+class EventInfo;
+
+class EventSupplement: public EventSupplementItems
 {
 public:
-	typedef LayerSupplementItems dataitems_type;
+	typedef EventSupplement dataitems_type;
 
-	LayerSupplement(uint _nLayers, uint _nEvents = 1) :
-			clever::Collection<LAYER_SUPPLEMENT_COLLECTION_ITEMS>(_nLayers*_nEvents), nLayers(_nLayers)
+	EventSupplement(uint _nEvents = 1) :
+			clever::Collection<EVENT_SUPPLEMENT_COLLECTION_ITEMS>(_nEvents), nEvents(_nEvents)
 	{
 
 	}
 
-	LayerInfo operator[](uint i);
-	const LayerInfo operator[](uint i) const;
+	EventInfo operator[](uint i);
+	const EventInfo operator[](uint i) const;
 
 public:
-	uint nLayers;
+	uint nEvents;
 
-	clever::OpenCLTransfer<LAYER_SUPPLEMENT_COLLECTION_ITEMS> transfer;
+	clever::OpenCLTransfer<EVENT_SUPPLEMENT_COLLECTION_ITEMS> transfer;
 };
 
-class LayerInfo: private clever::CollectionView<LayerSupplement>
+class EventInfo: private clever::CollectionView<EventSupplement>
 {
 public:
 // get a pointer to one hit in the collection
-	LayerInfo(LayerSupplement & collection, index_type i) :
-			clever::CollectionView<LayerSupplement>(collection, i)
+	EventInfo(EventSupplement & collection, index_type i) :
+			clever::CollectionView<EventSupplement>(collection, i)
 	{
 	}
 
-	LayerInfo(const LayerSupplement & collection, index_type i) :
-		clever::CollectionView<LayerSupplement>(collection, i)
+	EventInfo(const EventSupplement & collection, index_type i) :
+		clever::CollectionView<EventSupplement>(collection, i)
 		{
 		}
 
 // create a new hit in the collection
-	LayerInfo(LayerSupplement & collection) :
-			clever::CollectionView<LayerSupplement>(collection)
+	EventInfo(EventSupplement & collection) :
+			clever::CollectionView<EventSupplement>(collection)
 	{
 	}
 

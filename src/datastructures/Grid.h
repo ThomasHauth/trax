@@ -82,8 +82,8 @@ class Grid: public GridItems
 public:
 	typedef GridItems dataitems_type;
 
-	Grid(uint _nLayers, uint _nSectorsZ, uint _nSectorsPhi) :
-			clever::Collection<GRID_ITEMS>(_nLayers*(_nSectorsZ+1)*(_nSectorsPhi+1)),
+	Grid(uint _nLayers, uint _nSectorsZ, uint _nSectorsPhi, uint _nEvents = 1) :
+			clever::Collection<GRID_ITEMS>(_nEvents *_nLayers*(_nSectorsZ+1)*(_nSectorsPhi+1)),
 			config(_nLayers, _nSectorsZ, _nSectorsPhi)
 	{
 

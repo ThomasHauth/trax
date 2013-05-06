@@ -17,7 +17,7 @@ HitCollection::HitCollection(const PB_Event::PEvent & event)
 	//addEvent(event, DetectorGeometry(), LayerSupplement(0, 0));
 }
 
-HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event, const DetectorGeometry & geom, LayerSupplement & layerSupplement , float minPt,
+HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event, const DetectorGeometry & geom, EventSupplement & eventSupplement, uint evtInGroup, LayerSupplement & layerSupplement , float minPt,
 		int numTracks, bool onlyTracks, uint maxLayer) {
 
 	//associate hits to tracks
@@ -86,15 +86,18 @@ HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event,
 		}
 	}
 
-	//fill layer sizes
-	if(layerSupplement.size() > 0){
-		uint offset = 0;
-		for(uint i = 1; i <= maxLayer; ++i){
-			layerSupplement[i-1].setNHits(layers[i].size());
-			layerSupplement[i-1].setOffset(offset);
-			offset += layers[i].size();
-		}
+	//fill event and layer supplement
+	uint offset = 0;
+	for(uint i = 1; i <= maxLayer; ++i){
+		layerSupplement[evtInGroup * maxLayer + i-1].setNHits(layers[i].size());
+		layerSupplement[evtInGroup * maxLayer + i-1].setOffset(offset);
+		offset += layers[i].size();
 	}
+	//offset contains total number of hits for this event
+	eventSupplement[evtInGroup].setNHits(offset);
+	//use offset for evt offset computation
+	offset = evtInGroup > 0 ? eventSupplement[evtInGroup-1].getOffset() + eventSupplement[evtInGroup-1].getNHits() : 0;
+	eventSupplement[evtInGroup].setOffset(offset);
 
 #define OUT_BY_LAYER
 	//add hits in order of layers to HitCollection

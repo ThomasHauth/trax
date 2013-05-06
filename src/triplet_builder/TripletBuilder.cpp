@@ -14,23 +14,20 @@
 
 #include <clever/clever.hpp>
 
-#include <datastructures/test/HitCollectionData.h>
 #include <datastructures/HitCollection.h>
 #include <datastructures/TrackletCollection.h>
 #include <datastructures/DetectorGeometry.h>
 #include <datastructures/GeometrySupplement.h>
 #include <datastructures/Dictionary.h>
+#include <datastructures/EventSupplement.h>
 #include <datastructures/LayerSupplement.h>
 #include <datastructures/Grid.h>
 
 #include <datastructures/serialize/Event.pb.h>
 
 #include <algorithms/TripletThetaPhiFilter.h>
-#include <algorithms/HitSorterZ.h>
-#include <algorithms/HitSorterPhi.h>
+#include <algorithms/GridBuilder.h>
 #include <algorithms/PrefixSum.h>
-#include <algorithms/BoundarySelectionZ.h>
-#include <algorithms/BoundarySelectionPhi.h>
 
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
@@ -117,8 +114,8 @@ float getEtaBin(float eta){
 
 RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint threads, bool verbose = false, bool useCPU = false, int maxEvents = 1) {
 	//
+	std::cout << "Creating context for " << (useCPU ? "CPU" : "GPGPU") << "...";
 	clever::context *contx;
-
 	if(!useCPU){
 		try{
 			//try gpu
@@ -126,21 +123,21 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 			settings.m_profile = true;
 
 			contx = new clever::context(settings);
-			std::cout << "Using GPGPU" << std::endl;
+			std::cout << "success" << std::endl;
 		} catch (const std::runtime_error & e){
 			//if not use cpu
 			clever::context_settings settings = clever::context_settings::default_cpu();
 			settings.m_profile = true;
 
 			contx = new clever::context(settings);
-			std::cout << "Using CPU" << std::endl;
+			std::cout << "error: fallback on CPU" << std::endl;
 		}
 	} else {
 		clever::context_settings settings = clever::context_settings::default_cpu();
 		settings.m_profile = true;
 
 		contx = new clever::context(settings);
-		std::cout << "Using CPU" << std::endl;
+		std::cout << "success" << std::endl;
 	}
 
 	//load radius dictionary
@@ -225,69 +222,41 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 	else
 		lastEvent = min(maxEvents, pContainer.events_size());
 
-	for(uint event = 0; event < lastEvent; ++event){
+	//configure hit loading
+	const uint evtGrouping = 1;
+	const uint maxLayer = 3;
+	const uint nSectorsZ = 10;
+	const uint nSectorsPhi = 8;
 
-		PB_Event::PEvent pEvent = pContainer.events(event);
+	uint event = 0;
+	for(uint eventGroup = 0; eventGroup < lastEvent / evtGrouping; ++eventGroup){
 
-		std::cout << "Started processing Event " << pEvent.eventnumber() << " LumiSection " << pEvent.lumisection() << " Run " << pEvent.runnumber() << std::endl;
-
-		//configure hit loader
-		const uint maxLayer = 3;
-		const uint nSectorsZ = 10;
-		const uint nSectorsPhi = 8;
-		LayerSupplement layerSupplement(maxLayer);
-		Grid grid(maxLayer, nSectorsZ,nSectorsPhi);
-
+		//initialize datastructures
+		EventSupplement eventSupplement(evtGrouping);
+		LayerSupplement layerSupplement(maxLayer, evtGrouping);
+		Grid grid(maxLayer, nSectorsZ,nSectorsPhi, evtGrouping);
 		HitCollection hits;
-		HitCollection::tTrackList validTracks = hits.addEvent(pEvent, geom, layerSupplement, minPt, tracks, true, maxLayer);
+		std::map<uint, HitCollection::tTrackList> validTracks; //first: uint = evt in group second: tracklist
 
-		std::cout << "Loaded " << validTracks.size() << " tracks with minPt " << minPt << " GeV and " << hits.size() << " hits" << std::endl;
+		do{
+			uint iEvt = event % evtGrouping;
+			PB_Event::PEvent pEvent = pContainer.events(event);
 
-		if(verbose){
-			for(uint i = 1; i <= maxLayer; ++i)
-				std::cout << "Layer " << i << ": " << layerSupplement[i-1].getNHits() << " hits" << "\t Offset: " << layerSupplement[i-1].getOffset() << std::endl;
+			std::cout << "Started processing Event " << pEvent.eventnumber() << " LumiSection " << pEvent.lumisection() << " Run " << pEvent.runnumber() << std::endl;
+			validTracks[iEvt] = hits.addEvent(pEvent, geom, eventSupplement, iEvt, layerSupplement, minPt, tracks, true, maxLayer);
 
+			std::cout << "Loaded " << validTracks[iEvt].size() << " tracks with minPt " << minPt << " GeV and " << eventSupplement[iEvt].getNHits() << " hits" << std::endl;
 
-			//output sector borders
-			/*std::cout << "Layer";
-		for(int i = 0; i <= nSectorsPhi; ++i){
-			std::cout << "\t" << -M_PI + i * (2*M_PI / nSectorsPhi);
-		}
-		std::cout << std::endl;
-
-		for(int i = 0; i < maxLayer; i++){
-			std::cout << i+1;
-			for(int j = 0; j <= nSectorsPhi; j++){
-				std::cout << "\t" << layerSupplement[i].sectorBorders[j];
+			if(verbose){
+				for(uint i = 1; i <= maxLayer; ++i)
+					std::cout << "Layer " << i << ": " << layerSupplement[iEvt*maxLayer + i-1].getNHits() << " hits" << "\t Offset: " << layerSupplement[iEvt*maxLayer + i-1].getOffset() << std::endl;
 			}
-			std::cout << std::endl;
-		}*/
-		}
 
-		/*****
+			++event;
+		} while (event % evtGrouping == 0 && event < lastEvent);
 
-
-	cl_device_id device;
-	ERROR_HANDLER(
-			ERROR = clGetCommandQueueInfo(contx->default_queue(), CL_QUEUE_DEVICE, sizeof(cl_device_id), &device, NULL));
-
-	cl_ulong localMemSize;
-	ERROR_HANDLER(
-			ERROR = clGetDeviceInfo(device, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &localMemSize, NULL));
-	cl_ulong maxAlloc;
-	ERROR_HANDLER(
-			ERROR = clGetDeviceInfo(device, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong), &maxAlloc, NULL));
-	size_t maxParam;
-	ERROR_HANDLER(
-			ERROR = clGetDeviceInfo(device, CL_DEVICE_MAX_PARAMETER_SIZE, sizeof(size_t), &maxParam, NULL));
-
-	std::cout << "LocalMemSize: " << localMemSize << std::endl;
-	std::cout << "MaxAlloc: " << maxAlloc << std::endl;
-	std::cout << "MaxParam: " << maxParam << std::endl;
-
-
-
-		 ********/
+		if(verbose)
+			std::cout << "Loaded " << hits.size() << "hits in event group" << std::endl;
 
 		//transer everything to gpu
 		hits.transfer.initBuffers(*contx, hits);
@@ -300,141 +269,11 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 		grid.transfer.initBuffers(*contx,grid);
 		grid.config.upload(*contx);
 
-		/*for(int i = 0; i < hits.size(); ++i){
-		Hit hit(hits, i);
-
-		std::cout << "[" << i << "]";
-		std::cout << " Coordinates: [" << hit.globalX() << ";" << hit.globalY() << ";" << hit.globalZ() << "]";
-		std::cout << " DetId: " << hit.getValue<DetectorId>() << " DetLayer: " << hit.getValue<DetectorLayer>();
-		std::cout << " Event: " << hit.getValue<EventNumber>() << " HitId: " << hit.getValue<HitId>() << std::endl;
-	}*/
-
 		cl_ulong runtimeBuildGrid = 0;
+		GridBuilder gridBuilder(*contx);
+		gridBuilder.run(hits, threads, eventSupplement, layerSupplement, grid);
 
-		//sort hits on device in Z
-		HitSorterZ sorterZ(*contx);
-		runtimeBuildGrid += sorterZ.run(hits, threads,maxLayer,layerSupplement);
-
-		//verify sorting
-		bool valid = true;
-		for(uint l = 1; l <= maxLayer; ++l){
-			float lastZ = -9999;
-			for(uint i = 0; i < layerSupplement[l-1].getNHits(); ++i){
-				Hit hit(hits, layerSupplement[l-1].getOffset() + i);
-				if(hit.globalZ() < lastZ){
-					std::cerr << "Layer " << l << " : " << lastZ <<  "|" << hit.globalZ() << std::endl;
-					valid = false;
-				}
-				lastZ = hit.globalZ();
-			}
-		}
-
-		if(!valid)
-			std::cerr << "Not sorted properly in Z" << std::endl;
-		else
-			std::cout << "Sorted correctly in Z" << std::endl;
-
-		BoundarySelectionZ boundSelectZ(*contx);
-		runtimeBuildGrid += boundSelectZ.run(hits, threads, maxLayer, layerSupplement, grid);
-
-		//sort hits on device in Phi
-		HitSorterPhi sorterPhi(*contx);
-		runtimeBuildGrid += sorterPhi.run(hits, threads,maxLayer,layerSupplement, grid);
-
-		//verify sorting
-		valid = true;
-		for(uint l = 1; l <= maxLayer; ++l){
-			LayerGrid layerGrid(grid, l);
-			for(uint s = 1; s <= grid.config.nSectorsZ; ++s){
-
-				float lastPhi = - M_PI;
-				for(uint h = layerGrid(s-1); h < layerGrid(s); ++h){
-					Hit hit(hits, layerSupplement[l-1].getOffset() + h);
-
-					//check phi
-					if(hit.phi() < lastPhi){
-						std::cerr << "Layer " << l << " : " << lastPhi <<  "|" << hit.phi() << std::endl;
-						valid = false;
-					}
-					lastPhi = hit.phi();
-
-					//check correct z sector
-					if(!(grid.config.boundaryValuesZ[s-1] <= hit.globalZ() && hit.globalZ() <= grid.config.boundaryValuesZ[s])){
-						std::cerr << "Layer " << l << " : zAct: " << hit.globalZ() <<  " in sector [" << grid.config.boundaryValuesZ[s-1] << ", " << grid.config.boundaryValuesZ[s] << "]" << std::endl;
-						valid = false;
-					}
-				}
-			}
-		}
-
-		if(!valid)
-			std::cerr << "Not sorted properly in Phi" << std::endl;
-		else
-			std::cout << "Sorted correctly in Phi" << std::endl;
-
-
-
-		/*for(int i = 0; i < hits.size(); ++i){
-		Hit hit(hits, i);
-
-		std::cout << "[" << i << "]";
-		std::cout << " Coordinates: [" << hit.globalX() << ";" << hit.globalY() << ";" << hit.globalZ() << "]";
-		std::cout << " Phi: " << atan2(hit.globalY(), hit.globalX()) << std::endl;
-	}*/
-
-		BoundarySelectionPhi boundSelectPhi(*contx);
-		runtimeBuildGrid += boundSelectPhi.run(hits, threads, maxLayer, layerSupplement, grid);
-
-		//output grid
-		for(uint l = 1; l <= maxLayer; ++l){
-			std::cout << "Layer: " << l << std::endl;
-
-			//output z boundaries
-			std::cout << "z/phi\t\t";
-			for(uint i = 0; i <= grid.config.nSectorsZ; ++i){
-				std::cout << grid.config.boundaryValuesZ[i] << "\t";
-			}
-			std::cout << std::endl;
-
-			LayerGrid layerGrid(grid, l);
-			for(uint p = 0; p <= grid.config.nSectorsPhi; ++p){
-				std::cout << std::setprecision(3) << grid.config.boundaryValuesPhi[p] << "\t\t";
-				for(uint z = 0; z <= grid.config.nSectorsZ; ++z){
-					std::cout << layerGrid(z,p) << "\t";
-				}
-				std::cout << std::endl;
-			}
-		}
-
-
-		//output hits
-		/*for(uint i = 0; i < hits.size(); ++i){
-		Hit hit(hits, i);
-
-		std::cout << "[" << i << "]";
-		std::cout << "\tTrack: " << hit.getValue<HitId>();
-		std::cout << " \tCoordinates: [" << hit.globalX() << ";" << hit.globalY() << ";" << hit.globalZ() << "]";
-		//std::cout << " DetId: " << hit.getValue<DetectorId>() << " DetLayer: " << hit.getValue<DetectorLayer>();
-		//std::cout << " Event: " << hit.getValue<EventNumber>() << " HitId: " << hit.getValue<HitId>();
-		std::cout << std::endl;
-	}*/
-
-		//prefix sum test
-		/*std::vector<uint> uints(19,100);
-	uints.push_back(0);
-	clever::vector<uint,1> dUints(uints, *contx);
-
-	PrefixSum psum(*contx);
-	uint res = psum.run(dUints, uints.size(), 4, true);
-	transfer::download(dUints, uints, *contx);
-
-	for(uint i = 0; i < uints.size(); ++i){
-		std::cout << i << ":" << uints[i] << "\t";
-	}
-
-	std::cout << std::endl << "Result: " << res << std::endl;
-
-	return RuntimeRecord();*/
+		return RuntimeRecord();
 
 		// configure kernel
 
@@ -459,98 +298,102 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 				threads, layers, layerSupplement, grid, dThetaCut, dPhiCut, tipCut);
 
 		//evaluate it
-		std::set<uint> foundTracks;
-		uint fakeTracks = 0;
 
-		std::cout << "Found " << tracklets->size() << " triplets:" << std::endl;
-		for(uint i = 0; i < tracklets->size(); ++i){
-			Tracklet tracklet(*tracklets, i);
+		for(uint iEvt = 0; iEvt < eventGroup; ++iEvt){
 
-			if(tracklet.isValid(hits)){
-				//valid triplet
-				foundTracks.insert(tracklet.trackId(hits));
+			std::set<uint> foundTracks;
+			uint fakeTracks = 0;
 
-				validTIP << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())) << std::endl;
-				etaHist[getEtaBin(getEta(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit3())))].valid++;
-				if(verbose){
-					std::cout << zkr::cc::fore::green;
-					std::cout << "Track " << tracklet.trackId(hits) << " : " << tracklet.hit1() << "-" << tracklet.hit2() << "-" << tracklet.hit3();
-					std::cout << " TIP: " << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
-					std::cout << zkr::cc::console << std::endl;
+			std::cout << "Found " << tracklets->size() << " triplets:" << std::endl;
+			for(uint i = 0; i < tracklets->size(); ++i){
+				Tracklet tracklet(*tracklets, i);
+
+				if(tracklet.isValid(hits)){
+					//valid triplet
+					foundTracks.insert(tracklet.trackId(hits));
+
+					validTIP << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())) << std::endl;
+					etaHist[getEtaBin(getEta(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit3())))].valid++;
+					if(verbose){
+						std::cout << zkr::cc::fore::green;
+						std::cout << "Track " << tracklet.trackId(hits) << " : " << tracklet.hit1() << "-" << tracklet.hit2() << "-" << tracklet.hit3();
+						std::cout << " TIP: " << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
+						std::cout << zkr::cc::console << std::endl;
+					}
+				}
+				else {
+					//fake triplet
+					++fakeTracks;
+
+					fakeTIP << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())) << std::endl;
+					etaHist[getEtaBin(getEta(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit3())))].fake++;
+					if(verbose){
+						std::cout << zkr::cc::fore::red;
+						std::cout << "Fake: " << tracklet.hit1() << "[" << hits.getValue(HitId(),tracklet.hit1()) << "]";
+						std::cout << "-" << tracklet.hit2() << "[" << hits.getValue(HitId(),tracklet.hit2()) << "]";
+						std::cout << "-" << tracklet.hit3() << "[" << hits.getValue(HitId(),tracklet.hit3()) << "]";
+						std::cout << " TIP: " << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
+						std::cout << zkr::cc::console << std::endl;
+					}
 				}
 			}
-			else {
-				//fake triplet
-				++fakeTracks;
 
-				fakeTIP << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())) << std::endl;
-				etaHist[getEtaBin(getEta(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit3())))].fake++;
-				if(verbose){
-					std::cout << zkr::cc::fore::red;
-					std::cout << "Fake: " << tracklet.hit1() << "[" << hits.getValue(HitId(),tracklet.hit1()) << "]";
-					std::cout << "-" << tracklet.hit2() << "[" << hits.getValue(HitId(),tracklet.hit2()) << "]";
-					std::cout << "-" << tracklet.hit3() << "[" << hits.getValue(HitId(),tracklet.hit3()) << "]";
-					std::cout << " TIP: " << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
-					std::cout << zkr::cc::console << std::endl;
+			//output not found tracks
+			for(auto vTrack : validTracks[iEvt]) {
+				if( foundTracks.find(vTrack.first) == foundTracks.end()){
+					std::cout << "Didn't find track " << vTrack.first << std::endl;
+
+					PB_Event::PHit innerHit = vTrack.second[0];
+					PB_Event::PHit outerHit = vTrack.second[vTrack.second.size()-1];
+
+					etaHist[getEtaBin(getEta(innerHit, outerHit))].missed++;
 				}
 			}
+
+			std::cout << "Efficiency: " << ((double) foundTracks.size()) / validTracks[iEvt].size() << " FakeRate: " << ((double) fakeTracks) / tracklets->size() << std::endl;
+
+			RuntimeRecord tmpRes;
+			tmpRes.nTracks = foundTracks.size();
+			tmpRes.efficiency =  ((double) foundTracks.size()) / validTracks[iEvt].size();
+			tmpRes.fakeRate = ((double) fakeTracks) / tracklets->size();
+
+			//determine runtimes
+			tmpRes.buildGrid = runtimeBuildGrid;
+			std::cout << "Build Grid: " << runtimeBuildGrid << "ns" << std::endl;
+
+			profile_info pinfo = contx->report_profile(contx->PROFILE_WRITE);
+			tmpRes.dataTransferWrite = pinfo.runtime();
+			std::cout << "Data Transfer\tWritten: " << pinfo.runtime() << "ns\tRead: ";
+			pinfo = contx->report_profile(contx->PROFILE_READ);
+			tmpRes.dataTransferRead = pinfo.runtime();
+			std::cout << pinfo.runtime() << " ns" << std::endl;
+
+
+			pinfo = contx->report_profile(PairGeneratorSector::KERNEL_COMPUTE_EVT());
+			std::cout << "Pair Generation\tCompute: " << pinfo.runtime() << " ns\tStore: ";
+			tmpRes.pairGenComp = pinfo.runtime();
+			pinfo = contx->report_profile(PairGeneratorSector::KERNEL_STORE_EVT());
+			tmpRes.pairGenStore = pinfo.runtime();
+			std::cout << pinfo.runtime() << " ns" << std::endl;
+
+
+			pinfo = contx->report_profile(TripletThetaPhiPredictor::KERNEL_COMPUTE_EVT());
+			tmpRes.tripletPredictComp = pinfo.runtime();
+			std::cout << "Triplet Prediction\tCompute: " << pinfo.runtime() << " ns\tStore: ";
+			pinfo = contx->report_profile(TripletThetaPhiPredictor::KERNEL_STORE_EVT());
+			tmpRes.tripletPredictStore = pinfo.runtime();
+			std::cout << pinfo.runtime() << " ns" << std::endl;
+
+
+			pinfo = contx->report_profile(TripletThetaPhiFilter::KERNEL_COMPUTE_EVT());
+			tmpRes.tripletCheckComp = pinfo.runtime();
+			std::cout << "Triplet Checking\tCompute: " << pinfo.runtime() << " ns\tStore: ";
+			pinfo = contx->report_profile(TripletThetaPhiFilter::KERNEL_STORE_EVT());
+			tmpRes.tripletCheckStore = pinfo.runtime();
+			std::cout << pinfo.runtime() << " ns" << std::endl;
+
+			result += tmpRes;
 		}
-
-		//output not found tracks
-		for(auto vTrack : validTracks) {
-			if( foundTracks.find(vTrack.first) == foundTracks.end()){
-				std::cout << "Didn't find track " << vTrack.first << std::endl;
-
-				PB_Event::PHit innerHit = vTrack.second[0];
-				PB_Event::PHit outerHit = vTrack.second[vTrack.second.size()-1];
-
-				etaHist[getEtaBin(getEta(innerHit, outerHit))].missed++;
-			}
-		}
-
-		std::cout << "Efficiency: " << ((double) foundTracks.size()) / validTracks.size() << " FakeRate: " << ((double) fakeTracks) / tracklets->size() << std::endl;
-
-		RuntimeRecord tmpRes;
-		tmpRes.nTracks = foundTracks.size();
-		tmpRes.efficiency =  ((double) foundTracks.size()) / validTracks.size();
-		tmpRes.fakeRate = ((double) fakeTracks) / tracklets->size();
-
-		//determine runtimes
-		tmpRes.buildGrid = runtimeBuildGrid;
-		std::cout << "Build Grid: " << runtimeBuildGrid << "ns" << std::endl;
-
-		profile_info pinfo = contx->report_profile(contx->PROFILE_WRITE);
-		tmpRes.dataTransferWrite = pinfo.runtime();
-		std::cout << "Data Transfer\tWritten: " << pinfo.runtime() << "ns\tRead: ";
-		pinfo = contx->report_profile(contx->PROFILE_READ);
-		tmpRes.dataTransferRead = pinfo.runtime();
-		std::cout << pinfo.runtime() << " ns" << std::endl;
-
-
-		pinfo = contx->report_profile(PairGeneratorSector::KERNEL_COMPUTE_EVT());
-		std::cout << "Pair Generation\tCompute: " << pinfo.runtime() << " ns\tStore: ";
-		tmpRes.pairGenComp = pinfo.runtime();
-		pinfo = contx->report_profile(PairGeneratorSector::KERNEL_STORE_EVT());
-		tmpRes.pairGenStore = pinfo.runtime();
-		std::cout << pinfo.runtime() << " ns" << std::endl;
-
-
-		pinfo = contx->report_profile(TripletThetaPhiPredictor::KERNEL_COMPUTE_EVT());
-		tmpRes.tripletPredictComp = pinfo.runtime();
-		std::cout << "Triplet Prediction\tCompute: " << pinfo.runtime() << " ns\tStore: ";
-		pinfo = contx->report_profile(TripletThetaPhiPredictor::KERNEL_STORE_EVT());
-		tmpRes.tripletPredictStore = pinfo.runtime();
-		std::cout << pinfo.runtime() << " ns" << std::endl;
-
-
-		pinfo = contx->report_profile(TripletThetaPhiFilter::KERNEL_COMPUTE_EVT());
-		tmpRes.tripletCheckComp = pinfo.runtime();
-		std::cout << "Triplet Checking\tCompute: " << pinfo.runtime() << " ns\tStore: ";
-		pinfo = contx->report_profile(TripletThetaPhiFilter::KERNEL_STORE_EVT());
-		tmpRes.tripletCheckStore = pinfo.runtime();
-		std::cout << pinfo.runtime() << " ns" << std::endl;
-
-		result += tmpRes;
 
 		delete tracklets;
 		delete pairs;
@@ -595,7 +438,7 @@ int main(int argc, char *argv[]) {
 		("tracks", po::value<uint>(&tracks)->default_value(100), "number of valid tracks to load")
 		("threads", po::value<uint>(&threads)->default_value(256), "number of threads to use")
 		("maxEvents", po::value<int>(&maxEvents)->default_value(1), "number of events to process")
-		("src", po::value<std::string>(&srcFile)->default_value("hits_ttbar.reco.pb"), "hit database");
+		("src", po::value<std::string>(&srcFile)->default_value("hits_ttbar_PXB.sim.pb"), "hit database");
 
 	po::options_description cmdLine("Generic Options");
 	cmdLine.add(config);
@@ -658,6 +501,14 @@ int main(int argc, char *argv[]) {
 	}
 
 	RuntimeRecord res = buildTriplets(srcFile, tracks,minPt, threads, verbose, useCPU, maxEvents);
+
+	std::ofstream results("timings.csv", std::ios::app);
+        results << tracks << ", " << res.totalDataTransfer() << ", " << res.buildGrid << ", " 
+                << res.totalPairGen() << ", " << res.totalTripletPredict() << ", " << res.totalTripletCheck() << ", "  
+                << res.totalComputation() << ", " << res.totalRuntime()
+                << ", " << res.efficiency << ", " << res.fakeRate << std::endl;
+        results.close();
+
 
 	if(silent){
 		std::cout.rdbuf(coutSave);

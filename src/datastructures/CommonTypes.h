@@ -28,3 +28,10 @@ struct HitId: public clever::UIntItem
 struct EventNumber: public clever::UIntItem
 {
 };
+
+struct NHits: public clever::UIntItem
+{
+};
+struct Offset: public clever::UIntItem
+{
+};
