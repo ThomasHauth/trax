@@ -6,7 +6,6 @@ project (trax)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGTEST_HAS_PTHREAD=0" )
 
 add_executable(trax_test
- 	${GTEST_BASE}/src/gtest-all.cc
 	trax_test.cpp
 )
 
