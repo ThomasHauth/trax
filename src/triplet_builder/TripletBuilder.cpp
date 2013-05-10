@@ -128,6 +128,7 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 			//if not use cpu
 			clever::context_settings settings = clever::context_settings::default_cpu();
 			settings.m_profile = true;
+			settings.m_cmd_queue_properties = CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL;
 
 			contx = new clever::context(settings);
 			std::cout << "error: fallback on CPU" << std::endl;
@@ -225,8 +226,8 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 	//configure hit loading
 	const uint evtGrouping = 1;
 	const uint maxLayer = 3;
-	const uint nSectorsZ = 10;
-	const uint nSectorsPhi = 8;
+	const uint nSectorsZ = 5;
+	const uint nSectorsPhi = 4;
 
 	uint event = 0;
 	for(uint eventGroup = 0; eventGroup < lastEvent / evtGrouping; ++eventGroup){
@@ -258,15 +259,20 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 		if(verbose)
 			std::cout << "Loaded " << hits.size() << "hits in event group" << std::endl;
 
-		//transer everything to gpu
+		//transer hits to gpu
 		hits.transfer.initBuffers(*contx, hits);
 		hits.transfer.toDevice(*contx, hits);
+
+		//transferring layer supplement
+		eventSupplement.transfer.initBuffers(*contx, eventSupplement);
+		eventSupplement.transfer.toDevice(*contx,eventSupplement);
 
 		//transferring layer supplement
 		layerSupplement.transfer.initBuffers(*contx, layerSupplement);
 		layerSupplement.transfer.toDevice(*contx,layerSupplement);
 		//initializating grid
 		grid.transfer.initBuffers(*contx,grid);
+		grid.transfer.toDevice(*contx,grid);
 		grid.config.upload(*contx);
 
 		cl_ulong runtimeBuildGrid = 0;
@@ -436,7 +442,7 @@ int main(int argc, char *argv[]) {
 	config.add_options()
 		("minPt", po::value<float>(&minPt)->default_value(1.0), "minimum track Pt")
 		("tracks", po::value<uint>(&tracks)->default_value(100), "number of valid tracks to load")
-		("threads", po::value<uint>(&threads)->default_value(256), "number of threads to use")
+		("threads", po::value<uint>(&threads)->default_value(4), "number of threads to use")
 		("maxEvents", po::value<int>(&maxEvents)->default_value(1), "number of events to process")
 		("src", po::value<std::string>(&srcFile)->default_value("hits_ttbar_PXB.sim.pb"), "hit database");
 

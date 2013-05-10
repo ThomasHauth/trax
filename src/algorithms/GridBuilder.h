@@ -61,6 +61,9 @@ public:
 		cl_mem x = hits.transfer.buffer(GlobalX()); cl_mem y =  hits.transfer.buffer(GlobalY()); cl_mem z =  hits.transfer.buffer(GlobalZ());
 		cl_mem layer= hits.transfer.buffer(DetectorLayer()); cl_mem detId = hits.transfer.buffer(DetectorId()); cl_mem hitId = hits.transfer.buffer(HitId()); cl_mem evtId = hits.transfer.buffer(EventNumber());
 
+		std::vector<cl_event> events;
+
+		std::cout << "Grid count kernel" << std::endl;
 		cl_event evt = gridBuilding_kernel.run(
 				//configuration
 				eventSupplement.transfer.buffer(Offset()), layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()), layerSupplement.nLayers,
@@ -74,18 +77,46 @@ public:
 				//work item config
 				range(nThreads,layerSupplement.nLayers, eventSupplement.nEvents),
 				range(nThreads,1, 1));
+		events.push_back(evt);
 
 		//run prefix sum on grid boundaries
+		std::cout << "Grid prefix kernel" << std::endl;
 		uint gridSize = (grid.config.nSectorsZ+1)*(grid.config.nSectorsPhi+1);
-		prefixSumKernel.run(grid.transfer.buffer(Boundary()), gridSize, local_param(sizeof(cl_uint), getNextPowerOfTwo(gridSize)),
+		evt = prefixSumKernel.run(grid.transfer.buffer(Boundary()), gridSize, local_param(sizeof(cl_uint), getNextPowerOfTwo(gridSize)),
 				range(nThreads,layerSupplement.nLayers, eventSupplement.nEvents), range(nThreads,1, 1));
-		grid.transfer.fromDevice(ctx,grid);
+		events.push_back(evt);
+		grid.transfer.fromDevice(ctx,grid, &events);
+
+		//output grid
+		for(uint e = 0; e < eventSupplement.nEvents; ++e){
+			std::cout << "Event: " << e << std::endl;
+			for(uint l = 1; l <= layerSupplement.nLayers; ++l){
+				std::cout << "Layer: " << l << std::endl;
+
+				//output z boundaries
+				std::cout << "z/phi\t\t";
+				for(uint i = 0; i <= grid.config.nSectorsZ; ++i){
+					std::cout << grid.config.boundaryValuesZ[i] << "\t";
+				}
+				std::cout << std::endl;
+
+				LayerGrid layerGrid(grid, l, layerSupplement.nLayers,e);
+				for(uint p = 0; p <= grid.config.nSectorsPhi; ++p){
+					std::cout << std::setprecision(3) << grid.config.boundaryValuesPhi[p] << "\t\t";
+					for(uint z = 0; z <= grid.config.nSectorsZ; ++z){
+						std::cout << layerGrid(z,p) << "\t";
+					}
+					std::cout << std::endl;
+				}
+			}
+		}
 
 		clever::vector<uint, 1> aux_written(0, grid.size(), ctx);
 
 		//allocate new buffers for ouput
 		hits.transfer.initBuffers(ctx, hits);
 
+		std::cout << "Grid store kernel" << std::endl;
 		evt = gridStore_kernel.run(
 				//configuration
 				eventSupplement.transfer.buffer(Offset()), layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()), layerSupplement.nLayers,
@@ -146,7 +177,27 @@ public:
 			float phi = atan2(hitGlobalY[tOffset + i] , hitGlobalX[tOffset + i]);
 			uint phiSector= floor((phi - minPhi) / sectorSizePhi);
 
-			atomic_inc(&sectorBoundaries[event*maxLayers*(nSectorsZ+1)+(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1)+zSector*(nSectorsZ+1) + phiSector]);
+			atomic_inc(&sectorBoundaries[event*maxLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1)+zSector*(nSectorsPhi+1) + phiSector]);
+		}
+
+
+		barrier(CLK_LOCAL_MEM_FENCE);
+		if(thread == 0){
+			printf("Event %lu - Layer %lu\n", event, layer);
+
+			printf("\t");
+			for(uint z = 0; z < (nSectorsZ+1); ++z){
+				printf("%.0f\t", minZ + z * sectorSizeZ);
+			}
+			printf("\n");
+
+			for(uint p = 0; p < (nSectorsPhi+1); ++p){
+				printf("%.3f\t", minPhi + p * sectorSizePhi);
+				for(uint z = 0; z < (nSectorsZ+1); ++z){
+					printf("%u\t", sectorBoundaries[event*maxLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1)+z*(nSectorsPhi+1) + p]);
+				}
+				printf("\n");
+			}
 		}
 
 	}
@@ -186,13 +237,33 @@ public:
 		uint tOffset = eventOffsets[event];
 		tOffset += layerOffsets[event*maxLayers+layer];
 
+		barrier(CLK_LOCAL_MEM_FENCE);
+		if(thread == 0){
+			printf("Event %lu - Layer %lu\n", event, layer);
+
+			printf("\t");
+			for(uint z = 0; z < (nSectorsZ+1); ++z){
+				printf("%.0f\t", minZ + z * sectorSizeZ);
+			}
+			printf("\n");
+
+			for(uint p = 0; p < (nSectorsPhi+1); ++p){
+				printf("%.3f\t", minPhi + p * sectorSizePhi);
+				for(uint z = 0; z < (nSectorsZ+1); ++z){
+					printf("%u\t", sectorBoundaries[event*maxLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1)+z*(nSectorsPhi+1) + p]);
+				}
+				printf("\n");
+			}
+		}
+		barrier(CLK_LOCAL_MEM_FENCE);
+
 		for(; i < end; ++i){
 			uint zSector = floor((ihitGlobalZ[tOffset + i] - minZ) / sectorSizeZ);
 			float phi = atan2(ihitGlobalY[tOffset + i] , ihitGlobalX[tOffset + i]);
 			uint phiSector= floor((phi - minPhi) / sectorSizePhi);
 
-			uint w = sectorBoundaries[event*maxLayers*(nSectorsZ+1)+(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1)+zSector*(nSectorsZ+1) + phiSector];
-			w += atomic_inc(&written[event*maxLayers*(nSectorsZ+1)+(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1)+zSector*(nSectorsZ+1) + phiSector]);
+			uint w = sectorBoundaries[event*maxLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1)+zSector*(nSectorsPhi+1) + phiSector];
+			w += atomic_inc(&written[event*maxLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1)+zSector*(nSectorsPhi+1) + phiSector]);
 
 			ohitGlobalX[tOffset + w] = ihitGlobalX[tOffset + i];
 			ohitGlobalY[tOffset + w] = ihitGlobalY[tOffset + i];

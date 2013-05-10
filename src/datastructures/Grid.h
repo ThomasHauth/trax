@@ -86,7 +86,10 @@ public:
 			clever::Collection<GRID_ITEMS>(_nEvents *_nLayers*(_nSectorsZ+1)*(_nSectorsPhi+1)),
 			config(_nLayers, _nSectorsZ, _nSectorsPhi)
 	{
-
+		size_t items = size();
+		for(uint i = 0; i < items; ++i){
+			addWithValue(0);
+		}
 	}
 
 public:
@@ -121,15 +124,16 @@ public:
 class LayerGrid
 {
 public:
-	LayerGrid(const Grid & grid, uint layer)
+	LayerGrid(const Grid & grid, uint layer, uint maxLayers, uint evt)
 	: nSectorsZ(grid.config.nSectorsZ), nSectorsPhi(grid.config.nSectorsPhi)
 	{
 
 		uint entriesPerLayer = (nSectorsZ+1)*(nSectorsPhi+1);
+		uint entriesPerEvent = maxLayers*entriesPerLayer;
 
 		for(uint i = 0; i <= nSectorsZ; ++i){
 			for(uint j = 0; j <= nSectorsPhi; ++j){
-				GridEntry entry(grid, (layer-1)*entriesPerLayer+i*(nSectorsPhi+1)+j);
+				GridEntry entry(grid, evt * entriesPerEvent + (layer-1)*entriesPerLayer+i*(nSectorsPhi+1)+j);
 				m_data.push_back(entry.idx());
 			}
 		}
