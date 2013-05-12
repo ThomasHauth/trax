@@ -163,7 +163,8 @@ public:
 
 			uint idx = (ls<<1) - 1;
 			idx += MEMORY_BANK_OFFSET(idx);
-			partial[gid] = data[idx];
+			if(partial != 0) //no divergence, as all work-items get partial
+				partial[gid] = data[idx];
 			data[idx] = 0;
 		}
 

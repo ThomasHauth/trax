@@ -22,12 +22,14 @@
 #include <datastructures/EventSupplement.h>
 #include <datastructures/LayerSupplement.h>
 #include <datastructures/Grid.h>
+#include <datastructures/LayerTriplets.h>
 
 #include <datastructures/serialize/Event.pb.h>
 
-#include <algorithms/TripletThetaPhiFilter.h>
+#include <algorithms/PairGeneratorSector.h>
+//#include <algorithms/TripletThetaPhiPredictor.h>
+//#include <algorithms/TripletThetaPhiFilter.h>
 #include <algorithms/GridBuilder.h>
-#include <algorithms/PrefixSum.h>
 
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
@@ -128,7 +130,7 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 			//if not use cpu
 			clever::context_settings settings = clever::context_settings::default_cpu();
 			settings.m_profile = true;
-			settings.m_cmd_queue_properties = CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL;
+			//settings.m_cmd_queue_properties = CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL;
 
 			contx = new clever::context(settings);
 			std::cout << "error: fallback on CPU" << std::endl;
@@ -224,23 +226,27 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 		lastEvent = min(maxEvents, pContainer.events_size());
 
 	//configure hit loading
-	const uint evtGrouping = 1;
+	const uint evtGrouping = 3;
 	const uint maxLayer = 3;
 	const uint nSectorsZ = 5;
 	const uint nSectorsPhi = 4;
 
+	const uint evtGroups = (uint) max(1.0f, ceil(((float) lastEvent )/ evtGrouping)); //number of groups
+
 	uint event = 0;
-	for(uint eventGroup = 0; eventGroup < lastEvent / evtGrouping; ++eventGroup){
+	for(uint eventGroup = 0; eventGroup < evtGroups; ++eventGroup){
+
+		uint evtGroupSize = std::min(evtGrouping, lastEvent-event); //if last group is not a full group
 
 		//initialize datastructures
-		EventSupplement eventSupplement(evtGrouping);
-		LayerSupplement layerSupplement(maxLayer, evtGrouping);
-		Grid grid(maxLayer, nSectorsZ,nSectorsPhi, evtGrouping);
+		EventSupplement eventSupplement(evtGroupSize);
+		LayerSupplement layerSupplement(maxLayer, evtGroupSize);
+		Grid grid(maxLayer, nSectorsZ,nSectorsPhi, evtGroupSize);
 		HitCollection hits;
 		std::map<uint, HitCollection::tTrackList> validTracks; //first: uint = evt in group second: tracklist
 
 		do{
-			uint iEvt = event % evtGrouping;
+			uint iEvt = event % evtGroupSize;
 			PB_Event::PEvent pEvent = pContainer.events(event);
 
 			std::cout << "Started processing Event " << pEvent.eventnumber() << " LumiSection " << pEvent.lumisection() << " Run " << pEvent.runnumber() << std::endl;
@@ -254,10 +260,10 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 			}
 
 			++event;
-		} while (event % evtGrouping == 0 && event < lastEvent);
+		} while (event % evtGroupSize != 0 && event < lastEvent);
 
-		if(verbose)
-			std::cout << "Loaded " << hits.size() << "hits in event group" << std::endl;
+		//if(verbose)
+			std::cout << "Loaded " << hits.size() << "hits in " << evtGroupSize << " event group" << std::endl;
 
 		//transer hits to gpu
 		hits.transfer.initBuffers(*contx, hits);
@@ -279,24 +285,26 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 		GridBuilder gridBuilder(*contx);
 		gridBuilder.run(hits, threads, eventSupplement, layerSupplement, grid);
 
-		return RuntimeRecord();
-
 		// configure kernel
 
-		int layers[] = {1,2,3};
+		LayerTriplets layerTriplets;
+		layerTriplets.addWithValue(1,2,3); //Layer Configuration
+		layerTriplets.transfer.initBuffers(*contx, layerTriplets);
+		layerTriplets.transfer.toDevice(*contx, layerTriplets);
 
 		float dThetaCut = 0.05;
 		float dThetaWindow = 0.1;
 		float dPhiCut = 0.1;
 		float dPhiWindow = 0.1;
 		int pairSpreadZ = 1;
+		int pairSpreadPhi = 2;
 		float tipCut = 0.75;
 
 		//run it
 		PairGeneratorSector pairGen(*contx);
-		clever::vector<uint2,1> * pairs = pairGen.run(hits, threads, layers, layerSupplement , grid, pairSpreadZ);
+		clever::vector<uint2,1> * pairs = pairGen.run(hits, threads, layerTriplets, grid, pairSpreadZ, pairSpreadPhi);
 
-		TripletThetaPhiPredictor predictor(*contx);
+		/*TripletThetaPhiPredictor predictor(*contx);
 		clever::vector<uint2,1> * tripletCandidates = predictor.run(hits, geom, geomSupplement, dict, threads, layers, layerSupplement, grid, dThetaWindow, dPhiWindow, *pairs);
 
 		TripletThetaPhiFilter tripletThetaPhi(*contx);
@@ -400,10 +408,10 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 
 			result += tmpRes;
 		}
-
-		delete tracklets;
+	*/
+		//delete tracklets;
 		delete pairs;
-		delete tripletCandidates;
+		//delete tripletCandidates;
 
 	}
 

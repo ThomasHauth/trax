@@ -3,4 +3,7 @@ project (trax)
 
 add_library(algorithms
 	TripletConnectivity.cpp
+	PrefixSum.cpp
+	GridBuilder.cpp
+	PairGeneratorSector.cpp
 )

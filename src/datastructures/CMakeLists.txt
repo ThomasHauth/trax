@@ -7,6 +7,7 @@ add_library(datastructures
 	DetectorGeometry.cpp
 	LayerSupplement.cpp
 	EventSupplement.cpp
+	LayerTriplets.cpp
 	serialize/Event.pb.cc
 )
 

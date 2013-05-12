@@ -6,8 +6,8 @@ class GridConfig {
 
 public:
 
-	GridConfig(uint _nLayers, uint _nSectorsZ, uint _nSectorsPhi) :
-		nLayers(_nLayers), nSectorsZ(_nSectorsZ), nSectorsPhi(_nSectorsPhi),
+	GridConfig(uint _nLayers, uint _nSectorsZ, uint _nSectorsPhi, uint _nEvents = 1) :
+		nEvents(_nEvents), nLayers(_nLayers), nSectorsZ(_nSectorsZ), nSectorsPhi(_nSectorsPhi),
 		m_boundaryValuesZ(NULL), m_boundaryValuesPhi(NULL){
 
 		sectorSizeZ = (GridConfig::MAX_Z - GridConfig::MIN_Z) / this->nSectorsZ;
@@ -46,6 +46,7 @@ public:
 	}
 
 public:
+	uint nEvents;
 	uint nLayers;
 	uint nSectorsZ;
 	float sectorSizeZ;
@@ -84,7 +85,7 @@ public:
 
 	Grid(uint _nLayers, uint _nSectorsZ, uint _nSectorsPhi, uint _nEvents = 1) :
 			clever::Collection<GRID_ITEMS>(_nEvents *_nLayers*(_nSectorsZ+1)*(_nSectorsPhi+1)),
-			config(_nLayers, _nSectorsZ, _nSectorsPhi)
+			config(_nLayers, _nSectorsZ, _nSectorsPhi, _nEvents)
 	{
 		size_t items = size();
 		for(uint i = 0; i < items; ++i){
@@ -124,12 +125,12 @@ public:
 class LayerGrid
 {
 public:
-	LayerGrid(const Grid & grid, uint layer, uint maxLayers, uint evt)
+	LayerGrid(const Grid & grid, uint layer, uint evt)
 	: nSectorsZ(grid.config.nSectorsZ), nSectorsPhi(grid.config.nSectorsPhi)
 	{
 
 		uint entriesPerLayer = (nSectorsZ+1)*(nSectorsPhi+1);
-		uint entriesPerEvent = maxLayers*entriesPerLayer;
+		uint entriesPerEvent = grid.config.nLayers*entriesPerLayer;
 
 		for(uint i = 0; i <= nSectorsZ; ++i){
 			for(uint j = 0; j <= nSectorsPhi; ++j){
@@ -140,12 +141,16 @@ public:
 
 	}
 
-	uint operator()(uint z, uint p){
+	uint operator()(uint z, uint p) const {
 		return m_data[z*(nSectorsPhi+1)+p];
 	}
 
-	uint operator()(uint z){
+	uint operator()(uint z) const {
 			return m_data[z*(nSectorsPhi+1)];
+	}
+
+	uint size() const {
+		return (*this)(nSectorsZ, nSectorsPhi) - (*this)(0,0);
 	}
 
 public:

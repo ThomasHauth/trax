@@ -5,7 +5,8 @@
 #include <clever/clever.hpp>
 #include <datastructures/HitCollection.h>
 #include <datastructures/TrackletCollection.h>
-#include <datastructures/LayerSupplement.h>
+#include <datastructures/LayerTriplets.h>
+#include <datastructures/Grid.h>
 
 using namespace clever;
 using namespace std;
@@ -39,203 +40,136 @@ public:
 	static std::string KERNEL_STORE_EVT() {return "PairGeneratorSector_STORE";}
 
 	clever::vector<uint2,1> * run(HitCollection & hits,
-				int nThreads, int layers[], const LayerSupplement & layerSupplement, const Grid & grid,
-				int spreadZ)
-		{
+				uint nThreads, const LayerTriplets & layerTriplets, const Grid & grid,
+				uint spreadZ, uint spreadPhi);
 
-			int nLayer1 = layerSupplement[layers[0]-1].getNHits();
-			int nLayer2 = layerSupplement[layers[1]-1].getNHits();
-			int nMaxPairs = nLayer1 * nLayer2;
-
-			std::cout << "Initializing oracle for pair gen...";
-			clever::vector<uint, 1> m_oracle(0, std::ceil(nMaxPairs / 32.0), ctx);
-			std::cout << "done[" << m_oracle.get_count()  << "]" << std::endl;
-
-			std::cout << "Initializing prefix sum for pair gen...";
-			clever::vector<uint, 1> m_prefixSum(0, nThreads+1, ctx);
-			std::cout << "done[" << m_prefixSum.get_count()  << "]" << std::endl;
-
-			//ctx.select_profile_event(KERNEL_COMPUTE_EVT());
-
-			std::cout << "Running pair gen kernel...";
-			cl_event evt = pairSectorGen.run(
-						//configuration
-						layers[0], layers[1],
-						layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()),
-						grid.transfer.buffer(Boundary()), grid.config.MIN_Z, grid.config.sectorSizeZ,
-						grid.config.nSectorsZ, grid.config.nSectorsPhi,
-						spreadZ,
-						// hit input
-						hits.transfer.buffer(GlobalZ()), hits.transfer.buffer(HitId()),
-						// intermeditate data: oracle for hit pairs, prefix sum for found pairs
-						m_oracle.get_mem(), m_prefixSum.get_mem(),
-						//thread config
-						nThreads);
-			std::cout << "done" << std::endl;
-
-			ctx.add_profile_event(evt, KERNEL_COMPUTE_EVT());
-
-#ifdef DEBUG_OUT
-			std::cout << "Fetching prefix sum for pair gen...";
-			std::vector<uint> vPrefixSum(m_prefixSum.get_count());
-			transfer::download(m_prefixSum,vPrefixSum,ctx);
-			std::cout << "done" << std::endl;
-
-			std::cout << "Prefix sum: ";
-			for(auto i : vPrefixSum){
-				std::cout << i << " ; ";
-			}
-			std::cout << std::endl;
-#endif
-
-#ifdef DEBUG_OUT
-			std::cout << "Fetching oracle for pair gen...";
-			std::vector<uint> oracle(m_oracle.get_count());
-			transfer::download(m_oracle,oracle,ctx);
-			std::cout << "done" << std::endl;
-
-			std::cout << "Oracle: ";
-			for(auto i : oracle){
-				std::cout << i << " ; ";
-			}
-			std::cout << std::endl;
-#endif
-
-			//Calculate prefix sum
-			PrefixSum PrefixSum(ctx);
-			int nFoundPairs = PrefixSum.run(m_prefixSum, nThreads, true);
-
-#ifdef DEBUG_OUT
-			std::cout << "Fetching prefix sum for pair gen...";
-			transfer::download(m_prefixSum,vPrefixSum,ctx);
-			std::cout << "done" << std::endl;
-
-			std::cout << "Prefix sum: ";
-			for(auto i : vPrefixSum){
-				std::cout << i << " ; ";
-			}
-			std::cout << std::endl;
-#endif
-			std::cout << "Initializing pairs...";
-			clever::vector<uint2, 1> * m_pairs = new clever::vector<uint2, 1>(ctx, nFoundPairs);
-			std::cout << "done[" << m_pairs->get_count()  << "]" << std::endl;
-
-
-			std::cout << "Running pair gen store kernel...";
-			evt = pairStore.run(
-					//configuration
-					layers[0], layers[1],
-					layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()),
-					// input for oracle and prefix sum
-					m_oracle.get_mem(), m_prefixSum.get_mem(),
-					// output of pairs
-					m_pairs->get_mem(),
-					//thread config
-					nThreads);
-			std::cout << "done" << std::endl;
-
-			ctx.add_profile_event(evt, KERNEL_STORE_EVT());
-
-#ifdef DEBUG_OUT
-			std::cout << "Fetching pairs...";
-			std::vector<uint2> pairs(nFoundPairs);
-			transfer::download(*m_pairs, pairs, ctx);
-			std::cout <<"done[" << pairs.size() << "]" << std::endl;
-
-			std::cout << "Pairs:" << std::endl;
-			for(uint i = 0; i < nFoundPairs; ++i){
-				std::cout << "[" << i << "] "  << pairs[i].x << "-" << pairs[i].y << std::endl;
-			}
-#endif
-
-			return m_pairs;
-		}
-
-	KERNEL14_CLASS( pairSectorGen, uint, uint, cl_mem, cl_mem,  cl_mem, cl_float, cl_float, uint, uint, uint, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL19_CLASS( pairSectorGen, cl_mem, cl_mem, uint, cl_mem, cl_float, cl_float, uint, cl_float, cl_float, uint, uint, uint, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, local_param,
 			__kernel void pairSectorGen(
 					//configuration
-					uint layer1, uint layer2, __global const uint * layerHits, __global const uint * layerOffsets,
-					__global const uint * sectorBoundaries, float minZ, float sectorSizeZ , uint nSectorsZ, uint nSectorsPhi,
+					__global const uint * layer1, __global const uint * layer2, const uint nLayers,
+					__global const uint * grid,
+					const float minZ, const float sectorSizeZ , const uint nSectorsZ,
+					const float minPhi, const float sectorSizePhi , const uint nSectorsPhi,
 					//how many sectors to cover
-					uint spread,
-					//hit z
-					__global const float * hitGlobalZ, __global const uint * hitId,
-					__global uint * oracle, __global uint * prefixSum )
+					const uint spreadZ, const uint spreadPhi,
+					//hit data
+					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
+					__global uint * oracle, __global const uint * oracleOffset, __global uint * prefixSum,
+					__local uint * lGrid2)
 	{
-		const size_t gid = get_global_id( 0 );
-		const size_t threads = get_global_size( 0 );
+		size_t thread = get_global_id(0); // thread
+		size_t layerPair = get_global_id(1); //layer
+		size_t event = get_global_id(2); //event
 
-		uint hits1 = layerHits[layer1-1];
-		uint offset1 = layerOffsets[layer1-1];
+		size_t threads = get_local_size(0); //threads per layer
+		size_t nLayerPairs = get_global_size(1); //total number of processed layer pairings
 
-		uint hits2 = layerHits[layer2-1];
-		uint offset2 = layerOffsets[layer2-1];
+		uint layer = layer1[layerPair]; //inner layer
+		uint offset = event*nLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1); //offset in hit array
+		uint i = grid[offset] + thread; //threads first hit in inner layer
+		uint end = grid[offset + (nSectorsZ+1)*(nSectorsPhi+1)]; //last hit of inner layer in hit array
 
-		uint workload = hits1 / threads + 1;
-		uint i = gid * workload;
-		uint end = min(i + workload, hits1); // for last thread, if not a full workload is present
+		layer = layer2[layerPair]; //outer layer
+		uint nHits2 = (nSectorsZ+1)*(nSectorsPhi+1); //temp: number of grid cells
+		offset = event*nLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1); //offset in grid data structure for outer layer
+		//load grid for second layer to local mem
+		for(uint i = thread; i < nHits2; i += threads){
+			lGrid2[i] = grid[offset + i];
+		}
+		barrier(CLK_LOCAL_MEM_FENCE);
+		nHits2 = lGrid2[nHits2-1] - lGrid2[0]; //number of hits in second layer
+		offset = lGrid2[0]; //beginning of outer layer
+
+		uint oOffset = oracleOffset[event*nLayerPairs+layerPair]; //offset in oracle array
 		uint nFound = 0;
 
 		//printf("id %lu threads %lu workload %i start %i end %i maxEnd %i \n", gid, threads, workload, i, end, (sectorBorders1[2*sector] - sectorBorders1[2*(sector-1)]));
 
-		for(; i < end; ++i){
+		for(; i < end; i += threads){
 
-			uint minSectorBorder = floor((hitGlobalZ[offset1 + i] - minZ) / sectorSizeZ); //register used to store sector
-			uint maxSectorBorder = min(minSectorBorder + spread+1, nSectorsZ); // upper sector border equals sectorNumber + 1
-			minSectorBorder = max(0u, minSectorBorder-spread); //lower sector border equals sectorNumber
+			uint zLowSector = floor((hitGlobalZ[i] - minZ) / sectorSizeZ); //register used to store sector
+			uint zHighSector = min(zLowSector + spreadZ+1, nSectorsZ); // upper sector border equals sectorNumber + 1
+			zLowSector = max(0u, zLowSector-spreadZ); //lower sector border equals sectorNumber
 
-			for(uint j = sectorBoundaries[(layer2-1)*(nSectorsZ+1)*(nSectorsPhi+1) + minSectorBorder*(nSectorsPhi+1)];
-					j < sectorBoundaries[(layer2-1)*(nSectorsZ+1)*(nSectorsPhi+1) + maxSectorBorder*(nSectorsPhi+1)];
-					++j){
+			float phi = atan2(hitGlobalY[i], hitGlobalX[i]);
 
-				++nFound;
+			uint phiLowSector= (uint) floor((phi - minPhi) / sectorSizePhi) - spreadPhi; // lower phi sector, can underflow
+			uint phiHighSector = phiLowSector + 2*spreadPhi + 1; //higher phi sector, can overflow
+			bool wrapAround = phiLowSector < 0 || phiHighSector > (nSectorsPhi + 1); // does wrap around occur?
+			phiLowSector =+ (phiLowSector < 0) * (nSectorsPhi); //correct
+			phiHighSector -= (phiHighSector > (nSectorsPhi + 1)) * (nSectorsPhi);
 
-				//update oracle
-				uint index = i*hits2 + j;
-				atomic_or(&oracle[index / 32], (1 << (index % 32)));
+			for(uint zSector = zLowSector; zSector < zHighSector; ++ zSector){
+
+				uint zSectorStart = lGrid2[(zSector)*(nSectorsPhi+1)];
+				uint zSectorEnd = lGrid2[(zSector+1)*(nSectorsPhi+1)];
+				uint zSectorLength = zSectorEnd - zSectorStart;
+
+				uint j = lGrid2[zSector*(nSectorsPhi+1)+phiLowSector];
+				uint end2 = wrapAround * zSectorEnd + //add end of layer
+						lGrid2[zSector*(nSectorsPhi+1)+phiHighSector] //actual end of sector
+						                 - wrapAround * (zSectorStart); //substract start of zSector
+
+				for(; j < end2; ++j){
+
+					++nFound;
+
+					//update oracle
+					//           skip to appropriate inner hit
+					//								treat phi overflow
+					//																beginning of second layer
+					uint index = i*nHits2 + j - (j >= zSectorEnd) * zSectorLength - offset;
+					atomic_or(&oracle[oOffset + index / 32], (1 << (index % 32)));
+
+				}
 
 			} // end second hit loop
 
 		} // end workload loop
 
-		prefixSum[gid] = nFound;
+		prefixSum[event*nLayerPairs*threads + layerPair*threads + thread] = nFound;
 
 		//printf("[%lu] Found %u pairs\n", gid, nFound);
 	});
 
-	KERNEL7_CLASS( pairStore, uint, uint, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL10_CLASS( pairStore, cl_mem, cl_mem, uint, cl_mem, uint, uint, cl_mem, cl_mem, cl_mem, cl_mem,
 				__kernel void pairStore(
 						//configuration
-						uint layer1, uint layer2, __global const uint * layerHits, __global const uint * layerOffsets,
+						__global const uint * layer1, __global const uint * layer2, const uint nLayers,
+						__global const uint * grid, const uint nSectorsZ, const uint nSectorsPhi,
 						// input for oracle and prefix sum
-						__global const uint * oracle, __global const uint * prefixSum,
+						__global const uint * oracle, __global const uint * oracleOffset, __global const uint * prefixSum,
 						// output of pairs
 						__global uint2 * pairs)
 		{
-		const size_t gid = get_global_id( 0 );
-		const size_t threads = get_global_size( 0 );
+		size_t thread = get_global_id(0); // thread
+		size_t layerPair = get_global_id(1); //layer
+		size_t event = get_global_id(2); //event
 
-		uint hits1 = layerHits[layer1-1];
-		uint offset1 = layerOffsets[layer1-1];
+		size_t threads = get_local_size(0); //threads per layer
+		size_t nLayerPairs = get_global_size(1); //total number of processed layer pairings
 
-		uint hits2 = layerHits[layer2-1];
-		uint offset2 = layerOffsets[layer2-1];
+		uint layer = layer1[layerPair]; //inner layer
+		uint offset = event*nLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1); //offset in hit array
+		uint i = grid[offset] + thread; //threads first hit in inner layer
+		uint end = grid[offset + (nSectorsZ+1)*(nSectorsPhi+1)]; //last hit of inner layer in hit array
 
-		uint workload = hits1 / threads + 1;
-		uint i = gid * workload;
-		uint end = min(i + workload, hits1); // for last thread, if not a full workload is present
+		layer = layer2[layerPair]; //inner layer
+		offset = event*nLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1); //offset in hit array
+		uint nHits2 = grid[offset + (nSectorsZ+1)*(nSectorsPhi+1)-1] - grid[offset]; //number of hits in second layer
+		offset = grid[offset]; //beginning of outer layer
 
-		uint pos = prefixSum[gid];
-		uint nextThread = prefixSum[gid+1];
+		uint pos = prefixSum[event*nLayerPairs*threads + layerPair*threads + thread]; //first position to write
+		uint nextThread = prefixSum[event*nLayerPairs*threads + layerPair*threads + thread+1]; //first position of next thread
 
-		//performance gain?
-		uint byte = (i*hits2) / 32;
-		uint bit = (i*hits2) % 32;
+		//configure oracle
+		uint byte = oracleOffset[event*nLayerPairs+layerPair]; //offset in oracle array
+		byte += (i*nHits2) / 32;
+		uint bit = (i*nHits2) % 32;
 		uint sOracle = oracle[byte];
 
-		for(; i < end; ++i){
-			for(uint j = 0; j < hits2 && pos < nextThread; ++j){ // pos < prefixSum[id+1] can lead to thread divergence
-
+		for(; i < end; i += threads){
+			for(uint j = 0; j < nHits2 && pos < nextThread; ++j){ // pos < prefixSum[id+1] can lead to thread divergence
 				//is this a valid triplet?
 				//uint index = i * hits2 + j;
 				//bool valid = oracle[index / 32] & (1 << (index % 32));
@@ -251,8 +185,8 @@ public:
 
 				//last triplet written on [pos] is valid one
 				if(valid){
-					pairs[pos].x = valid * (offset1 + i);
-					pairs[pos].y = valid * (offset2 + j);
+					pairs[pos].x = i;
+					pairs[pos].y = j;
 				}
 
 				//if(valid)
