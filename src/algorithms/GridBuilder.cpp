@@ -38,6 +38,10 @@ cl_ulong GridBuilder::run(HitCollection & hits, uint nThreads, const EventSupple
 	evt = prefixSum.run(grid.transfer.buffer(Boundary()), grid.size(),  nThreads);
 	events.push_back(evt);
 
+	//download updated hit data and grid
+	grid.transfer.fromDevice(ctx,grid, &events);
+	printGrid(grid);
+
 	//allocate new buffers for ouput
 	hits.transfer.initBuffers(ctx, hits);
 
@@ -65,8 +69,8 @@ cl_ulong GridBuilder::run(HitCollection & hits, uint nThreads, const EventSupple
 	events.push_back(evt);
 
 	//download updated hit data and grid
-	grid.transfer.fromDevice(ctx,grid, &events);
-	printGrid(grid);
+	//grid.transfer.fromDevice(ctx,grid, &events);
+	//printGrid(grid);
 	hits.transfer.fromDevice(ctx,hits, &events);
 	verifyGrid(hits, grid);
 

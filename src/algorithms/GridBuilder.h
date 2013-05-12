@@ -152,13 +152,13 @@ public:
 			lGrid[i] = grid[offset + i];
 			written[i] = 0;
 		}
+		barrier(CLK_LOCAL_MEM_FENCE);
 
 		offset = eventOffsets[event];
 		offset += layerOffsets[event*nLayers+layer];
 		hits = offset + layerHits[event*nLayers+layer];
 
-		/*barrier(CLK_LOCAL_MEM_FENCE);
-		if(thread == 0){
+		/*if(thread == 0){
 			printf("Event %lu - Layer %lu\n", event, layer);
 
 			printf("\t");
@@ -174,6 +174,15 @@ public:
 				}
 				printf("\n");
 			}
+
+			for(uint i = 0; i < (nSectorsZ+1)*(nSectorsPhi+1); ++i){
+				printf("%u : %u  ", i, lGrid[i]);
+			}
+			printf("\n");
+			for(uint i = 0; i < (nSectorsZ+1)*(nSectorsPhi+1); ++i){
+				printf("%u : %u  ", i, written[i]);
+			}
+			printf("\n");
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);*/
 

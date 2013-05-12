@@ -130,7 +130,7 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 			//if not use cpu
 			clever::context_settings settings = clever::context_settings::default_cpu();
 			settings.m_profile = true;
-			//settings.m_cmd_queue_properties = CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL;
+			settings.m_cmd_queue_properties = CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL;
 
 			contx = new clever::context(settings);
 			std::cout << "error: fallback on CPU" << std::endl;
@@ -227,9 +227,9 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 
 	//configure hit loading
 	const uint evtGrouping = 3;
-	const uint maxLayer = 3;
-	const uint nSectorsZ = 5;
-	const uint nSectorsPhi = 4;
+	const uint maxLayer = 4;
+	const uint nSectorsZ = 50;
+	const uint nSectorsPhi = 8;
 
 	const uint evtGroups = (uint) max(1.0f, ceil(((float) lastEvent )/ evtGrouping)); //number of groups
 
@@ -289,6 +289,7 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 
 		LayerTriplets layerTriplets;
 		layerTriplets.addWithValue(1,2,3); //Layer Configuration
+		layerTriplets.addWithValue(2,3,4); //Layer Configuration
 		layerTriplets.transfer.initBuffers(*contx, layerTriplets);
 		layerTriplets.transfer.toDevice(*contx, layerTriplets);
 
@@ -296,8 +297,8 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 		float dThetaWindow = 0.1;
 		float dPhiCut = 0.1;
 		float dPhiWindow = 0.1;
-		int pairSpreadZ = 1;
-		int pairSpreadPhi = 2;
+		uint pairSpreadZ = 0;
+		uint pairSpreadPhi = 2;
 		float tipCut = 0.75;
 
 		//run it

@@ -62,8 +62,8 @@ private:
 
 public:
 
-	static constexpr float MIN_Z = -50; //-300;
-	static constexpr float MAX_Z = 50; //300;
+	static constexpr float MIN_Z = -300; //for PXB -50
+	static constexpr float MAX_Z = 300; //for PXB 50;
 
 	static constexpr float MIN_PHI = -M_PI;
 	static constexpr float MAX_PHI =  M_PI;
