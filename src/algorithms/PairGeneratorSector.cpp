@@ -2,7 +2,7 @@
 #include <algorithms/PrefixSum.h>
 
 #define DEBUG_OUT
-clever::vector<uint2,1> * PairGeneratorSector::run(HitCollection & hits,
+Pairing * PairGeneratorSector::run(HitCollection & hits,
 				uint nThreads, const LayerTriplets & layerTriplets, const Grid & grid,
 				uint spreadZ, uint spreadPhi)
 		{
@@ -106,8 +106,8 @@ clever::vector<uint2,1> * PairGeneratorSector::run(HitCollection & hits,
 	std::cout << std::endl;
 #endif
 	std::cout << "Initializing pairs...";
-	clever::vector<uint2, 1> * m_pairs = new clever::vector<uint2, 1>(ctx, nFoundPairs);
-	std::cout << "done[" << m_pairs->get_count()  << "]" << std::endl;
+	Pairing * hitPairs = new Pairing(ctx, nFoundPairs, grid.config.nEvents, layerTriplets.size());
+	std::cout << "done[" << hitPairs->pairing.get_count()  << "]" << std::endl;
 
 
 	std::cout << "Running pair gen store kernel...";
@@ -119,7 +119,7 @@ clever::vector<uint2,1> * PairGeneratorSector::run(HitCollection & hits,
 			// input for oracle and prefix sum
 			m_oracle.get_mem(), m_oracleOffset.get_mem(), m_prefixSum.get_mem(),
 			// output of pairs
-			m_pairs->get_mem(),
+			hitPairs->pairing.get_mem(), hitPairs->pairingOffsets.get_mem(),
 			//thread config
 			range(nThreads, nLayerTriplets, grid.config.nEvents),
 			range(nThreads, 1,1));
@@ -129,15 +129,23 @@ clever::vector<uint2,1> * PairGeneratorSector::run(HitCollection & hits,
 
 #ifdef DEBUG_OUT
 	std::cout << "Fetching pairs...";
-	std::vector<uint2> pairs(nFoundPairs);
-	transfer::download(*m_pairs, pairs, ctx);
+	std::vector<uint2> pairs = hitPairs->getPairings();
 	std::cout <<"done[" << pairs.size() << "]" << std::endl;
 
 	std::cout << "Pairs:" << std::endl;
 	for(uint i = 0; i < nFoundPairs; ++i){
 		std::cout << "[" << i << "] "  << pairs[i].x << "-" << pairs[i].y << std::endl;
 	}
+
+	std::cout << "Fetching pair offets...";
+	std::vector<uint> pairOffsets = hitPairs->getPairingOffsets();
+	std::cout <<"done[" << pairOffsets.size() << "]" << std::endl;
+
+	std::cout << "Pair Offsets:" << std::endl;
+	for(uint i = 0; i < pairOffsets.size(); ++i){
+		std::cout << "[" << i << "] "  << pairOffsets[i] << std::endl;
+	}
 #endif
 
-	return m_pairs;
-		}
+	return hitPairs;
+}

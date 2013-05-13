@@ -23,12 +23,13 @@
 #include <datastructures/LayerSupplement.h>
 #include <datastructures/Grid.h>
 #include <datastructures/LayerTriplets.h>
+#include <datastructures/Pairings.h>
 
 #include <datastructures/serialize/Event.pb.h>
 
 #include <algorithms/PairGeneratorSector.h>
-//#include <algorithms/TripletThetaPhiPredictor.h>
-//#include <algorithms/TripletThetaPhiFilter.h>
+#include <algorithms/TripletThetaPhiPredictor.h>
+#include <algorithms/TripletThetaPhiFilter.h>
 #include <algorithms/GridBuilder.h>
 
 #include <google/protobuf/io/coded_stream.h>
@@ -289,7 +290,7 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 
 		LayerTriplets layerTriplets;
 		layerTriplets.addWithValue(1,2,3); //Layer Configuration
-		layerTriplets.addWithValue(2,3,4); //Layer Configuration
+		//layerTriplets.addWithValue(2,3,4); //Layer Configuration
 		layerTriplets.transfer.initBuffers(*contx, layerTriplets);
 		layerTriplets.transfer.toDevice(*contx, layerTriplets);
 
@@ -303,14 +304,13 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 
 		//run it
 		PairGeneratorSector pairGen(*contx);
-		clever::vector<uint2,1> * pairs = pairGen.run(hits, threads, layerTriplets, grid, pairSpreadZ, pairSpreadPhi);
+		Pairing  * pairs = pairGen.run(hits, threads, layerTriplets, grid, pairSpreadZ, pairSpreadPhi);
 
-		/*TripletThetaPhiPredictor predictor(*contx);
-		clever::vector<uint2,1> * tripletCandidates = predictor.run(hits, geom, geomSupplement, dict, threads, layers, layerSupplement, grid, dThetaWindow, dPhiWindow, *pairs);
+		TripletThetaPhiPredictor predictor(*contx);
+		Pairing * tripletCandidates = predictor.run(hits, geom, geomSupplement, dict, threads, layerTriplets, grid, dThetaWindow, dPhiWindow, *pairs);
 
 		TripletThetaPhiFilter tripletThetaPhi(*contx);
-		TrackletCollection * tracklets = tripletThetaPhi.run(hits, geom, geomSupplement, dict, pairs, tripletCandidates,
-				threads, layers, layerSupplement, grid, dThetaCut, dPhiCut, tipCut);
+		TrackletCollection * tracklets = tripletThetaPhi.run(hits, grid, *pairs, *tripletCandidates, threads, layerTriplets, dThetaCut, dPhiCut, tipCut);
 
 		//evaluate it
 
@@ -409,10 +409,10 @@ RuntimeRecord buildTriplets(std::string filename, uint tracks, float minPt, uint
 
 			result += tmpRes;
 		}
-	*/
-		//delete tracklets;
+
 		delete pairs;
-		//delete tripletCandidates;
+		delete tripletCandidates;
+		delete tracklets;
 
 	}
 

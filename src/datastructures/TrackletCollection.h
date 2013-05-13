@@ -38,19 +38,42 @@ class TrackletCollection: public TrackletCollectionItems
 public:
 	typedef TrackletCollectionItems dataitems_type;
 
-	TrackletCollection()
+	TrackletCollection(int items, uint nEvents, uint nLayerTriplets, clever::context & ctext) :
+			clever::Collection<TRACKLET_COLLECTION_ITEMS>(items),
+			trackletOffsets(0 , nEvents*nLayerTriplets+1, ctext),
+			ctx(ctext),
+			lTrackletOffsets(0)
 	{
 
 	}
 
-	TrackletCollection(int items) :
-			clever::Collection<TRACKLET_COLLECTION_ITEMS>(items)
-	{
+	const std::vector<uint> & getTrackletOffsets() const {
+		if(lTrackletOffsets != NULL)
+			return *lTrackletOffsets;
+		else {
+			lTrackletOffsets = new std::vector<uint>(trackletOffsets.get_count());
+			clever::transfer::download(trackletOffsets, *lTrackletOffsets, ctx);
 
+			return *lTrackletOffsets;
+		}
 	}
+
+	void invalidate(){
+		delete lTrackletOffsets; lTrackletOffsets = NULL;
+	}
+
+	~TrackletCollection(){
+		delete lTrackletOffsets;
+	}
+
 
 public:
 	clever::OpenCLTransfer<TRACKLET_COLLECTION_ITEMS> transfer;
+	clever::vector<uint, 1> trackletOffsets;
+
+private:
+	clever::context & ctx;
+	mutable std::vector<uint> * lTrackletOffsets;
 };
 
 class Tracklet: private clever::CollectionView<TrackletCollection>

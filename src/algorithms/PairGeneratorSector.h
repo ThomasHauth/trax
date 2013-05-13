@@ -6,6 +6,7 @@
 #include <datastructures/HitCollection.h>
 #include <datastructures/TrackletCollection.h>
 #include <datastructures/LayerTriplets.h>
+#include <datastructures/Pairings.h>
 #include <datastructures/Grid.h>
 
 using namespace clever;
@@ -39,7 +40,7 @@ public:
 	static std::string KERNEL_COMPUTE_EVT() {return "PairGeneratorSector_COMPUTE";}
 	static std::string KERNEL_STORE_EVT() {return "PairGeneratorSector_STORE";}
 
-	clever::vector<uint2,1> * run(HitCollection & hits,
+	Pairing * run(HitCollection & hits,
 				uint nThreads, const LayerTriplets & layerTriplets, const Grid & grid,
 				uint spreadZ, uint spreadPhi);
 
@@ -149,7 +150,7 @@ public:
 		//printf("[%lu] Found %u pairs\n", gid, nFound);
 	});
 
-	KERNEL10_CLASS( pairStore, cl_mem, cl_mem, uint, cl_mem, uint, uint, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL11_CLASS( pairStore, cl_mem, cl_mem, uint, cl_mem, uint, uint, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
 				__kernel void pairStore(
 						//configuration
 						__global const uint * layer1, __global const uint * layer2, const uint nLayers,
@@ -157,7 +158,7 @@ public:
 						// input for oracle and prefix sum
 						__global const uint * oracle, __global const uint * oracleOffset, __global const uint * prefixSum,
 						// output of pairs
-						__global uint2 * pairs)
+						__global uint2 * pairs, __global uint * pairOffsets)
 		{
 		size_t thread = get_global_id(0); // thread
 		size_t layerPair = get_global_id(1); //layer
@@ -180,10 +181,14 @@ public:
 		uint pos = prefixSum[event*nLayerPairs*threads + layerPair*threads + thread]; //first position to write
 		uint nextThread = prefixSum[event*nLayerPairs*threads + layerPair*threads + thread+1]; //first position of next thread
 
+		if(thread == threads-1){ //store pos in pairOffset array
+			pairOffsets[event * nLayerPairs + layerPair + 1] = nextThread;
+		}
+
 		//configure oracle
 		uint byte = oracleOffset[event*nLayerPairs+layerPair]; //offset in oracle array
-		//byte += (i*nHits2) / 32;
-		//uint bit = (i*nHits2) % 32;
+		//uint bit = (byte + i*nHits2) % 32;
+		//byte += (i*nHits2); byte /= 32;
 		//uint sOracle = oracle[byte];
 
 		printf("%lu-%lu-%lu: from hit1 %u to %u with hits2 %u using memory %u to %u\n", event, layerPair, thread, i, end, nHits2, pos, nextThread);

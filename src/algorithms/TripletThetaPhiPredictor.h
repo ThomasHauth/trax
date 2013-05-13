@@ -8,6 +8,8 @@
 #include <datastructures/LayerSupplement.h>
 #include <datastructures/Grid.h>
 #include <datastructures/GeometrySupplement.h>
+#include <datastructures/LayerTriplets.h>
+#include <datastructures/Pairings.h>
 
 #include <algorithms/PrefixSum.h>
 
@@ -44,153 +46,76 @@ public:
 	static std::string KERNEL_COMPUTE_EVT() {return "TripletThetaPhiPredict_COMPUTE";}
 	static std::string KERNEL_STORE_EVT() {return "TripletThetaPhiPredict_STORE";}
 
-	clever::vector<uint2,1> * run(HitCollection & hits, const DetectorGeometry & geom, const GeometrySupplement & geomSupplement, const Dictionary & dict,
-			int nThreads, int layers[], const LayerSupplement & layerSupplement, const Grid & grid,
-			float dThetaWindow, float dPhiWindow, const clever::vector<uint2,1> & pairs)
-	{
+	Pairing * run(HitCollection & hits, const DetectorGeometry & geom, const GeometrySupplement & geomSupplement, const Dictionary & dict,
+			int nThreads, const LayerTriplets & layerTriplets, const Grid & grid,
+			float dThetaWindow, float dPhiWindow, const Pairing & pairs);
 
-		int nLayer1 = layerSupplement[layers[0]-1].getNHits();
-		int nLayer2 = layerSupplement[layers[1]-1].getNHits();
-		int nLayer3 = layerSupplement[layers[2]-1].getNHits();
-
-		int nMaxTriplets = pairs.get_count() * nLayer3;
-
-		std::cout << "Initializing oracle for prediction...";
-		clever::vector<uint, 1> m_oracle(0, std::ceil(nMaxTriplets / 32.0), ctx);
-		std::cout << "done[" << m_oracle.get_count()  << "]" << std::endl;
-
-		std::cout << "Initializing prefix sum for prediction...";
-		clever::vector<uint, 1> m_prefixSum(0, nThreads+1, ctx);
-		std::cout << "done[" << m_prefixSum.get_count()  << "]" << std::endl;
-
-		std::cout << "Running predict kernel...";
-		cl_event evt = tripletThetaPhiPredict.run(
-				//detector geometry
-				geom.transfer.buffer(RadiusDict()), dict.transfer.buffer(Radius()), geomSupplement.transfer.buffer(MinRadius()), geomSupplement.transfer.buffer(MaxRadius()),
-				grid.config.MIN_Z, grid.config.sectorSizeZ, grid.config.MIN_PHI, grid.config.sectorSizePhi,
-				grid.transfer.buffer(Boundary()), grid.config.nSectorsZ, grid.config.nSectorsPhi,
-				//configuration
-				dThetaWindow, dPhiWindow,
-				pairs.get_count(),
-				// input
-				pairs.get_mem(), (nLayer1+nLayer2), nLayer3, layers[2],
-				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()), hits.transfer.buffer(DetectorId()), hits.transfer.buffer(HitId()),
-				// output
-				m_oracle.get_mem(), m_prefixSum.get_mem(),
-				//thread config
-				nThreads);
-		std::cout << "done" << std::endl;
-
-		ctx.add_profile_event(evt, KERNEL_COMPUTE_EVT());
-
-#ifdef DEBUG_OUT
-		std::cout << "Fetching prefix sum for prediction...";
-		std::vector<uint> prefixSum(m_prefixSum.get_count());
-		transfer::download(m_prefixSum,prefixSum,ctx);
-		std::cout << "done" << std::endl;
-		std::cout << "Prefix sum: ";
-		for(auto i : prefixSum){
-			std::cout << i << " ; ";
-		}
-		std::cout << std::endl;
-#endif
-
-#ifdef DEBUG_OUT
-		std::cout << "Fetching oracle for prediction...";
-		std::vector<uint> oracle(m_oracle.get_count());
-		transfer::download(m_oracle,oracle,ctx);
-		std::cout << "done" << std::endl;
-		std::cout << "Oracle: ";
-		for(auto i : oracle){
-			std::cout << i << " ; ";
-		}
-		std::cout << std::endl;
-#endif
-
-		//Calculate prefix sum
-		PrefixSum prefixSum(ctx);
-		int nCandidateTriplets = prefixSum.run(m_prefixSum, nThreads, true);
-
-#ifdef DEBUG_OUT
-		std::cout << "Fetching prefix sum for prediction...";
-		std::vector<uint> prefixSum(m_prefixSum.get_count());
-		transfer::download(m_prefixSum,prefixSum,ctx);
-		std::cout << "done" << std::endl;
-		std::cout << "Prefix sum: ";
-		for(auto i : prefixSum){
-			std::cout << i << " ; ";
-		}
-		std::cout << std::endl;
-#endif
-
-		std::cout << "Initializing triplet candidates...";
-		clever::vector<uint2, 1> * m_triplets = new clever::vector<uint2, 1>(ctx, nCandidateTriplets);
-		std::cout << "done[" << m_triplets->get_count()  << "]" << std::endl;
-
-		std::cout << "Running predict store kernel...";
-		evt = tripletThetaPhiPredictStore.run(
-				//configuration
-				pairs.get_count(), layerSupplement[layers[2]-1].getOffset(), nLayer3,
-				//input
-				pairs.get_mem(),
-				m_oracle.get_mem(), m_prefixSum.get_mem(),
-				//output
-				// output
-				m_triplets->get_mem(),
-				//thread config
-				nThreads);
-		std::cout << "done" << std::endl;
-
-		ctx.add_profile_event(evt, KERNEL_STORE_EVT());
-
-
-#ifdef DEBUG_OUT
-		std::cout << "Fetching triplet candidates...";
-		std::vector<uint2> triplets(nCandidateTriplets);
-		transfer::download(*m_triplets, triplets, ctx);
-		std::cout <<"done[" << triplets.size() << "]" << std::endl;
-		std::cout << "Triplet Candidates:" << std::endl;
-		for(uint2 i : triplets){
-			std::cout << i.x << "-" << i.y << std::endl;
-		}
-#endif
-
-		return m_triplets;
-	}
-
-	KERNEL25_CLASS( tripletThetaPhiPredict, cl_mem, cl_mem, cl_mem, cl_mem, float, float, float, float, cl_mem, uint, uint, double, double, uint,  cl_mem, uint, uint, uint, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL26_CLASS( tripletThetaPhiPredict, cl_mem, cl_mem, cl_mem, cl_mem,
+			cl_mem, cl_mem, uint,
+			cl_float, cl_float, uint,
+			cl_float, cl_float, uint,
+			cl_float, cl_float,
+			cl_mem, cl_mem,
+			cl_mem, cl_mem, cl_mem,
+			cl_mem, cl_mem,
+			cl_mem, cl_mem, cl_mem,
+			local_param,
 
 	__kernel void tripletThetaPhiPredict(
 					//detector geometry
 					__global const uchar * detRadius, __global const float * radiusDict,__global const float * minLayerRadius, __global const float * maxLayerRadius,
-					float minZ, float sectorSizeZ, float minPhi, float sectorSizePhi, __global const uint * sectorBoundaries, uint nSectorsZ, uint nSectorsPhi,
+					//grid data structure
+					__global const uint * grid, __global const uint * layer3, const uint nLayers,
+					const float minZ, const float sectorSizeZ, const uint nSectorsZ,
+					const float minPhi, const float sectorSizePhi, const uint nSectorsPhi,
 					//configuration
-					double dThetaWindow, double dPhiWindow, uint nPairs,
+					const float dThetaWindow, const float dPhiWindow,
 					// hit input
-					__global const uint2 * pairs, uint offset, uint nThirdHits, uint layer3,
+					__global const uint2 * pairs, __global const uint * hitPairOffsets,
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
 					__global const uint * detId, __global const int * hitId,
 					// intermeditate data: oracle for hit pair + candidate combination, prefix sum for found tracklets
-					__global uint * oracle, __global uint * prefixSum )
+					__global uint * oracle, __global const uint * oracleOffset, __global uint * prefixSum,
+					//local buffers
+					__local uint * lGrid3)
 	{
 
-		const size_t gid = get_global_id( 0 );
-		const size_t lid = get_local_id( 0 );
-		const size_t threads = get_global_size( 0 );
+		size_t thread = get_global_id(0); // thread
+		size_t layerTriplet = get_global_id(1); //layer
+		size_t event = get_global_id(2); //event
 
-		uint workload = nPairs / threads + 1;
-		uint i = gid * workload;
-		uint end = min(i + workload, nPairs); // for last thread, if not a full workload is present
+		size_t threads = get_local_size(0); //threads per layer
+		size_t nLayerTriplets = get_global_size(1); //total number of processed layer pairings
+
+		uint offset = event*nLayerTriplets + layerTriplet;
+		uint pairOffset = hitPairOffsets[offset]; //offset of hit pairs
+		uint i = pairOffset + thread;
+		uint end = hitPairOffsets[offset + 1]; //last hit pair
+
+		printf("%lu-%lu-%lu: from hit1 %u to %u\n", event, layerTriplet, thread, i, end);
+
+		uint layer = layer3[layerTriplet]-1; //outer layer
+		uint nHits3 = (nSectorsZ+1)*(nSectorsPhi+1); //temp: number of grid cells
+		offset = event*nLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1); //offset in grid data structure for outer layer
+		//load grid for second layer to local mem
+		for(uint i = thread; i < nHits3; i += threads){
+			lGrid3[i] = grid[offset + i];
+		}
+		barrier(CLK_LOCAL_MEM_FENCE);
+		nHits3 = lGrid3[nHits3-1] - lGrid3[0]; //number of hits in outer layer
+		offset = lGrid3[0]; //beginning of outer layer
+
+		printf("%lu-%lu-%lu: second layer from %u with %u hits\n", event, layerTriplet, thread, offset, nHits3);
+
+		uint oOffset = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
 		uint nFound = 0;
 
-		/*124 special
-		uint rejZ = 0;
-		uint rejP = 0;
-		uint rejB = 0;*/
+		printf("%lu-%lu-%lu: oracle from %u\n", event, layerTriplet, thread, oOffset);
+
 
 		//printf("id %lu threads %lu workload %i start %i end %i maxEnd %i \n", id, threads, workload, i, end, nPairs);
 
-		for(; i < end; ++i){ //workload loop
+		for(; i < end; i += threads){ //workload loop
 
 			uint firstHit = pairs[i].x;
 			uint secondHit = pairs[i].y;
@@ -221,8 +146,8 @@ public:
 
 			//radius
 			float r = signRadius * radiusDict[detRadius[detId[secondHit]]];
-			float dRmax = signRadius * maxLayerRadius[layer3-1] - r;
-			float dRmin = signRadius * minLayerRadius[layer3-1] - r;
+			float dRmax = signRadius * maxLayerRadius[layer] - r;
+			float dRmin = signRadius * minLayerRadius[layer] - r;
 
 			//z_3 = z_2 + dr * cot(theta) => cot(theta) = tan(pi/2 - theta)
 
@@ -247,6 +172,8 @@ public:
 			uint zLowSector = max((int) floor((zLow - minZ) / sectorSizeZ), 0); // signed int because zLow could be lower than minZ
 			uint zHighSector = min((uint) floor((zHigh - minZ) / sectorSizeZ)+1, nSectorsZ);
 
+			printf("%lu-%lu-%lu: hit pair %u -> prediction %f-%f [%u,%u]\n", event, layerTriplet, thread, i, zLow, zHigh, zLowSector, zHighSector);
+
 			//phi
 			float phi = atan2((hitGlobalY[secondHit] - hitGlobalY[firstHit]) , ( hitGlobalX[secondHit] - hitGlobalX[firstHit] ));
 
@@ -267,20 +194,22 @@ public:
 			uint phiLowSector= max((uint) floor((phiLow - minPhi) / sectorSizePhi), 0u);
 			uint phiHighSector = min((uint) floor((phiHigh - minPhi) / sectorSizePhi)+1, nSectorsPhi);
 
+			printf("%lu-%lu-%lu: hit pair %u:  phi = %f - %f -> [%u,%u] %s\n", event, layerTriplet, thread, i, phiLow, phiHigh, phiLowSector, phiHighSector, wrapAround ? " wrapAround" : "");
+
 			for(uint zSector = zLowSector; zSector < zHighSector; ++ zSector){
 
-				uint zSectorStart = sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + (zSector)*(nSectorsPhi+1)];
-				uint zSectorEnd = sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + (zSector+1)*(nSectorsPhi+1)];
+				uint zSectorStart = lGrid3[(zSector)*(nSectorsPhi+1)];
+				uint zSectorEnd = lGrid3[(zSector+1)*(nSectorsPhi+1)];
 				uint zSectorLength = zSectorEnd - zSectorStart;
 
-				uint j = sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zSector*(nSectorsPhi+1)+phiLowSector];
+				uint j = lGrid3[zSector*(nSectorsPhi+1)+phiLowSector];
 				uint end2 = wrapAround * zSectorEnd + //add end of layer
-						sectorBoundaries[(layer3-1)*(nSectorsZ+1)*(nSectorsPhi+1) + zSector*(nSectorsPhi+1)+phiHighSector] //actual end of sector
+						lGrid3[zSector*(nSectorsPhi+1)+phiHighSector] //actual end of sector
 						                 - wrapAround * (zSectorStart); //substract start of zSector
 
 				for(; j < end2; ++j){
 					// check z range
-					uint index = offset + j - (j >= zSectorEnd) * zSectorLength;
+					uint index = j - (j >= zSectorEnd) * zSectorLength;
 					bool valid = zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh;
 //#define DEVICE_CPU
 #ifdef DEVICE_CPU
@@ -316,78 +245,107 @@ public:
 					nFound = nFound + valid;
 
 					//update oracle
-					index = i*nThirdHits + j - (j >= zSectorEnd) * zSectorLength;
-					atomic_or(&oracle[index / 32], (valid << (index % 32)));
+					index = (i - pairOffset)*nHits3 + j - (j >= zSectorEnd) * zSectorLength - offset;
 
-					//if(valid)
-					//printf("[ %lu ] Found valid candidate %i (%i-%i-%i). Word %i Bit %i\n", id, index, firstHit, secondHit, offset+j, index / 32, index % 32);
+					if(valid)
+						printf("%lu-%lu-%lu: setting bit for %u and %u (%u) -> %u\n", event, layerTriplet, thread, i-pairOffset, j - (j >= zSectorEnd) * zSectorLength, j,  index);
+
+					atomic_or(&oracle[(oOffset + index) / 32], (valid << (index % 32)));
+
 				} // end hit loop
 			} // end sector loop
 
 		} //end workload loop
 
-		prefixSum[gid] = nFound;
+		prefixSum[event*nLayerTriplets*threads + layerTriplet*threads + thread] = nFound;
 
 		//printf("[%lu] rejZ: %u, rejP: %u, rejB: %u\n", gid, rejZ, rejP, rejB);
 	});
 
-	KERNEL7_CLASS( tripletThetaPhiPredictStore, uint, uint, uint, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL12_CLASS( tripletThetaPhiPredictStore, cl_mem, uint, uint,
+			cl_mem, uint,
+			cl_mem, cl_mem,
+			cl_mem, cl_mem, cl_mem,
+			cl_mem, cl_mem,
 				__kernel void tripletThetaPhiPredictStore(
 						//configuration
-						uint nPairs, uint offset, uint nThirdHits,
+						__global const uint * grid, const uint nSectorsZ, const uint nSectorsPhi,
+						__global const uint * layer3, const uint nLayers,
 						// hit input
-						__global const uint2 * pairs,
+						__global const uint2 * pairs, __global const uint * hitPairOffsets,
 						// input for oracle and prefix sum
-						__global const uint * oracle, __global const uint * prefixSum,
+						__global const uint * oracle, __global const uint * oracleOffset, __global const uint * prefixSum,
 						// output triplet candidates
-						__global uint2 * triplets)
+						__global uint2 * triplets, __global uint * tripletOffsets)
 		{
-			size_t id = get_global_id( 0 );
-			size_t threads = get_global_size( 0 );
+		size_t thread = get_global_id(0); // thread
+		size_t layerTriplet = get_global_id(1); //layer
+		size_t event = get_global_id(2); //event
 
-			uint workload = nPairs / threads + 1;
-			uint i = id * workload;
-			uint end = min(i + workload, nPairs); // for last thread, if not a full workload is present
+		size_t threads = get_local_size(0); //threads per layer
+		size_t nLayerTriplets = get_global_size(1); //total number of processed layer pairings
 
-			uint pos = prefixSum[id];
-			uint nextThread = prefixSum[id+1];
+		uint offset = event*nLayerTriplets + layerTriplet;
+		uint pairOffset = hitPairOffsets[offset]; //offset of hit pairs
+		uint i = pairOffset + thread;
+		uint end = hitPairOffsets[offset + 1]; //last hit pair
 
-			//performance gain?
-			uint byte = (i*nThirdHits) / 32;
-			uint bit = (i*nThirdHits) % 32;
-			uint sOracle = oracle[byte];
+		printf("%lu-%lu-%lu: from hit1 %u to %u\n", event, layerTriplet, thread, i, end);
 
-			for(; i < end; ++i){
+		uint layer = layer3[layerTriplet]-1; //outer layer
+		offset = event*nLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1); //offset in hit array
+		uint nHits3 = grid[offset + (nSectorsZ+1)*(nSectorsPhi+1)-1] - grid[offset]; //number of hits in second layer
+		offset = grid[offset]; //beginning of outer layer
 
-				for(uint j = 0; j < nThirdHits && pos < nextThread; ++j){ // pos < prefixSum[id+1] can lead to thread divergence
+		uint pos = prefixSum[event*nLayerTriplets*threads + layerTriplet*threads + thread]; //first position to write
+		uint nextThread = prefixSum[event*nLayerTriplets*threads + layerTriplet*threads + thread+1]; //first position of next thread
 
-					//is this a valid triplet?
-					//uint index = i*nThirdHits+j;
-					//bool valid = oracle[index / 32] & (1 << (index % 32));
+		if(thread == threads-1){ //store pos in pairOffset array
+			tripletOffsets[event * nLayerTriplets + layerTriplet + 1] = nextThread;
+		}
 
-					//performance gain?
-					bool valid = sOracle & (1 << bit);
-					++bit;
-					if(bit == 32){
-						bit = 0;
-						++byte;
-						sOracle=oracle[byte];
-					}
+		printf("%lu-%lu-%lu: second layer from %u with %u hits\n", event, layerTriplet, thread, offset, nHits3);
 
-					//last triplet written on [pos] is valid one
-					uint index = offset + j;
-					if(valid){
-						triplets[pos].x = valid * i;
-						triplets[pos].y = valid * index;
-					}
+		//configure oracle
+		uint byte = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
+		//uint bit = (byte + i*nHits2) % 32;
+		//byte += (i*nHits2); byte /= 32;
+		//uint sOracle = oracle[byte];
 
-					//if(valid)
-					//	printf("[ %lu ] Written at %i: %i-%i-%i\n", id, pos, trackletHitId1[pos],trackletHitId2[pos],trackletHitId3[pos]);
+		printf("%lu-%lu-%lu: from hit1 %u to %u with hits2 %u using memory %u to %u\n", event, layerTriplet, thread, i, end, nHits3, pos, nextThread);
+		for(; i < end; i += threads){
 
-					//advance pos if valid
-					pos = pos + valid;
+			for(uint j = 0; j < nHits3 && pos < nextThread; ++j){ // pos < prefixSum[id+1] can lead to thread divergence
+
+				//is this a valid triplet?
+				uint index = (i - pairOffset)*nHits3+j;
+				bool valid = oracle[(byte + index) / 32] & (1 << (index % 32));
+
+				if(valid)
+					printf("%lu-%lu-%lu: valid bit for %u and %u -> %u written at %u\n", event, layerTriplet, thread, i-pairOffset, offset+j,  index, pos);
+
+				//performance gain?
+				/*bool valid = sOracle & (1 << bit);
+				++bit;
+				if(bit == 32){
+					bit = 0;
+					++byte;
+					sOracle=oracle[byte];
+				}*/
+
+				//last triplet written on [pos] is valid one
+				if(valid){
+					triplets[pos].x = i;
+					triplets[pos].y = offset + j;
 				}
+
+				//if(valid)
+				//	printf("[ %lu ] Written at %i: %i-%i-%i\n", id, pos, trackletHitId1[pos],trackletHitId2[pos],trackletHitId3[pos]);
+
+				//advance pos if valid
+				pos += valid;
 			}
+		}
 		});
 
 };
