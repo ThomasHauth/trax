@@ -1,10 +1,9 @@
 #include "PairGeneratorSector.h"
 #include <algorithms/PrefixSum.h>
 
-#define DEBUG_OUT
+
 Pairing * PairGeneratorSector::run(HitCollection & hits,
-				uint nThreads, const LayerTriplets & layerTriplets, const Grid & grid,
-				uint spreadZ, uint spreadPhi)
+				uint nThreads, const TripletConfigurations & layerTriplets, const Grid & grid)
 		{
 
 	std::vector<uint> oracleOffset;
@@ -14,7 +13,7 @@ Pairing * PairGeneratorSector::run(HitCollection & hits,
 	for(uint e = 0; e < grid.config.nEvents; ++e){
 		for(uint p = 0; p < nLayerTriplets; ++p){
 
-			LayerTriplet layerPair(layerTriplets, p);
+			TripletConfiguration layerPair(layerTriplets, p);
 
 			LayerGrid layer1(grid, layerPair.layer1(),e);
 			LayerGrid layer2(grid, layerPair.layer2(),e);
@@ -27,28 +26,28 @@ Pairing * PairGeneratorSector::run(HitCollection & hits,
 		}
 	}
 
-	std::cout << "Initializing oracle offsets for pair gen...";
+	LOG << "Initializing oracle offsets for pair gen...";
 	clever::vector<uint, 1> m_oracleOffset(oracleOffset, ctx);
-	std::cout << "done[" << m_oracleOffset.get_count()  << "]" << std::endl;
+	LOG << "done[" << m_oracleOffset.get_count()  << "]" << std::endl;
 
-	std::cout << "Initializing oracle for pair gen...";
+	LOG << "Initializing oracle for pair gen...";
 	clever::vector<uint, 1> m_oracle(0, std::ceil(totalMaxPairs / 32.0), ctx);
-	std::cout << "done[" << m_oracle.get_count()  << "]" << std::endl;
+	LOG << "done[" << m_oracle.get_count()  << "]" << std::endl;
 
-	std::cout << "Initializing prefix sum for pair gen...";
+	LOG << "Initializing prefix sum for pair gen...";
 	clever::vector<uint, 1> m_prefixSum(0, grid.config.nEvents*nLayerTriplets*nThreads+1, ctx);
-	std::cout << "done[" << m_prefixSum.get_count()  << "]" << std::endl;
+	LOG << "done[" << m_prefixSum.get_count()  << "]" << std::endl;
 
 	//ctx.select_profile_event(KERNEL_COMPUTE_EVT());
 
-	std::cout << "Running pair gen kernel...";
+	LOG << "Running pair gen kernel...";
 	cl_event evt = pairSectorGen.run(
 			//configuration
 			layerTriplets.transfer.buffer(Layer1()), layerTriplets.transfer.buffer(Layer2()), grid.config.nLayers,
 			grid.transfer.buffer(Boundary()),
-			grid.config.MIN_Z, grid.config.sectorSizeZ,	grid.config.nSectorsZ,
-			grid.config.MIN_PHI, grid.config.sectorSizePhi, grid.config.nSectorsPhi,
-			spreadZ, spreadPhi,
+			grid.config.MIN_Z, grid.config.sectorSizeZ(),	grid.config.nSectorsZ,
+			grid.config.MIN_PHI, grid.config.sectorSizePhi(), grid.config.nSectorsPhi,
+			layerTriplets.transfer.buffer(pairSpreadZ()), layerTriplets.transfer.buffer(pairSpreadPhi()),
 			// hit input
 			hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
 			// intermeditate data: oracle for hit pairs, prefix sum for found pairs
@@ -58,35 +57,36 @@ Pairing * PairGeneratorSector::run(HitCollection & hits,
 			//thread config
 			range(nThreads, nLayerTriplets, grid.config.nEvents),
 			range(nThreads, 1,1));
-	std::cout << "done" << std::endl;
+	LOG << "done" << std::endl;
 
 	ctx.add_profile_event(evt, KERNEL_COMPUTE_EVT());
 
-#ifdef DEBUG_OUT
-	std::cout << "Fetching prefix sum for pair gen...";
-	std::vector<uint> vPrefixSum(m_prefixSum.get_count());
-	transfer::download(m_prefixSum,vPrefixSum,ctx);
-	std::cout << "done" << std::endl;
+	if(PROLIX){
+		PLOG << "Fetching prefix sum for pair gen...";
+		std::vector<uint> vPrefixSum(m_prefixSum.get_count());
+		transfer::download(m_prefixSum,vPrefixSum,ctx);
+		PLOG << "done" << std::endl;
 
-	std::cout << "Prefix sum: ";
-	for(auto i : vPrefixSum){
-		std::cout << i << " ; ";
+		PLOG << "Prefix sum: ";
+		for(auto i : vPrefixSum){
+			PLOG << i << " ; ";
+		}
+		PLOG << std::endl;
 	}
-	std::cout << std::endl;
-#endif
 
-#ifdef DEBUG_OUT
-	std::cout << "Fetching oracle for pair gen...";
-	std::vector<uint> oracle(m_oracle.get_count());
-	transfer::download(m_oracle,oracle,ctx);
-	std::cout << "done" << std::endl;
 
-	std::cout << "Oracle: ";
-	for(auto i : oracle){
-		std::cout << i << " ; ";
+	if(PROLIX){
+		PLOG << "Fetching oracle for pair gen...";
+		std::vector<uint> oracle(m_oracle.get_count());
+		transfer::download(m_oracle,oracle,ctx);
+		PLOG << "done" << std::endl;
+
+		PLOG << "Oracle: ";
+		for(auto i : oracle){
+			PLOG << i << " ; ";
+		}
+		PLOG << std::endl;
 	}
-	std::cout << std::endl;
-#endif
 
 	//Calculate prefix sum
 	PrefixSum prefixSum(ctx);
@@ -94,23 +94,25 @@ Pairing * PairGeneratorSector::run(HitCollection & hits,
 	uint nFoundPairs;
 	transfer::downloadScalar(m_prefixSum, nFoundPairs, ctx, true, m_prefixSum.get_count()-1, 1, &evt);
 
-#ifdef DEBUG_OUT
-	std::cout << "Fetching prefix sum for pair gen...";
-	transfer::download(m_prefixSum,vPrefixSum,ctx);
-	std::cout << "done" << std::endl;
+	if(PROLIX){
+		PLOG << "Fetching prefix sum for pair gen...";
+		std::vector<uint> vPrefixSum(m_prefixSum.get_count());
+		transfer::download(m_prefixSum,vPrefixSum,ctx);
+		PLOG << "done" << std::endl;
 
-	std::cout << "Prefix sum: ";
-	for(auto i : vPrefixSum){
-		std::cout << i << " ; ";
+		PLOG << "Prefix sum: ";
+		for(auto i : vPrefixSum){
+			PLOG << i << " ; ";
+		}
+		PLOG << std::endl;
 	}
-	std::cout << std::endl;
-#endif
-	std::cout << "Initializing pairs...";
+
+	LOG << "Initializing pairs...";
 	Pairing * hitPairs = new Pairing(ctx, nFoundPairs, grid.config.nEvents, layerTriplets.size());
-	std::cout << "done[" << hitPairs->pairing.get_count()  << "]" << std::endl;
+	LOG << "done[" << hitPairs->pairing.get_count()  << "]" << std::endl;
 
 
-	std::cout << "Running pair gen store kernel...";
+	LOG << "Running pair gen store kernel...";
 	evt = pairStore.run(
 			//configuration
 			layerTriplets.transfer.buffer(Layer1()), layerTriplets.transfer.buffer(Layer2()), grid.config.nLayers,
@@ -123,29 +125,29 @@ Pairing * PairGeneratorSector::run(HitCollection & hits,
 			//thread config
 			range(nThreads, nLayerTriplets, grid.config.nEvents),
 			range(nThreads, 1,1));
-	std::cout << "done" << std::endl;
+	LOG << "done" << std::endl;
 
 	ctx.add_profile_event(evt, KERNEL_STORE_EVT());
 
-#ifdef DEBUG_OUT
-	std::cout << "Fetching pairs...";
-	std::vector<uint2> pairs = hitPairs->getPairings();
-	std::cout <<"done[" << pairs.size() << "]" << std::endl;
+	if(PROLIX){
+		PLOG << "Fetching pairs...";
+		std::vector<uint2> pairs = hitPairs->getPairings();
+		PLOG <<"done[" << pairs.size() << "]" << std::endl;
 
-	std::cout << "Pairs:" << std::endl;
-	for(uint i = 0; i < nFoundPairs; ++i){
-		std::cout << "[" << i << "] "  << pairs[i].x << "-" << pairs[i].y << std::endl;
+		PLOG << "Pairs:" << std::endl;
+		for(uint i = 0; i < nFoundPairs; ++i){
+			PLOG << "[" << i << "] "  << pairs[i].x << "-" << pairs[i].y << std::endl;
+		}
+
+		PLOG << "Fetching pair offets...";
+		std::vector<uint> pairOffsets = hitPairs->getPairingOffsets();
+		PLOG <<"done[" << pairOffsets.size() << "]" << std::endl;
+
+		PLOG << "Pair Offsets:" << std::endl;
+		for(uint i = 0; i < pairOffsets.size(); ++i){
+			PLOG << "[" << i << "] "  << pairOffsets[i] << std::endl;
+		}
 	}
-
-	std::cout << "Fetching pair offets...";
-	std::vector<uint> pairOffsets = hitPairs->getPairingOffsets();
-	std::cout <<"done[" << pairOffsets.size() << "]" << std::endl;
-
-	std::cout << "Pair Offsets:" << std::endl;
-	for(uint i = 0; i < pairOffsets.size(); ++i){
-		std::cout << "[" << i << "] "  << pairOffsets[i] << std::endl;
-	}
-#endif
 
 	return hitPairs;
 }

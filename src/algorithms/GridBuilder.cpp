@@ -12,15 +12,15 @@ cl_ulong GridBuilder::run(HitCollection & hits, uint nThreads, const EventSupple
 
 	std::vector<cl_event> events;
 
-	std::cout << "Grid count kernel" << std::endl;
+	LOG << "Grid count kernel" << std::endl;
 	cl_event evt = gridBuilding_kernel.run(
 			//configuration
 			eventSupplement.transfer.buffer(Offset()), layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()), layerSupplement.nLayers,
 			//grid data
 			grid.transfer.buffer(Boundary()),
 			//grid configuration
-			grid.config.MIN_Z, grid.config.sectorSizeZ, grid.config.nSectorsZ,
-			grid.config.MIN_PHI, grid.config.sectorSizePhi,grid.config.nSectorsPhi,
+			grid.config.MIN_Z, grid.config.sectorSizeZ(), grid.config.nSectorsZ,
+			grid.config.MIN_PHI, grid.config.sectorSizePhi(),grid.config.nSectorsPhi,
 			// hit input
 			x, y, z,
 			//local memory
@@ -31,29 +31,30 @@ cl_ulong GridBuilder::run(HitCollection & hits, uint nThreads, const EventSupple
 	events.push_back(evt);
 
 	//run prefix sum on grid boundaries
-	std::cout << "Grid prefix kernel" << std::endl;
-
+	LOG << "Grid prefix kernel" << std::endl;
 	PrefixSum prefixSum(ctx);
 
 	evt = prefixSum.run(grid.transfer.buffer(Boundary()), grid.size(),  nThreads);
 	events.push_back(evt);
 
-	//download updated hit data and grid
+	//download updated grid
 	grid.transfer.fromDevice(ctx,grid, &events);
-	printGrid(grid);
+	if(PROLIX){
+		printGrid(grid);
+	}
 
 	//allocate new buffers for ouput
 	hits.transfer.initBuffers(ctx, hits);
 
-	std::cout << "Grid store kernel" << std::endl;
+	LOG << "Grid store kernel" << std::endl;
 	evt = gridStore_kernel.run(
 			//configuration
 			eventSupplement.transfer.buffer(Offset()), layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()), grid.config.nLayers,
 			//grid data
 			grid.transfer.buffer(Boundary()),
 			//grid configuration
-			grid.config.MIN_Z, grid.config.sectorSizeZ, grid.config.nSectorsZ,
-			grid.config.MIN_PHI, grid.config.sectorSizePhi,grid.config.nSectorsPhi,
+			grid.config.MIN_Z, grid.config.sectorSizeZ(), grid.config.nSectorsZ,
+			grid.config.MIN_PHI, grid.config.sectorSizePhi(),grid.config.nSectorsPhi,
 			// hit input
 			x,y,z,
 			layer,detId, hitId, evtId,
@@ -72,7 +73,8 @@ cl_ulong GridBuilder::run(HitCollection & hits, uint nThreads, const EventSupple
 	//grid.transfer.fromDevice(ctx,grid, &events);
 	//printGrid(grid);
 	hits.transfer.fromDevice(ctx,hits, &events);
-	verifyGrid(hits, grid);
+	if(PROLIX)
+		verifyGrid(hits, grid);
 
 	//delete old buffers
 	ctx.release_buffer(x); ctx.release_buffer(y); ctx.release_buffer(z);
@@ -83,24 +85,24 @@ cl_ulong GridBuilder::run(HitCollection & hits, uint nThreads, const EventSupple
 
 void GridBuilder::printGrid(const Grid & grid){
 	for(uint e = 0; e < grid.config.nEvents; ++e){
-		std::cout << "Event: " << e << std::endl;
+		PLOG << "Event: " << e << std::endl;
 		for(uint l = 1; l <= grid.config.nLayers; ++l){
-			std::cout << "Layer: " << l << std::endl;
+			PLOG << "Layer: " << l << std::endl;
 
 			//output z boundaries
-			std::cout << "z/phi\t\t";
+			PLOG << "z/phi\t\t";
 			for(uint i = 0; i <= grid.config.nSectorsZ; ++i){
-				std::cout << grid.config.boundaryValuesZ[i] << "\t";
+				PLOG << grid.config.boundaryValueZ(i) << "\t";
 			}
-			std::cout << std::endl;
+			PLOG << std::endl;
 
 			LayerGrid layerGrid(grid, l,e);
 			for(uint p = 0; p <= grid.config.nSectorsPhi; ++p){
-				std::cout << std::setprecision(3) << grid.config.boundaryValuesPhi[p] << "\t\t";
+				PLOG << std::setprecision(3) << grid.config.boundaryValuePhi(p) << "\t\t";
 				for(uint z = 0; z <= grid.config.nSectorsZ; ++z){
-					std::cout << layerGrid(z,p) << "\t";
+					PLOG << layerGrid(z,p) << "\t";
 				}
-				std::cout << std::endl;
+				PLOG << std::endl;
 			}
 		}
 	}
@@ -120,19 +122,19 @@ void GridBuilder::verifyGrid(HitCollection & hits, const Grid & grid){
 						if(hit.getValue<EventNumber>() % grid.config.nEvents != e){
 							/* ist not necessarly wrong -> skip events
 							valid = false;
-							std::cout << "Invalid event number" << std::endl;*/
+							PLOG << "Invalid event number" << std::endl;*/
 						}
 						if(hit.getValue<DetectorLayer>() != l){
 							valid = false;
-							std::cout << "Invalid layer " << std::endl;
+							PLOG << "Invalid layer " << std::endl;
 						}
-						if(hit.globalZ() < grid.config.boundaryValuesZ[z] || hit.globalZ() > grid.config.boundaryValuesZ[z+1]){
+						if(hit.globalZ() < grid.config.boundaryValueZ(z) || hit.globalZ() > grid.config.boundaryValueZ(z+1)){
 							valid = false;
-							std::cout << "Invalid z cell" << std::endl;
+							PLOG << "Invalid z cell" << std::endl;
 						}
-						if(hit.phi() < grid.config.boundaryValuesPhi[p] || hit.phi() > grid.config.boundaryValuesPhi[p+1]){
+						if(hit.phi() < grid.config.boundaryValuePhi(p) || hit.phi() > grid.config.boundaryValuePhi(p+1)){
 							valid = false;
-							std::cout << "Invalid phi cell" << std::endl;
+							PLOG << "Invalid phi cell" << std::endl;
 						}
 					}
 
@@ -142,5 +144,5 @@ void GridBuilder::verifyGrid(HitCollection & hits, const Grid & grid){
 	}
 
 	if(valid)
-		std::cout << "Grid built correctly" << std::endl;
+		LOG << "Grid built correctly" << std::endl;
 }

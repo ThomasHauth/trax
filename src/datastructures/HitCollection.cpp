@@ -99,13 +99,13 @@ HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event,
 	offset = evtInGroup > 0 ? eventSupplement[evtInGroup-1].getOffset() + eventSupplement[evtInGroup-1].getNHits() : 0;
 	eventSupplement[evtInGroup].setOffset(offset);
 
-#define OUT_BY_LAYER
+
 	//add hits in order of layers to HitCollection
 	for(uint i = 1; i <= maxLayer; ++i){
 
-#ifdef OUT_BY_LAYER
-		std::cout << "Layer " << i << std::endl;
-#endif
+
+		PLOG << "Layer " << i << std::endl;
+
 
 		for(auto & hit : layers[i]){
 
@@ -114,17 +114,17 @@ HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event,
 		    if(index != -1)
 		    	detId = index;
 		    else
-		    	std::cerr << "Invalid DetectorId used: << " << detId << std::endl;
+		    	PLOG << "Invalid DetectorId used: << " << detId << std::endl;
 
 			int id = addWithValue(hit.position().x(), hit.position().y(),
 						 	 	   hit.position().z(), hit.layer(), detId,
 						 	 	   hit.simtrackid(), event.eventnumber());
 
-#ifdef OUT_BY_LAYER
-			std::cout << "\t [" << id << "] Track: " << hit.simtrackid();
-			std::cout << "\t\t [" << hit.position().x()<< ", " <<  hit.position().y()<< ", " <<  hit.position().z() << "]";
-			std::cout << std::endl;
-#endif
+
+			PLOG << "\t [" << id << "] Track: " << hit.simtrackid();
+			PLOG << "\t\t [" << hit.position().x()<< ", " <<  hit.position().y()<< ", " <<  hit.position().z() << "]";
+			PLOG << std::endl;
+
 		}
 	}
 

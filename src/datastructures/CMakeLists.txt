@@ -7,8 +7,10 @@ add_library(datastructures
 	DetectorGeometry.cpp
 	LayerSupplement.cpp
 	EventSupplement.cpp
-	LayerTriplets.cpp
+	TripletConfiguration.cpp
 	serialize/Event.pb.cc
+	Logger.cpp
+	KernelWrapper.cpp
 )
 
 # needed by protobuf library to perform locking for 

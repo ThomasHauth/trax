@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	targetNamespace="cms.ocl">
+  <xs:element name="layerTriplets">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="layerTriplet" maxOccurs="unbounded" minOccurs="0">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element type="xs:byte" name="layer1"/>
+              <xs:element type="xs:byte" name="layer2"/>
+              <xs:element type="xs:byte" name="layer3"/>
+              <xs:element type="xs:float" name="dThetaCut"/>
+              <xs:element type="xs:float" name="dThetaWindow"/>
+              <xs:element type="xs:float" name="dPhiCut"/>
+              <xs:element type="xs:float" name="dPhiWindow"/>
+              <xs:element type="xs:float" name="tipCut"/>
+              <xs:element type="xs:byte" name="pairSpreadZ"/>
+              <xs:element type="xs:byte" name="pairSpreadPhi"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

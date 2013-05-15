@@ -8,8 +8,10 @@
 #include <datastructures/LayerSupplement.h>
 #include <datastructures/Grid.h>
 #include <datastructures/GeometrySupplement.h>
-#include <datastructures/LayerTriplets.h>
+#include <datastructures/TripletConfiguration.h>
 #include <datastructures/Pairings.h>
+#include <datastructures/Logger.h>
+#include <datastructures/KernelWrapper.h>
 
 #include <algorithms/PrefixSum.h>
 
@@ -21,45 +23,38 @@ using namespace std;
 	every hit with every other hit.
 	The man intention is to test the data transfer and the data structure
  */
-class TripletThetaPhiPredictor: private boost::noncopyable
+class TripletThetaPhiPredictor: public KernelWrapper
 {
-private:
-
-	clever::context & ctx;
 
 public:
 
 	TripletThetaPhiPredictor(clever::context & ctext) :
-		ctx(ctext),
+		KernelWrapper(ctext),
 		tripletThetaPhiPredict(ctext),
 		tripletThetaPhiPredictStore(ctext)
 {
 		// create the buffers this algorithm will need to run
-#define DEBUG_OUT
-#ifdef DEBUG_OUT
-		std::cout << "PredictKernel WorkGroupSize: " << tripletThetaPhiPredict.getWorkGroupSize() << std::endl;
-		std::cout << "StoreKernel WorkGroupSize: " << tripletThetaPhiPredictStore.getWorkGroupSize() << std::endl;
-#endif
-#undef DEBUG_OUT
+		PLOG << "PredictKernel WorkGroupSize: " << tripletThetaPhiPredict.getWorkGroupSize() << std::endl;
+		PLOG << "StoreKernel WorkGroupSize: " << tripletThetaPhiPredictStore.getWorkGroupSize() << std::endl;
 }
 
 	static std::string KERNEL_COMPUTE_EVT() {return "TripletThetaPhiPredict_COMPUTE";}
 	static std::string KERNEL_STORE_EVT() {return "TripletThetaPhiPredict_STORE";}
 
 	Pairing * run(HitCollection & hits, const DetectorGeometry & geom, const GeometrySupplement & geomSupplement, const Dictionary & dict,
-			int nThreads, const LayerTriplets & layerTriplets, const Grid & grid,
-			float dThetaWindow, float dPhiWindow, const Pairing & pairs);
+			int nThreads, const TripletConfigurations & layerTriplets, const Grid & grid, const Pairing & pairs);
 
-	KERNEL26_CLASS( tripletThetaPhiPredict, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL26_CLASSP( tripletThetaPhiPredict, cl_mem, cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem, uint,
 			cl_float, cl_float, uint,
 			cl_float, cl_float, uint,
-			cl_float, cl_float,
+			cl_mem, cl_mem,
 			cl_mem, cl_mem,
 			cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem,
 			cl_mem, cl_mem, cl_mem,
 			local_param,
+			oclDEFINES,
 
 	__kernel void tripletThetaPhiPredict(
 					//detector geometry
@@ -69,7 +64,7 @@ public:
 					const float minZ, const float sectorSizeZ, const uint nSectorsZ,
 					const float minPhi, const float sectorSizePhi, const uint nSectorsPhi,
 					//configuration
-					const float dThetaWindow, const float dPhiWindow,
+					__global const float * thetaWindow, __global const float * phiWindow,
 					// hit input
 					__global const uint2 * pairs, __global const uint * hitPairOffsets,
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
@@ -92,7 +87,7 @@ public:
 		uint i = pairOffset + thread;
 		uint end = hitPairOffsets[offset + 1]; //last hit pair
 
-		printf("%lu-%lu-%lu: from hit1 %u to %u\n", event, layerTriplet, thread, i, end);
+		PRINTF(("%lu-%lu-%lu: from hit1 %u to %u\n", event, layerTriplet, thread, i, end));
 
 		uint layer = layer3[layerTriplet]-1; //outer layer
 		uint nHits3 = (nSectorsZ+1)*(nSectorsPhi+1); //temp: number of grid cells
@@ -105,15 +100,18 @@ public:
 		nHits3 = lGrid3[nHits3-1] - lGrid3[0]; //number of hits in outer layer
 		offset = lGrid3[0]; //beginning of outer layer
 
-		printf("%lu-%lu-%lu: second layer from %u with %u hits\n", event, layerTriplet, thread, offset, nHits3);
+		PRINTF(("%lu-%lu-%lu: second layer from %u with %u hits\n", event, layerTriplet, thread, offset, nHits3));
 
 		uint oOffset = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
 		uint nFound = 0;
 
-		printf("%lu-%lu-%lu: oracle from %u\n", event, layerTriplet, thread, oOffset);
+		float dThetaWindow = thetaWindow[layerTriplet];
+		float dPhiWindow = phiWindow[layerTriplet];
+
+		PRINTF(("%lu-%lu-%lu: oracle from %u\n", event, layerTriplet, thread, oOffset));
 
 
-		//printf("id %lu threads %lu workload %i start %i end %i maxEnd %i \n", id, threads, workload, i, end, nPairs);
+		//PRINTF("id %lu threads %lu workload %i start %i end %i maxEnd %i \n", id, threads, workload, i, end, nPairs);
 
 		for(; i < end; i += threads){ //workload loop
 
@@ -172,7 +170,7 @@ public:
 			uint zLowSector = max((int) floor((zLow - minZ) / sectorSizeZ), 0); // signed int because zLow could be lower than minZ
 			uint zHighSector = min((uint) floor((zHigh - minZ) / sectorSizeZ)+1, nSectorsZ);
 
-			printf("%lu-%lu-%lu: hit pair %u -> prediction %f-%f [%u,%u]\n", event, layerTriplet, thread, i, zLow, zHigh, zLowSector, zHighSector);
+			PRINTF(("%lu-%lu-%lu: hit pair %u -> prediction %f-%f [%u,%u]\n", event, layerTriplet, thread, i, zLow, zHigh, zLowSector, zHighSector));
 
 			//phi
 			float phi = atan2((hitGlobalY[secondHit] - hitGlobalY[firstHit]) , ( hitGlobalX[secondHit] - hitGlobalX[firstHit] ));
@@ -194,7 +192,7 @@ public:
 			uint phiLowSector= max((uint) floor((phiLow - minPhi) / sectorSizePhi), 0u);
 			uint phiHighSector = min((uint) floor((phiHigh - minPhi) / sectorSizePhi)+1, nSectorsPhi);
 
-			printf("%lu-%lu-%lu: hit pair %u:  phi = %f - %f -> [%u,%u] %s\n", event, layerTriplet, thread, i, phiLow, phiHigh, phiLowSector, phiHighSector, wrapAround ? " wrapAround" : "");
+			PRINTF(("%lu-%lu-%lu: hit pair %u:  phi = %f - %f -> [%u,%u] %s\n", event, layerTriplet, thread, i, phiLow, phiHigh, phiLowSector, phiHighSector, wrapAround ? " wrapAround" : ""));
 
 			for(uint zSector = zLowSector; zSector < zHighSector; ++ zSector){
 
@@ -211,35 +209,35 @@ public:
 					// check z range
 					uint index = j - (j >= zSectorEnd) * zSectorLength;
 					bool valid = zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh;
-//#define DEVICE_CPU
-#ifdef DEVICE_CPU
+
+/*
 					if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[index]){
-						printf("%i-%i-%i [%i]: z exp[%f]: %f - %f; z act: %f\n", firstHit, secondHit, index, hitId[firstHit], hitGlobalZ[secondHit], zLow, zHigh, hitGlobalZ[index]);
+						PRINTF("%i-%i-%i [%i]: z exp[%f]: %f - %f; z act: %f\n", firstHit, secondHit, index, hitId[firstHit], hitGlobalZ[secondHit], zLow, zHigh, hitGlobalZ[index]);
 						float thetaAct = atan2(sign(hitGlobalY[index])*sqrt((hitGlobalX[index] - hitGlobalX[secondHit])*(hitGlobalX[index] - hitGlobalX[secondHit])
 								+ (hitGlobalY[index] - hitGlobalY[secondHit])*(hitGlobalY[index] - hitGlobalY[secondHit]))
 								, ( hitGlobalZ[index] - hitGlobalZ[secondHit] ));
 						//if(!(thetaLow <= thetaAct && thetaAct <= thetaHigh))
-						printf("\ttheta exp[%f]: %f - %f; theta act: %f\n", theta, atan(1/cotThetaLow), atan(1/cotThetaHigh), thetaAct);
+						PRINTF("\ttheta exp[%f]: %f - %f; theta act: %f\n", theta, atan(1/cotThetaLow), atan(1/cotThetaHigh), thetaAct);
 						//else {
 						float r2 = sqrt(hitGlobalX[secondHit]*hitGlobalX[secondHit] + hitGlobalY[secondHit]*hitGlobalY[secondHit]);
 						float r3 = sqrt(hitGlobalX[index]*hitGlobalX[index] + hitGlobalY[index]*hitGlobalY[index]);
 
-						printf("\tdr exp: %f - %f; dr act: %f\n", dRmin, dRmax, r3-r2);
+						PRINTF("\tdr exp: %f - %f; dr act: %f\n", dRmin, dRmax, r3-r2);
 						//}
 					}
-#endif
+*/
 
 					// check phi range
 					float actPhi = atan2(hitGlobalY[index],hitGlobalX[index]);
 					valid = valid * ((!wrapAround && (phiLow <= actPhi && actPhi <= phiHigh))
 							|| (wrapAround && ((phiLow <= actPhi && actPhi <= M_PI_F) || (-M_PI_F <= actPhi && actPhi <= phiHigh))));
 
-#ifdef DEVICE_CPU
+/*
 					if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[index]){
-						printf("%i-%i-%i [%i]: phi exp: %f - %f; phi act: %f\n", firstHit, secondHit, index, hitId[firstHit], phiLow, phiHigh, actPhi);
+						PRINTF("%i-%i-%i [%i]: phi exp: %f - %f; phi act: %f\n", firstHit, secondHit, index, hitId[firstHit], phiLow, phiHigh, actPhi);
 						//}
 					}
-#endif
+*/
 
 					//if valid update nFound
 					nFound = nFound + valid;
@@ -247,8 +245,7 @@ public:
 					//update oracle
 					index = (i - pairOffset)*nHits3 + j - (j >= zSectorEnd) * zSectorLength - offset;
 
-					if(valid)
-						printf("%lu-%lu-%lu: setting bit for %u and %u (%u) -> %u\n", event, layerTriplet, thread, i-pairOffset, j - (j >= zSectorEnd) * zSectorLength, j,  index);
+					PRINTF((valid ? "%lu-%lu-%lu: setting bit for %u and %u (%u) -> %u\n" : "", event, layerTriplet, thread, i-pairOffset, j - (j >= zSectorEnd) * zSectorLength, j,  index));
 
 					atomic_or(&oracle[(oOffset + index) / 32], (valid << (index % 32)));
 
@@ -259,14 +256,15 @@ public:
 
 		prefixSum[event*nLayerTriplets*threads + layerTriplet*threads + thread] = nFound;
 
-		//printf("[%lu] rejZ: %u, rejP: %u, rejB: %u\n", gid, rejZ, rejP, rejB);
+		//PRINTF("[%lu] rejZ: %u, rejP: %u, rejB: %u\n", gid, rejZ, rejP, rejB);
 	});
 
-	KERNEL12_CLASS( tripletThetaPhiPredictStore, cl_mem, uint, uint,
+	KERNEL12_CLASSP( tripletThetaPhiPredictStore, cl_mem, uint, uint,
 			cl_mem, uint,
 			cl_mem, cl_mem,
 			cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem,
+			oclDEFINES,
 				__kernel void tripletThetaPhiPredictStore(
 						//configuration
 						__global const uint * grid, const uint nSectorsZ, const uint nSectorsPhi,
@@ -290,7 +288,7 @@ public:
 		uint i = pairOffset + thread;
 		uint end = hitPairOffsets[offset + 1]; //last hit pair
 
-		printf("%lu-%lu-%lu: from hit1 %u to %u\n", event, layerTriplet, thread, i, end);
+		PRINTF(("%lu-%lu-%lu: from hit1 %u to %u\n", event, layerTriplet, thread, i, end));
 
 		uint layer = layer3[layerTriplet]-1; //outer layer
 		offset = event*nLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1); //offset in hit array
@@ -300,11 +298,7 @@ public:
 		uint pos = prefixSum[event*nLayerTriplets*threads + layerTriplet*threads + thread]; //first position to write
 		uint nextThread = prefixSum[event*nLayerTriplets*threads + layerTriplet*threads + thread+1]; //first position of next thread
 
-		if(thread == threads-1){ //store pos in pairOffset array
-			tripletOffsets[event * nLayerTriplets + layerTriplet + 1] = nextThread;
-		}
-
-		printf("%lu-%lu-%lu: second layer from %u with %u hits\n", event, layerTriplet, thread, offset, nHits3);
+		PRINTF(("%lu-%lu-%lu: second layer from %u with %u hits\n", event, layerTriplet, thread, offset, nHits3));
 
 		//configure oracle
 		uint byte = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
@@ -312,7 +306,7 @@ public:
 		//byte += (i*nHits2); byte /= 32;
 		//uint sOracle = oracle[byte];
 
-		printf("%lu-%lu-%lu: from hit1 %u to %u with hits2 %u using memory %u to %u\n", event, layerTriplet, thread, i, end, nHits3, pos, nextThread);
+		PRINTF(("%lu-%lu-%lu: from hit1 %u to %u with hits2 %u using memory %u to %u\n", event, layerTriplet, thread, i, end, nHits3, pos, nextThread));
 		for(; i < end; i += threads){
 
 			for(uint j = 0; j < nHits3 && pos < nextThread; ++j){ // pos < prefixSum[id+1] can lead to thread divergence
@@ -321,8 +315,7 @@ public:
 				uint index = (i - pairOffset)*nHits3+j;
 				bool valid = oracle[(byte + index) / 32] & (1 << (index % 32));
 
-				if(valid)
-					printf("%lu-%lu-%lu: valid bit for %u and %u -> %u written at %u\n", event, layerTriplet, thread, i-pairOffset, offset+j,  index, pos);
+				PRINTF((valid ? "%lu-%lu-%lu: valid bit for %u and %u -> %u written at %u\n" : "", event, layerTriplet, thread, i-pairOffset, offset+j,  index, pos));
 
 				//performance gain?
 				/*bool valid = sOracle & (1 << bit);
@@ -340,11 +333,15 @@ public:
 				}
 
 				//if(valid)
-				//	printf("[ %lu ] Written at %i: %i-%i-%i\n", id, pos, trackletHitId1[pos],trackletHitId2[pos],trackletHitId3[pos]);
+				//	PRINTF("[ %lu ] Written at %i: %i-%i-%i\n", id, pos, trackletHitId1[pos],trackletHitId2[pos],trackletHitId3[pos]);
 
 				//advance pos if valid
 				pos += valid;
 			}
+		}
+
+		if(thread == threads-1){ //store pos in pairOffset array
+			tripletOffsets[event * nLayerTriplets + layerTriplet + 1] = nextThread;
 		}
 		});
 

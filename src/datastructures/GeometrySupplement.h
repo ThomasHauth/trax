@@ -38,9 +38,45 @@ public:
 
 	}
 
-	int resolveDetId(uint detId) const;
-
 public:
 	clever::OpenCLTransfer<GEOMETRY_SUPPLEMENT_ITEMS> transfer;
+};
+
+class LayerGeometry: private clever::CollectionView<GeometrySupplement>
+{
+public:
+	// get a pointer to one hit in the collection
+	LayerGeometry(GeometrySupplement & collection, index_type i) :
+		clever::CollectionView<GeometrySupplement>(collection, i-1), mLayer(i)
+	{
+
+	}
+
+	// get a pointer to one hit in the collection (readonly)
+	LayerGeometry(const GeometrySupplement & collection, index_type i) :
+		clever::CollectionView<GeometrySupplement>(collection, i-1), mLayer(i)
+	{
+
+	}
+
+	uint layer() const
+	{
+		return mLayer;
+	}
+
+
+	float minRadius() const
+	{
+		return getValue<MinRadius>();
+	}
+
+	float maxRadius() const
+	{
+		return getValue<MaxRadius>();
+	}
+
+private:
+	uint mLayer;
+
 };
 

@@ -4,6 +4,9 @@
 
 #include <clever/clever.hpp>
 
+#include <datastructures/Logger.h>
+#include <datastructures/KernelWrapper.h>
+
 
 using namespace clever;
 using namespace std;
@@ -13,11 +16,10 @@ using namespace std;
 	every hit with every other hit.
 	The man intention is to test the data transfer and the data structure
  */
-class PrefixSum: private boost::noncopyable
+class PrefixSum: public KernelWrapper
 {
 private:
 
-	clever::context & ctx;
 	#define MEMORY_BANK_COUNT       (16)  // Adjust to your architecture
 	#define LOG2_MEMORY_BANK_COUNT   (4)  // Set to log2(MEMORY_BANK_COUNT)
 	#define MEMORY_BANK_OFFSET(index) ((index) >> LOG2_MEMORY_BANK_COUNT)
@@ -27,17 +29,13 @@ private:
 public:
 
 	PrefixSum(clever::context & ctext) :
-		ctx(ctext),
+		KernelWrapper(ctext),
 		prefixSumWG(ctext),
 		prefixSumPartial(ctext),
 		uniformAdd(ctext)
 {
 		// create the buffers this algorithm will need to run
-#define DEBUG_OUT
-#ifdef DEBUG_OUT
-		std::cout << "PrefixSum Kernel WorkGroupSize: " << prefixSumPartial.getWorkGroupSize() << std::endl;
-#endif
-#undef DEBUG_OUT
+		PLOG << "PrefixSum Kernel WorkGroupSize: " << prefixSumPartial.getWorkGroupSize() << std::endl;
 }
 
 	static std::string KERNEL_COMPUTE_EVT() {return "PREFIX_COMPUTE";}

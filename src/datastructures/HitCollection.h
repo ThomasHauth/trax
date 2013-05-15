@@ -8,11 +8,12 @@
 
 #include <clever/clever.hpp>
 
-#include "CommonTypes.h"
-#include "serialize/Event.pb.h"
-#include "DetectorGeometry.h"
-#include "EventSupplement.h"
-#include "LayerSupplement.h"
+#include <datastructures/CommonTypes.h>
+#include <datastructures/serialize/Event.pb.h>
+#include <datastructures/DetectorGeometry.h>
+#include <datastructures/EventSupplement.h>
+#include <datastructures/LayerSupplement.h>
+#include <datastructures/Logger.h>
 
 // todo: can we have a Collection view, which looks like a vector type
 

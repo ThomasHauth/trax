@@ -7,6 +7,8 @@
 #include <datastructures/EventSupplement.h>
 #include <datastructures/LayerSupplement.h>
 #include <datastructures/Grid.h>
+#include <datastructures/Logger.h>
+#include <datastructures/KernelWrapper.h>
 
 #include <algorithms/PrefixSum.h>
 
@@ -19,25 +21,18 @@ using namespace std;
 	every hit with every other hit.
 	The man intention is to test the data transfer and the data structure
  */
-class GridBuilder: private boost::noncopyable
+class GridBuilder: public KernelWrapper
 {
-private:
-
-	clever::context & ctx;
 
 public:
 
 	GridBuilder(clever::context & ctext) :
-		ctx(ctext),
+		KernelWrapper(ctext),
 		gridBuilding_kernel(ctext),
 		gridStore_kernel(ctext)
 {
 		// create the buffers this algorithm will need to run
-#define DEBUG_OUT
-#ifdef DEBUG_OUT
-		std::cout << "Grid building Kernel WorkGroupSize: " << gridBuilding_kernel.getWorkGroupSize() << std::endl;
-#endif
-#undef DEBUG_OUT
+		PLOG << "Grid building Kernel WorkGroupSize: " << gridBuilding_kernel.getWorkGroupSize() << std::endl;
 }
 
 	static std::string KERNEL_COMPUTE_EVT() {return "GRID_BUILD_COMPUTE";}

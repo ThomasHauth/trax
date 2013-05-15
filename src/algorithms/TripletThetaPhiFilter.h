@@ -3,15 +3,17 @@
 #include <boost/noncopyable.hpp>
 
 #include <clever/clever.hpp>
+
 #include <datastructures/HitCollection.h>
 #include <datastructures/TrackletCollection.h>
 #include <datastructures/LayerSupplement.h>
 #include <datastructures/GeometrySupplement.h>
 #include <datastructures/Pairings.h>
+#include <datastructures/TripletConfiguration.h>
 #include <datastructures/Grid.h>
+#include <datastructures/Logger.h>
+#include <datastructures/KernelWrapper.h>
 
-#include <algorithms/TripletThetaPhiPredictor.h>
-#include <algorithms/PairGeneratorSector.h>
 #include <algorithms/PrefixSum.h>
 
 using namespace clever;
@@ -22,26 +24,19 @@ using namespace std;
 	every hit with every other hit.
 	The man intention is to test the data transfer and the data structure
  */
-class TripletThetaPhiFilter: private boost::noncopyable
+class TripletThetaPhiFilter: public KernelWrapper
 {
-private:
-
-	clever::context & ctx;
 
 public:
 
 	TripletThetaPhiFilter(clever::context & ctext) :
-		ctx(ctext),
+		KernelWrapper(ctext),
 		tripletThetaPhiCheck(ctext),
 		tripletThetaPhiStore(ctext)
 {
 		// create the buffers this algorithm will need to run
-#define DEBUG_OUT
-#ifdef DEBUG_OUT
-		std::cout << "FilterKernel WorkGroupSize: " << tripletThetaPhiCheck.getWorkGroupSize() << std::endl;
-		std::cout << "StoreKernel WorkGroupSize: " << tripletThetaPhiStore.getWorkGroupSize() << std::endl;
-#endif
-#undef DEBUG_OUT
+		PLOG << "FilterKernel WorkGroupSize: " << tripletThetaPhiCheck.getWorkGroupSize() << std::endl;
+		PLOG << "StoreKernel WorkGroupSize: " << tripletThetaPhiStore.getWorkGroupSize() << std::endl;
 }
 
 	static std::string KERNEL_COMPUTE_EVT() {return "TripletThetaPhiFilter_COMPUTE";}
@@ -49,24 +44,17 @@ public:
 
 	TrackletCollection * run(HitCollection & hits, const Grid & grid,
 			const Pairing & pairs, const Pairing & tripletCandidates,
-			int nThreads, const LayerTriplets & layerTriplets,
-			float dThetaCut, float dPhiCut, float tipCut);
+			int nThreads, const TripletConfigurations & layerTriplets);
 
-	clever::vector<uint2,1> * generateAllPairs(HitCollection & hits, int nThreads, int layers[],
-			const LayerSupplement & layerSupplement);
-
-	clever::vector<uint2,1> * generateAllTriplets(HitCollection & hits, int nThreads,
-			int layers[], int hitCount[],
-			float dThetaWindow, float dPhiWindow, const clever::vector<uint2,1> & pairs);
-
-	KERNEL12_CLASS( tripletThetaPhiCheck, float, float, float,
+	KERNEL12_CLASSP( tripletThetaPhiCheck, cl_mem, cl_mem, cl_mem,
 			cl_mem,
 			cl_mem,  cl_mem,
 			cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem, cl_mem,
+			oclDEFINES,
 			__kernel void tripletThetaPhiCheck(
 					//configuration
-					const float dThetaCut, const float dPhiCut, const float tipCut,
+					__global const float * thetaCut, __global const float * phiCut, __global const float * maxTIP,
 					// hit input
 					__global const uint2 * pairs,
 					__global const uint2 * triplets, __global const uint * hitTripletOffsets,
@@ -86,14 +74,18 @@ public:
 		uint i = tripletOffset + thread;
 		uint end = hitTripletOffsets[offset + 1]; //last hit pair
 
-		printf("%lu-%lu-%lu: from triplet candidate %u to %u\n", event, layerTriplet, thread, i, end);
+		PRINTF(("%lu-%lu-%lu: from triplet candidate %u to %u\n", event, layerTriplet, thread, i, end));
 
 		uint oOffset = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
 		uint nValid = 0;
 
-		printf("%lu-%lu-%lu: oracle from %u\n", event, layerTriplet, thread, oOffset);
+		float dThetaCut = thetaCut[layerTriplet];
+		float dPhiCut = phiCut[layerTriplet];
+		float tipCut = maxTIP[layerTriplet];
 
-		//printf("id %lu threads %lu workload %i start %i end %i maxEnd %i \n", id, threads, workload, i, end, nTriplets);
+		PRINTF(("%lu-%lu-%lu: oracle from %u\n", event, layerTriplet, thread, oOffset));
+
+		//PRINTF("id %lu threads %lu workload %i start %i end %i maxEnd %i \n", id, threads, workload, i, end, nTriplets);
 
 		for(; i < end; i += threads){
 
@@ -164,13 +156,9 @@ public:
 			//found good triplet?
 			nValid += valid;
 
-			//if(valid)
-			//	printf("[ %lu ] Found valid track %i (%i-%i-%i). Word %i Bit %i\n", id, i, firstHit, secondHit, thirdHit, i / 32, i % 32);
-
 			uint index = (i - tripletOffset);
 
-			if(valid)
-				printf("%lu-%lu-%lu: setting bit for %u -> %u\n", event, layerTriplet, thread, i,  index);
+			PRINTF((valid ? "%lu-%lu-%lu: setting bit for %u -> %u\n" : "", event, layerTriplet, thread, i,  index));
 
 			atomic_or(&oracle[(oOffset + index) / 32], (valid << (index % 32)));
 			//oracle[i / 32] |= (valid << (i % 32));
@@ -180,11 +168,12 @@ public:
 		prefixSum[event*nLayerTriplets*threads + layerTriplet*threads + thread] = nValid;
 	});
 
-	KERNEL10_CLASS( tripletThetaPhiStore, cl_mem,
+	KERNEL10_CLASSP( tripletThetaPhiStore, cl_mem,
 			cl_mem, cl_mem,
 			cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem, cl_mem,
 			cl_mem,
+			oclDEFINES,
 				__kernel void tripletThetaPhiStore(
 						// hit input
 						__global const uint2 * pairs,
@@ -207,16 +196,12 @@ public:
 		uint i = tripletOffset + thread;
 		uint end = hitTripletOffsets[offset + 1]; //last hit pair
 
-		printf("%lu-%lu-%lu: from triplet candidate %u to %u\n", event, layerTriplet, thread, i, end);
+		PRINTF(("%lu-%lu-%lu: from triplet candidate %u to %u\n", event, layerTriplet, thread, i, end));
 
 		uint pos = prefixSum[event*nLayerTriplets*threads + layerTriplet*threads + thread]; //first position to write
 		uint nextThread = prefixSum[event*nLayerTriplets*threads + layerTriplet*threads + thread+1]; //first position of next thread
 
-		if(thread == threads-1){ //store pos in pairOffset array
-			trackletOffsets[event * nLayerTriplets + layerTriplet + 1] = nextThread;
-		}
-
-		printf("%lu-%lu-%lu: second layer from %u\n", event, layerTriplet, thread, offset);
+		PRINTF(("%lu-%lu-%lu: second layer from %u\n", event, layerTriplet, thread, offset));
 
 		//configure oracle
 		uint byte = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
@@ -224,7 +209,7 @@ public:
 		//byte += (i*nHits2); byte /= 32;
 		//uint sOracle = oracle[byte];
 
-		printf("%lu-%lu-%lu: from hit1 %u to %u using memory %u to %u\n", event, layerTriplet, thread, i, end, pos, nextThread);
+		PRINTF(("%lu-%lu-%lu: from hit1 %u to %u using memory %u to %u\n", event, layerTriplet, thread, i, end, pos, nextThread));
 
 
 			for(; i < end && pos < nextThread; i += threads){ // pos < prefixSum[id+1] can lead to thread divergence
@@ -233,8 +218,7 @@ public:
 				uint index = i-tripletOffset;
 				bool valid = oracle[(byte + index) / 32] & (1 << (index % 32));
 
-				if(valid)
-					printf("%lu-%lu-%lu: valid bit for %u -> %u written at %u\n", event, layerTriplet, thread, i,  index, pos);
+				PRINTF((valid ? "%lu-%lu-%lu: valid bit for %u -> %u written at %u\n" : "", event, layerTriplet, thread, i,  index, pos));
 
 
 				//performance gain?
@@ -254,11 +238,15 @@ public:
 				}
 
 				//if(valid)
-				//	printf("[ %lu ] Written at %i: %i-%i-%i\n", id, pos, trackletHitId1[pos],trackletHitId2[pos],trackletHitId3[pos]);
+				//	PRINTF("[ %lu ] Written at %i: %i-%i-%i\n", id, pos, trackletHitId1[pos],trackletHitId2[pos],trackletHitId3[pos]);
 
 				//advance pos if valid
 				pos += valid;
 			}
+
+		if(thread == threads-1){ //store pos in pairOffset array
+				trackletOffsets[event * nLayerTriplets + layerTriplet + 1] = nextThread;
+		}
 		});
 
 };
