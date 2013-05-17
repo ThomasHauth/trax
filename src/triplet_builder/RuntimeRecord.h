@@ -14,21 +14,19 @@
 #include <algorithms/TripletThetaPhiFilter.h>
 #include <algorithms/PrefixSum.h>
 
-#include <boost/noncopyable.hpp>
-
 
 
 using namespace clever;
 
 struct tRuntimeInfo {
-	ulong count;
-	ulong scan;
-	ulong store;
-	ulong walltime;
+	long double count;
+	long double scan;
+	long double store;
+	long double walltime;
 
 	tRuntimeInfo() : count(0), scan(0), store(0), walltime(0){ }
 
-	ulong totalKernel() const { return count + scan + store; }
+	long double totalKernel() const { return count + scan + store; }
 
 	void startWalltime();
 	void stopWalltime();
@@ -36,11 +34,12 @@ struct tRuntimeInfo {
 	tRuntimeInfo operator+(const tRuntimeInfo & rhs) const;
 
 	std::string prettyPrint() const;
+	std::string prettyPrint(const tRuntimeInfo & var) const;
 };
 
 struct tIOInfo {
-	ulong time;
-	ulong bytes;
+	long double time;
+	long double bytes;
 
 	float bandwith() const {
 		return ((float) bytes) / time;
@@ -51,7 +50,10 @@ struct tIOInfo {
 	tIOInfo operator+(const tIOInfo & rhs) const;
 
 	std::string prettyPrint() const;
+	std::string prettyPrint(const tIOInfo & var) const;
 };
+
+class RuntimeRecordClass;
 
 class RuntimeRecord{
 
@@ -86,13 +88,16 @@ public:
 
 	void logPrint() const;
 
+	bool operator==(const RuntimeRecord & r) const;
+	bool operator==(const RuntimeRecordClass & r) const;
+
 	//RuntimeRecord operator+(const RuntimeRecord& rhs) const;
 
 	//void operator+=(const RuntimeRecord& rhs);
 
 };
 
-class RuntimeRecordClass : private boost::noncopyable {
+class RuntimeRecordClass {
 
 public:
 	uint events;
@@ -104,10 +109,13 @@ public:
 	uint hits;
 	uint tracks;
 
-	tIOInfo read;
-	tIOInfo write;
+	tIOInfo readMean, readVar;
+	tIOInfo writeMean, writeVar;
 
-	tRuntimeInfo buildGrid, pairGen, tripletPredict, tripletFilter;
+	tRuntimeInfo buildGridMean, buildGridVar;
+	tRuntimeInfo pairGenMean, pairGenVar;
+	tRuntimeInfo tripletPredictMean, tripletPredictVar;
+	tRuntimeInfo tripletFilterMean, tripletFilterVar;
 
 	RuntimeRecordClass(uint events_, uint layers_, uint layerTriplets_,
 			uint hits_,  uint tracks_, uint threads_) {
@@ -121,14 +129,45 @@ public:
 		threads = threads_;
 	}
 
-	void addRecord(RuntimeRecord r);
+	RuntimeRecordClass(const RuntimeRecord & r){
+		events = r.events;
+		layers = r.layers;
+		layerTriplets = r.layerTriplets;
+
+		hits = r.hits;
+		tracks = r.tracks;
+
+		threads = r.threads;
+	}
+
+	void addRecord(const RuntimeRecord & r);
+	void merge(const RuntimeRecordClass & c);
 
 	const std::vector<RuntimeRecord> & getRecords() {
 		return records;
 	}
 
+	void logPrint() const;
+
+	bool operator==(const RuntimeRecord & r) const;
+	bool operator==(const RuntimeRecordClass & r) const;
+
 private:
 	std::vector<RuntimeRecord> records;
+
+};
+
+class RuntimeRecords {
+
+private:
+	std::vector<RuntimeRecordClass> classes;
+
+public:
+	void addRecord(const RuntimeRecord & r);
+	void addRecordClass(const RuntimeRecordClass & c);
+	void merge(const RuntimeRecords & c);
+
+	void logPrint() const;
 
 };
 

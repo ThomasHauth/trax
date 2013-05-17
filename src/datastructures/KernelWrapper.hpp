@@ -28,6 +28,10 @@ protected:
 public:
 	static std::vector<cl_event> events;
 
+	static void clearEvents() {
+		events.clear();
+	}
+
 };
 
 template <typename T> const std::string KernelWrapper<T>::oclDEFINES = 	 PROLIX ? "#define PRINTF(a) printf a" :

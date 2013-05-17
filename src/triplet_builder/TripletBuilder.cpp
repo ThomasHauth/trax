@@ -118,7 +118,7 @@ float getEtaBin(float eta){
 	return binwidth*floor(eta/binwidth);
 }
 
-void buildTriplets(ExecutionParameters exec, EventDataLoadingParameters loader, GridConfig gridConfig) {
+RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameters loader, GridConfig gridConfig) {
 
 	//set up logger verbosity
 	Logger::getInstance().setLogLevel(exec.verbosity);
@@ -205,6 +205,7 @@ void buildTriplets(ExecutionParameters exec, EventDataLoadingParameters loader, 
 	dict.transfer.toDevice(*contx, dict);
 
 	//define statistics variables
+	RuntimeRecords runtimeRecords;
 	std::map<float, tEtaData> etaHist;
 	std::ofstream validTIP("validTIP.csv", std::ios::trunc);
 	std::ofstream fakeTIP("fakeTIP.csv", std::ios::trunc);
@@ -327,6 +328,12 @@ void buildTriplets(ExecutionParameters exec, EventDataLoadingParameters loader, 
 
 		//evaluate it
 
+		//runtime
+		runtime.fillRuntimes(*contx);
+		runtime.logPrint();
+		runtimeRecords.addRecord(runtime);
+
+		//physics
 		for(uint e = 0; e < grid.config.nEvents; ++e){
 
 			for(uint p = 0; p < layerConfig.size(); ++ p){
@@ -386,14 +393,20 @@ void buildTriplets(ExecutionParameters exec, EventDataLoadingParameters loader, 
 
 				LOG << "Efficiency: " << ((double) foundTracks.size()) / validTracks[e].size() << " FakeRate: " << ((double) fakeTracks) / tracklets->size() << std::endl;
 
-				runtime.fillRuntimes(*contx);
-				runtime.logPrint();
 			}
 		}
 
+		//delete variables
 		delete pairs;
 		delete tripletCandidates;
 		delete tracklets;
+
+		//reset kernels event counts
+		GridBuilder::clearEvents();
+		PairGeneratorSector::clearEvents();
+		TripletThetaPhiPredictor::clearEvents();
+		TripletThetaPhiFilter::clearEvents();
+		PrefixSum::clearEvents();
 
 	}
 
@@ -411,6 +424,8 @@ void buildTriplets(ExecutionParameters exec, EventDataLoadingParameters loader, 
 	}
 
 	etaData.close();
+
+	return runtimeRecords;
 }
 
 int main(int argc, char *argv[]) {
@@ -493,6 +508,8 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 
+	//define verbosity level
+	exec.verbosity = Logger::cNORMAL;
 	if(vm.count("silent"))
 			exec.verbosity = Logger::cSILENT;
 	if(vm.count("verbose"))
@@ -501,8 +518,17 @@ int main(int argc, char *argv[]) {
 				exec.verbosity = Logger::cPROLIX;
 
 	//**********************************
-	buildTriplets(exec, loader, grid);
+	RuntimeRecords runtimeRecords;
+	for(uint i = 0; i < exec.iterations; ++i){
+
+		RuntimeRecords res = buildTriplets(exec, loader, grid);
+
+		runtimeRecords.merge(res);
+	}
 	//**********************************
+
+	//TODO evaluate runtimeRecords
+	runtimeRecords.logPrint();
 
 	std::cout << Logger::getInstance();
 
