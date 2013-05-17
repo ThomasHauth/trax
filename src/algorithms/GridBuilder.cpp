@@ -10,10 +10,8 @@ cl_ulong GridBuilder::run(HitCollection & hits, uint nThreads, const EventSupple
 	cl_mem x = hits.transfer.buffer(GlobalX()); cl_mem y =  hits.transfer.buffer(GlobalY()); cl_mem z =  hits.transfer.buffer(GlobalZ());
 	cl_mem layer= hits.transfer.buffer(DetectorLayer()); cl_mem detId = hits.transfer.buffer(DetectorId()); cl_mem hitId = hits.transfer.buffer(HitId()); cl_mem evtId = hits.transfer.buffer(EventNumber());
 
-	std::vector<cl_event> events;
-
 	LOG << "Grid count kernel" << std::endl;
-	cl_event evt = gridBuilding_kernel.run(
+	cl_event evt = gridCount.run(
 			//configuration
 			eventSupplement.transfer.buffer(Offset()), layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()), layerSupplement.nLayers,
 			//grid data
@@ -28,17 +26,17 @@ cl_ulong GridBuilder::run(HitCollection & hits, uint nThreads, const EventSupple
 			//work item config
 			range(nThreads,layerSupplement.nLayers, eventSupplement.nEvents),
 			range(nThreads,1, 1));
-	events.push_back(evt);
+	GridBuilder::events.push_back(evt);
 
 	//run prefix sum on grid boundaries
 	LOG << "Grid prefix kernel" << std::endl;
 	PrefixSum prefixSum(ctx);
 
-	evt = prefixSum.run(grid.transfer.buffer(Boundary()), grid.size(),  nThreads);
-	events.push_back(evt);
+	evt = prefixSum.run(grid.transfer.buffer(Boundary()), grid.size(),  nThreads, GridBuilder::events);
+	GridBuilder::events.push_back(evt);
 
 	//download updated grid
-	grid.transfer.fromDevice(ctx,grid, &events);
+	grid.transfer.fromDevice(ctx,grid, &GridBuilder::events);
 	if(PROLIX){
 		printGrid(grid);
 	}
@@ -47,7 +45,7 @@ cl_ulong GridBuilder::run(HitCollection & hits, uint nThreads, const EventSupple
 	hits.transfer.initBuffers(ctx, hits);
 
 	LOG << "Grid store kernel" << std::endl;
-	evt = gridStore_kernel.run(
+	evt = gridStore.run(
 			//configuration
 			eventSupplement.transfer.buffer(Offset()), layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()), grid.config.nLayers,
 			//grid data
@@ -67,12 +65,12 @@ cl_ulong GridBuilder::run(HitCollection & hits, uint nThreads, const EventSupple
 			range(nThreads,layerSupplement.nLayers, eventSupplement.nEvents),
 			range(nThreads,1, 1));
 
-	events.push_back(evt);
+	GridBuilder::events.push_back(evt);
 
 	//download updated hit data and grid
 	//grid.transfer.fromDevice(ctx,grid, &events);
 	//printGrid(grid);
-	hits.transfer.fromDevice(ctx,hits, &events);
+	hits.transfer.fromDevice(ctx,hits, &GridBuilder::events);
 	if(PROLIX)
 		verifyGrid(hits, grid);
 

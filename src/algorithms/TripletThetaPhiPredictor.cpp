@@ -46,7 +46,7 @@ Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeom
 		LOG << "done[" << m_prefixSum.get_count()  << "]" << std::endl;
 
 		LOG << "Running predict kernel...";
-		cl_event evt = tripletThetaPhiPredict.run(
+		cl_event evt = predictCount.run(
 				//detector geometry
 				geom.transfer.buffer(RadiusDict()), dict.transfer.buffer(Radius()), geomSupplement.transfer.buffer(MinRadius()), geomSupplement.transfer.buffer(MaxRadius()),
 				grid.transfer.buffer(Boundary()), layerTriplets.transfer.buffer(Layer3()), grid.config.nLayers,
@@ -64,9 +64,8 @@ Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeom
 				//thread config
 				range(nThreads, nLayerTriplets, grid.config.nEvents),
 				range(nThreads, 1,1));
+		TripletThetaPhiPredictor::events.push_back(evt);
 		LOG << "done" << std::endl;
-
-		ctx.add_profile_event(evt, KERNEL_COMPUTE_EVT());
 
 		if(PROLIX){
 			PLOG << "Fetching prefix sum for prediction...";
@@ -94,7 +93,7 @@ Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeom
 
 		//Calculate prefix sum
 		PrefixSum prefixSum(ctx);
-		evt = prefixSum.run(m_prefixSum.get_mem(), m_prefixSum.get_count(), nThreads);
+		evt = prefixSum.run(m_prefixSum.get_mem(), m_prefixSum.get_count(), nThreads, TripletThetaPhiPredictor::events);
 		uint nFoundTripletCandidates;
 		transfer::downloadScalar(m_prefixSum, nFoundTripletCandidates, ctx, true, m_prefixSum.get_count()-1, 1, &evt);
 
@@ -115,7 +114,7 @@ Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeom
 		LOG << "done[" << m_triplets->pairing.get_count()  << "]" << std::endl;
 
 		LOG << "Running predict store kernel...";
-		evt = tripletThetaPhiPredictStore.run(
+		evt = predictStore.run(
 				//configuration
 				grid.transfer.buffer(Boundary()), grid.config.nSectorsZ, grid.config.nSectorsPhi,
 				layerTriplets.transfer.buffer(Layer3()), grid.config.nLayers,
@@ -127,10 +126,8 @@ Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeom
 				//thread config
 				range(nThreads, nLayerTriplets, grid.config.nEvents),
 				range(nThreads, 1,1));
+		TripletThetaPhiPredictor::events.push_back(evt);
 		LOG << "done" << std::endl;
-
-		ctx.add_profile_event(evt, KERNEL_STORE_EVT());
-
 
 		if(PROLIX){
 			PLOG << "Fetching triplet candidates...";

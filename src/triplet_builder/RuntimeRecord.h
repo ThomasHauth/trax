@@ -1,94 +1,135 @@
 #pragma once
 
+#include <clever/clever.hpp>
+
+#include <sstream>
+#include <time.h>
+#include <vector>
+
+#include <datastructures/Logger.h>
+
+#include <algorithms/GridBuilder.h>
+#include <algorithms/PairGeneratorSector.h>
+#include <algorithms/TripletThetaPhiPredictor.h>
+#include <algorithms/TripletThetaPhiFilter.h>
+#include <algorithms/PrefixSum.h>
+
+#include <boost/noncopyable.hpp>
+
+
+
+using namespace clever;
+
+struct tRuntimeInfo {
+	ulong count;
+	ulong scan;
+	ulong store;
+	ulong walltime;
+
+	tRuntimeInfo() : count(0), scan(0), store(0), walltime(0){ }
+
+	ulong totalKernel() const { return count + scan + store; }
+
+	void startWalltime();
+	void stopWalltime();
+
+	tRuntimeInfo operator+(const tRuntimeInfo & rhs) const;
+
+	std::string prettyPrint() const;
+};
+
+struct tIOInfo {
+	ulong time;
+	ulong bytes;
+
+	float bandwith() const {
+		return ((float) bytes) / time;
+	}
+
+	tIOInfo() : time(0), bytes(0) { }
+
+	tIOInfo operator+(const tIOInfo & rhs) const;
+
+	std::string prettyPrint() const;
+};
+
 class RuntimeRecord{
 
 public:
-	uint nTracks;
+	uint events;
+	uint layers;
+	uint layerTriplets;
 
-	float efficiency, fakeRate;
+	uint threads;
 
-	float dataTransferWrite, dataTransferRead;
-	float pairGenComp, pairGenStore;
-	float tripletPredictComp, tripletPredictStore;
-	float tripletCheckComp, tripletCheckStore;
-	float buildGrid;
+	uint hits;
+	uint tracks;
 
-	RuntimeRecord() {
-		dataTransferRead =0;
-		dataTransferWrite =0;
-		pairGenComp =0;
-		pairGenStore =0;
-		tripletPredictComp =0;
-		tripletPredictStore =0;
-		tripletCheckComp =0;
-		tripletCheckStore =0;
-		buildGrid =0;
+	tIOInfo read;
+	tIOInfo write;
 
-		efficiency = 0;
-		fakeRate = 0;
+	tRuntimeInfo buildGrid, pairGen, tripletPredict, tripletFilter;
 
-		nTracks =0;
+	RuntimeRecord(uint events_, uint layers_, uint layerTriplets_,
+					uint hits_,  uint tracks_, uint threads_) {
+		events = events_;
+		layers = layers_;
+		layerTriplets = layerTriplets_;
+
+		hits = hits_;
+		tracks = tracks_;
+
+		threads = threads_;
 	}
 
-	float totalDataTransfer() const {
-		return dataTransferRead+dataTransferWrite;
-	}
+	void fillRuntimes(const clever::context & ctx);
 
-	float totalPairGen() const {
-		return pairGenComp + pairGenStore;
-	}
+	void logPrint() const;
 
-	float totalTripletPredict() const {
-		return tripletPredictComp + tripletPredictStore;
-	}
+	//RuntimeRecord operator+(const RuntimeRecord& rhs) const;
 
-	float totalTripletCheck() const {
-		return tripletCheckComp + tripletCheckStore;
-	}
-
-	float totalComputation() const {
-		return totalPairGen() + totalTripletPredict() + totalTripletCheck();
-	}
-
-	float totalRuntime() const {
-		return totalComputation() + totalDataTransfer();
-	}
-
-	RuntimeRecord operator+(const RuntimeRecord& rhs) const {
-		RuntimeRecord result(*this);
-
-		result.nTracks += rhs.nTracks;
-		result.dataTransferRead += rhs.dataTransferRead;
-		result.dataTransferWrite += rhs.dataTransferWrite;
-		result.pairGenComp += rhs.pairGenComp;
-		result.pairGenStore += rhs.pairGenStore;
-		result.tripletPredictComp += rhs.tripletPredictComp;
-		result.tripletPredictStore += rhs.tripletPredictStore;
-		result.tripletCheckComp += rhs.tripletCheckComp;
-		result.tripletCheckStore += rhs.tripletCheckStore;
-		result.buildGrid += rhs.buildGrid;
-
-		result.efficiency = (this->nTracks*this->efficiency + rhs.nTracks*rhs.efficiency) / result.nTracks;
-		result.fakeRate = (this->nTracks*this->fakeRate + rhs.nTracks*rhs.fakeRate) / result.nTracks;
-
-		return result;
-	}
-
-	void operator+=(const RuntimeRecord& rhs) {
-		this->dataTransferRead += rhs.dataTransferRead;
-		this->dataTransferWrite += rhs.dataTransferWrite;
-		this->pairGenComp += rhs.pairGenComp;
-		this->pairGenStore += rhs.pairGenStore;
-		this->tripletPredictComp += rhs.tripletPredictComp;
-		this->tripletPredictStore += rhs.tripletPredictStore;
-		this->tripletCheckComp += rhs.tripletCheckComp;
-		this->tripletCheckStore += rhs.tripletCheckStore;
-		this->buildGrid += rhs.buildGrid;
-
-		this->efficiency = (this->nTracks*this->efficiency + rhs.nTracks*rhs.efficiency) / (this->nTracks + rhs.nTracks);
-		this->fakeRate = (this->nTracks*this->fakeRate + rhs.nTracks*rhs.fakeRate) / (this->nTracks + rhs.nTracks);
-
-		this->nTracks += rhs.nTracks;
-	}
+	//void operator+=(const RuntimeRecord& rhs);
 
 };
+
+class RuntimeRecordClass : private boost::noncopyable {
+
+public:
+	uint events;
+	uint layers;
+	uint layerTriplets;
+
+	uint threads;
+
+	uint hits;
+	uint tracks;
+
+	tIOInfo read;
+	tIOInfo write;
+
+	tRuntimeInfo buildGrid, pairGen, tripletPredict, tripletFilter;
+
+	RuntimeRecordClass(uint events_, uint layers_, uint layerTriplets_,
+			uint hits_,  uint tracks_, uint threads_) {
+		events = events_;
+		layers = layers_;
+		layerTriplets = layerTriplets_;
+
+		hits = hits_;
+		tracks = tracks_;
+
+		threads = threads_;
+	}
+
+	void addRecord(RuntimeRecord r);
+
+	const std::vector<RuntimeRecord> & getRecords() {
+		return records;
+	}
+
+private:
+	std::vector<RuntimeRecord> records;
+
+};
+
+

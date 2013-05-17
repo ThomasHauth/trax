@@ -15,6 +15,22 @@ cl_event PrefixSum::run(cl_mem input, const uint size, uint nThreads)
 	return evt;
 }
 
+cl_event PrefixSum::run(cl_mem input, const uint size, uint nThreads, std::vector<cl_event> & lEvents)
+{
+
+	VLOG << "scanning " << size << " elements with max " << nThreads << " work-items ";
+	createPartialSums(size, nThreads);
+
+	uint i = PrefixSum::events.size();
+
+	cl_event evt = recursiveScan(input, size, nThreads, 0);
+
+	for(; i < PrefixSum::events.size(); ++i) //add all events generated in recursive scan
+		lEvents.push_back(PrefixSum::events[i]);
+
+	return evt;
+}
+
 
 void PrefixSum::createPartialSums(uint size, uint wg){
 
@@ -64,15 +80,19 @@ cl_event PrefixSum::recursiveScan(cl_mem input, uint size, uint wg, uint level){
 			local_param(sizeof(cl_uint), (wg<<1)+padding),
 			range(localSize), range(localSize) );
 
+		PrefixSum::events.push_back(evt);
+
 		return evt;
 	} else {
 		//scan with sums into partial
 		PLOG << "Recursive case: allocating " << nGroups << " partial sums ";
 		PLOG << "global size: " << (wg*nGroups) << " local size: " << wg << std::endl;
 
-		prefixSumPartial.run(input, size, partialSums[level]->get_mem(),
+		cl_event evt = prefixSumPartial.run(input, size, partialSums[level]->get_mem(),
 				local_param(sizeof(cl_uint), (wg<<1)+padding),
 				range(wg*nGroups), range(wg) );
+
+		PrefixSum::events.push_back(evt);
 
 		if(PROLIX){
 			ctx.finish_default_queue();
@@ -90,14 +110,15 @@ cl_event PrefixSum::recursiveScan(cl_mem input, uint size, uint wg, uint level){
 			std::vector<uint> lPartial(nGroups);
 			transfer::download(*partialSums[level], lPartial,ctx, true);
 			printVector(lPartial);
-
-			PLOG << "Adding " << nGroups << " partial sums to " << size << " inputs "
-					<< "global size: " << (wg*nGroups) << " local size: " << wg << std::endl;
-
 		}
 
-		cl_event evt = uniformAdd.run(input, size, partialSums[level]->get_mem(),
+		PLOG << "Adding " << nGroups << " partial sums to " << size << " inputs "
+				<< "global size: " << (wg*nGroups) << " local size: " << wg << std::endl;
+
+		evt = prefixSumUniformAdd.run(input, size, partialSums[level]->get_mem(),
 				range(wg*nGroups), range(wg));
+
+		PrefixSum::events.push_back(evt);
 
 		return evt;
 	}

@@ -8,7 +8,8 @@
 #include <datastructures/LayerSupplement.h>
 #include <datastructures/Grid.h>
 #include <datastructures/Logger.h>
-#include <datastructures/KernelWrapper.h>
+
+#include <datastructures/KernelWrapper.hpp>
 
 #include <algorithms/PrefixSum.h>
 
@@ -21,22 +22,19 @@ using namespace std;
 	every hit with every other hit.
 	The man intention is to test the data transfer and the data structure
  */
-class GridBuilder: public KernelWrapper
+class GridBuilder: public KernelWrapper<GridBuilder>
 {
 
 public:
 
 	GridBuilder(clever::context & ctext) :
 		KernelWrapper(ctext),
-		gridBuilding_kernel(ctext),
-		gridStore_kernel(ctext)
+		gridCount(ctext),
+		gridStore(ctext)
 {
 		// create the buffers this algorithm will need to run
-		PLOG << "Grid building Kernel WorkGroupSize: " << gridBuilding_kernel.getWorkGroupSize() << std::endl;
+		PLOG << "Grid building Kernel WorkGroupSize: " << gridCount.getWorkGroupSize() << std::endl;
 }
-
-	static std::string KERNEL_COMPUTE_EVT() {return "GRID_BUILD_COMPUTE";}
-	static std::string KERNEL_STORE_EVT() {return "";}
 
 	cl_ulong run(HitCollection & hits, uint nThreads, const EventSupplement & eventSupplement, const LayerSupplement & layerSupplement, Grid & grid);
 
@@ -44,9 +42,9 @@ public:
 
 	void verifyGrid(HitCollection & hits, const Grid & grid);
 
-	KERNEL15_CLASS( gridBuilding_kernel, cl_mem, cl_mem, cl_mem, uint,  cl_mem, float, float, uint, float, float,  uint, cl_mem, cl_mem, cl_mem, local_param,
+	KERNEL15_CLASS( gridCount, cl_mem, cl_mem, cl_mem, uint,  cl_mem, float, float, uint, float, float,  uint, cl_mem, cl_mem, cl_mem, local_param,
 
-	__kernel void gridBuilding_kernel(
+	__kernel void gridCount(
 			//configuration
 			__global const uint * eventOffsets, __global const uint * layerHits, __global const uint * layerOffsets, uint nLayers,
 			//grid data
@@ -114,10 +112,10 @@ public:
 	}
 	);
 
-	KERNEL27_CLASS( gridStore_kernel, cl_mem, cl_mem, cl_mem, uint,  cl_mem, float, float, uint, float, float,  uint,
+	KERNEL27_CLASS( gridStore, cl_mem, cl_mem, cl_mem, uint,  cl_mem, float, float, uint, float, float,  uint,
 			cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, local_param, local_param,
 
-	__kernel void gridStore_kernel(
+	__kernel void gridStore(
 			//configuration
 			__global const uint * eventOffsets, __global const uint * layerHits, __global const uint * layerOffsets, uint nLayers,
 			//grid data

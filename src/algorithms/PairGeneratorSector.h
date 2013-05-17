@@ -9,7 +9,8 @@
 #include <datastructures/Pairings.h>
 #include <datastructures/Grid.h>
 #include <datastructures/Logger.h>
-#include <datastructures/KernelWrapper.h>
+
+#include <datastructures/KernelWrapper.hpp>
 
 using namespace clever;
 using namespace std;
@@ -19,28 +20,25 @@ using namespace std;
 	every hit with every other hit.
 	The man intention is to test the data transfer and the data structure
  */
-class PairGeneratorSector: public KernelWrapper
+class PairGeneratorSector: public KernelWrapper<PairGeneratorSector>
 {
 
 public:
 
 	PairGeneratorSector(clever::context & ctext) :
 		KernelWrapper(ctext),
-		pairSectorGen(ctext),
+		pairCount(ctext),
 		pairStore(ctext)
 {
 		// create the buffers this algorithm will need to run
-		PLOG << "FilterKernel WorkGroupSize: " << pairSectorGen.getWorkGroupSize() << std::endl;
+		PLOG << "FilterKernel WorkGroupSize: " << pairCount.getWorkGroupSize() << std::endl;
 		PLOG << "StoreKernel WorkGroupSize: " << pairStore.getWorkGroupSize() << std::endl;
 }
-
-	static std::string KERNEL_COMPUTE_EVT() {return "PairGeneratorSector_COMPUTE";}
-	static std::string KERNEL_STORE_EVT() {return "PairGeneratorSector_STORE";}
 
 	Pairing * run(HitCollection & hits,
 				uint nThreads, const TripletConfigurations & layerTriplets, const Grid & grid);
 
-	KERNEL19_CLASSP( pairSectorGen, cl_mem, cl_mem, uint,
+	KERNEL19_CLASSP( pairCount, cl_mem, cl_mem, uint,
 			cl_mem,
 			cl_float, cl_float, uint,
 			cl_float, cl_float, uint,
@@ -49,7 +47,7 @@ public:
 			cl_mem, cl_mem, cl_mem,
 			local_param,
 			oclDEFINES,
-			__kernel void pairSectorGen(
+			__kernel void pairCount(
 					//configuration
 					__global const uint * layer1, __global const uint * layer2, const uint nLayers,
 					__global const uint * grid,

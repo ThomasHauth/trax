@@ -14,7 +14,7 @@ Logger& Logger::getInstance()
 	return instance;
 }
 
-std::stringstream & Logger::addLogEntry(uint level) {
+std::ostream & Logger::addLogEntry(uint level) {
 	std::stringstream* s = new std::stringstream();
 	tLogEntry entry = std::make_pair(level, s);
 	logEntries.push_back(entry);

@@ -23,7 +23,7 @@ public:
 	int getLogLevel() const { return logLevel; }
 	void setLogLevel(int l) { logLevel = l; }
 
-	std::stringstream & addLogEntry(uint level);
+	std::ostream & addLogEntry(uint level);
 
 	std::ostream& printLog(std::ostream & out);
 
@@ -33,7 +33,7 @@ public:
 
 
 private:
-	Logger() : logLevel(Logger::cNORMAL) {};                   // Constructor? (the {} brackets) are needed here.
+	Logger() : logLevel(Logger::cNORMAL) {};
 
 	std::vector<tLogEntry> logEntries;
 	int logLevel;

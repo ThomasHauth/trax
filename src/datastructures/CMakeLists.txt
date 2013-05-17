@@ -10,7 +10,6 @@ add_library(datastructures
 	TripletConfiguration.cpp
 	serialize/Event.pb.cc
 	Logger.cpp
-	KernelWrapper.cpp
 )
 
 # needed by protobuf library to perform locking for 

@@ -41,7 +41,7 @@ Pairing * PairGeneratorSector::run(HitCollection & hits,
 	//ctx.select_profile_event(KERNEL_COMPUTE_EVT());
 
 	LOG << "Running pair gen kernel...";
-	cl_event evt = pairSectorGen.run(
+	cl_event evt = pairCount.run(
 			//configuration
 			layerTriplets.transfer.buffer(Layer1()), layerTriplets.transfer.buffer(Layer2()), grid.config.nLayers,
 			grid.transfer.buffer(Boundary()),
@@ -57,9 +57,8 @@ Pairing * PairGeneratorSector::run(HitCollection & hits,
 			//thread config
 			range(nThreads, nLayerTriplets, grid.config.nEvents),
 			range(nThreads, 1,1));
+	PairGeneratorSector::events.push_back(evt);
 	LOG << "done" << std::endl;
-
-	ctx.add_profile_event(evt, KERNEL_COMPUTE_EVT());
 
 	if(PROLIX){
 		PLOG << "Fetching prefix sum for pair gen...";
@@ -90,7 +89,7 @@ Pairing * PairGeneratorSector::run(HitCollection & hits,
 
 	//Calculate prefix sum
 	PrefixSum prefixSum(ctx);
-	evt = prefixSum.run(m_prefixSum.get_mem(), m_prefixSum.get_count(), nThreads);
+	evt = prefixSum.run(m_prefixSum.get_mem(), m_prefixSum.get_count(), nThreads, PairGeneratorSector::events);
 	uint nFoundPairs;
 	transfer::downloadScalar(m_prefixSum, nFoundPairs, ctx, true, m_prefixSum.get_count()-1, 1, &evt);
 
@@ -125,9 +124,8 @@ Pairing * PairGeneratorSector::run(HitCollection & hits,
 			//thread config
 			range(nThreads, nLayerTriplets, grid.config.nEvents),
 			range(nThreads, 1,1));
+	PairGeneratorSector::events.push_back(evt);
 	LOG << "done" << std::endl;
-
-	ctx.add_profile_event(evt, KERNEL_STORE_EVT());
 
 	if(PROLIX){
 		PLOG << "Fetching pairs...";

@@ -42,7 +42,7 @@ TrackletCollection * TripletThetaPhiFilter::run(HitCollection & hits, const Grid
 	LOG << "done[" << m_prefixSum.get_count()  << "]" << std::endl;
 
 	LOG << "Running filter kernel...";
-	cl_event evt = tripletThetaPhiCheck.run(
+	cl_event evt = filterCount.run(
 			//configuration
 			layerTriplets.transfer.buffer(dThetaCut()), layerTriplets.transfer.buffer(dPhiCut()), layerTriplets.transfer.buffer(tipCut()),
 			// input
@@ -54,9 +54,8 @@ TrackletCollection * TripletThetaPhiFilter::run(HitCollection & hits, const Grid
 			//thread config
 			range(nThreads, nLayerTriplets, grid.config.nEvents),
 			range(nThreads, 1,1));
+	TripletThetaPhiFilter::events.push_back(evt);
 	LOG << "done" << std::endl;
-
-	ctx.add_profile_event(evt, KERNEL_COMPUTE_EVT());
 
 	if(PROLIX){
 		PLOG << "Fetching prefix sum...";
@@ -84,7 +83,7 @@ TrackletCollection * TripletThetaPhiFilter::run(HitCollection & hits, const Grid
 
 	//Calculate prefix sum
 	PrefixSum prefixSum(ctx);
-	evt = prefixSum.run(m_prefixSum.get_mem(), m_prefixSum.get_count(), nThreads);
+	evt = prefixSum.run(m_prefixSum.get_mem(), m_prefixSum.get_count(), nThreads, TripletThetaPhiFilter::events);
 	uint nFoundTriplets;
 	transfer::downloadScalar(m_prefixSum, nFoundTriplets, ctx, true, m_prefixSum.get_count()-1, 1, &evt);
 
@@ -107,7 +106,7 @@ TrackletCollection * TripletThetaPhiFilter::run(HitCollection & hits, const Grid
 	tracklets->transfer.initBuffers(ctx, *tracklets);
 
 	LOG << "Running filter store kernel...";
-	evt = tripletThetaPhiStore.run(
+	evt = filterStore.run(
 			//input
 			pairs.pairing.get_mem(),
 			tripletCandidates.pairing.get_mem(), tripletCandidates.pairingOffsets.get_mem(),
@@ -118,9 +117,8 @@ TrackletCollection * TripletThetaPhiFilter::run(HitCollection & hits, const Grid
 			//thread config
 			range(nThreads, nLayerTriplets, grid.config.nEvents),
 			range(nThreads, 1,1));
+	TripletThetaPhiFilter::events.push_back(evt);
 	LOG << "done" << std::endl;
-
-	ctx.add_profile_event(evt, KERNEL_STORE_EVT());
 
 	LOG << "Fetching triplets...";
 	tracklets->transfer.fromDevice(ctx, *tracklets);

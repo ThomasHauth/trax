@@ -4,7 +4,6 @@ project (trax)
 
 include ( CMake_CompilerDefaults.txt )
 
-
 message ("Setting up folder ${trax_SOURCE_DIR}")
 
 # Include Exterals

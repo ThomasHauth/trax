@@ -12,7 +12,8 @@
 #include <datastructures/TripletConfiguration.h>
 #include <datastructures/Grid.h>
 #include <datastructures/Logger.h>
-#include <datastructures/KernelWrapper.h>
+
+#include <datastructures/KernelWrapper.hpp>
 
 #include <algorithms/PrefixSum.h>
 
@@ -24,35 +25,32 @@ using namespace std;
 	every hit with every other hit.
 	The man intention is to test the data transfer and the data structure
  */
-class TripletThetaPhiFilter: public KernelWrapper
+class TripletThetaPhiFilter: public KernelWrapper<TripletThetaPhiFilter>
 {
 
 public:
 
 	TripletThetaPhiFilter(clever::context & ctext) :
 		KernelWrapper(ctext),
-		tripletThetaPhiCheck(ctext),
-		tripletThetaPhiStore(ctext)
+		filterCount(ctext),
+		filterStore(ctext)
 {
 		// create the buffers this algorithm will need to run
-		PLOG << "FilterKernel WorkGroupSize: " << tripletThetaPhiCheck.getWorkGroupSize() << std::endl;
-		PLOG << "StoreKernel WorkGroupSize: " << tripletThetaPhiStore.getWorkGroupSize() << std::endl;
+		PLOG << "FilterKernel WorkGroupSize: " << filterCount.getWorkGroupSize() << std::endl;
+		PLOG << "StoreKernel WorkGroupSize: " << filterStore.getWorkGroupSize() << std::endl;
 }
-
-	static std::string KERNEL_COMPUTE_EVT() {return "TripletThetaPhiFilter_COMPUTE";}
-	static std::string KERNEL_STORE_EVT() {return "TripletThetaPhiFilter_STORE";}
 
 	TrackletCollection * run(HitCollection & hits, const Grid & grid,
 			const Pairing & pairs, const Pairing & tripletCandidates,
 			int nThreads, const TripletConfigurations & layerTriplets);
 
-	KERNEL12_CLASSP( tripletThetaPhiCheck, cl_mem, cl_mem, cl_mem,
+	KERNEL12_CLASSP( filterCount, cl_mem, cl_mem, cl_mem,
 			cl_mem,
 			cl_mem,  cl_mem,
 			cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem, cl_mem,
 			oclDEFINES,
-			__kernel void tripletThetaPhiCheck(
+			__kernel void filterCount(
 					//configuration
 					__global const float * thetaCut, __global const float * phiCut, __global const float * maxTIP,
 					// hit input
@@ -168,13 +166,13 @@ public:
 		prefixSum[event*nLayerTriplets*threads + layerTriplet*threads + thread] = nValid;
 	});
 
-	KERNEL10_CLASSP( tripletThetaPhiStore, cl_mem,
+	KERNEL10_CLASSP( filterStore, cl_mem,
 			cl_mem, cl_mem,
 			cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem, cl_mem,
 			cl_mem,
 			oclDEFINES,
-				__kernel void tripletThetaPhiStore(
+				__kernel void filterStore(
 						// hit input
 						__global const uint2 * pairs,
 						__global const uint2 * triplets, __global const uint * hitTripletOffsets,

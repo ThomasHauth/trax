@@ -11,7 +11,8 @@
 #include <datastructures/TripletConfiguration.h>
 #include <datastructures/Pairings.h>
 #include <datastructures/Logger.h>
-#include <datastructures/KernelWrapper.h>
+
+#include <datastructures/KernelWrapper.hpp>
 
 #include <algorithms/PrefixSum.h>
 
@@ -23,28 +24,25 @@ using namespace std;
 	every hit with every other hit.
 	The man intention is to test the data transfer and the data structure
  */
-class TripletThetaPhiPredictor: public KernelWrapper
+class TripletThetaPhiPredictor: public KernelWrapper<TripletThetaPhiPredictor>
 {
 
 public:
 
 	TripletThetaPhiPredictor(clever::context & ctext) :
 		KernelWrapper(ctext),
-		tripletThetaPhiPredict(ctext),
-		tripletThetaPhiPredictStore(ctext)
+		predictCount(ctext),
+		predictStore(ctext)
 {
 		// create the buffers this algorithm will need to run
-		PLOG << "PredictKernel WorkGroupSize: " << tripletThetaPhiPredict.getWorkGroupSize() << std::endl;
-		PLOG << "StoreKernel WorkGroupSize: " << tripletThetaPhiPredictStore.getWorkGroupSize() << std::endl;
+		PLOG << "PredictKernel WorkGroupSize: " << predictCount.getWorkGroupSize() << std::endl;
+		PLOG << "StoreKernel WorkGroupSize: " << predictStore.getWorkGroupSize() << std::endl;
 }
-
-	static std::string KERNEL_COMPUTE_EVT() {return "TripletThetaPhiPredict_COMPUTE";}
-	static std::string KERNEL_STORE_EVT() {return "TripletThetaPhiPredict_STORE";}
 
 	Pairing * run(HitCollection & hits, const DetectorGeometry & geom, const GeometrySupplement & geomSupplement, const Dictionary & dict,
 			int nThreads, const TripletConfigurations & layerTriplets, const Grid & grid, const Pairing & pairs);
 
-	KERNEL26_CLASSP( tripletThetaPhiPredict, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL26_CLASSP( predictCount, cl_mem, cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem, uint,
 			cl_float, cl_float, uint,
 			cl_float, cl_float, uint,
@@ -56,7 +54,7 @@ public:
 			local_param,
 			oclDEFINES,
 
-	__kernel void tripletThetaPhiPredict(
+	__kernel void predictCount(
 					//detector geometry
 					__global const uchar * detRadius, __global const float * radiusDict,__global const float * minLayerRadius, __global const float * maxLayerRadius,
 					//grid data structure
@@ -259,13 +257,13 @@ public:
 		//PRINTF("[%lu] rejZ: %u, rejP: %u, rejB: %u\n", gid, rejZ, rejP, rejB);
 	});
 
-	KERNEL12_CLASSP( tripletThetaPhiPredictStore, cl_mem, uint, uint,
+	KERNEL12_CLASSP( predictStore, cl_mem, uint, uint,
 			cl_mem, uint,
 			cl_mem, cl_mem,
 			cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem,
 			oclDEFINES,
-				__kernel void tripletThetaPhiPredictStore(
+				__kernel void predictStore(
 						//configuration
 						__global const uint * grid, const uint nSectorsZ, const uint nSectorsPhi,
 						__global const uint * layer3, const uint nLayers,

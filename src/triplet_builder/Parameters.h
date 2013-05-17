@@ -6,6 +6,7 @@ public:
 	uint threads;
 	uint eventGrouping;
 	bool useCPU;
+	uint iterations;
 	int verbosity;
 	std::string layerTripletConfigFile;
 	std::string configFile;

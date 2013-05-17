@@ -118,7 +118,7 @@ float getEtaBin(float eta){
 	return binwidth*floor(eta/binwidth);
 }
 
-RuntimeRecord buildTriplets(ExecutionParameters exec, EventDataLoadingParameters loader, GridConfig gridConfig) {
+void buildTriplets(ExecutionParameters exec, EventDataLoadingParameters loader, GridConfig gridConfig) {
 
 	//set up logger verbosity
 	Logger::getInstance().setLogLevel(exec.verbosity);
@@ -205,7 +205,6 @@ RuntimeRecord buildTriplets(ExecutionParameters exec, EventDataLoadingParameters
 	dict.transfer.toDevice(*contx, dict);
 
 	//define statistics variables
-	RuntimeRecord result;
 	std::map<float, tEtaData> etaHist;
 	std::ofstream validTIP("validTIP.csv", std::ios::trunc);
 	std::ofstream fakeTIP("fakeTIP.csv", std::ios::trunc);
@@ -261,6 +260,7 @@ RuntimeRecord buildTriplets(ExecutionParameters exec, EventDataLoadingParameters
 
 		HitCollection hits;
 		std::map<uint, HitCollection::tTrackList> validTracks; //first: uint = evt in group second: tracklist
+		uint totalValidTracks = 0;
 
 		do{
 			uint iEvt = event % evtGroupSize;
@@ -270,6 +270,7 @@ RuntimeRecord buildTriplets(ExecutionParameters exec, EventDataLoadingParameters
 			validTracks[iEvt] = hits.addEvent(pEvent, geom, eventSupplement, iEvt, layerSupplement,
 					loader.minPt, loader.maxTracks, loader.onlyTracks, loader.maxLayer);
 
+			totalValidTracks += validTracks[iEvt].size();
 			LOG << "Loaded " << validTracks[iEvt].size() << " tracks with minPt " << loader.minPt << " GeV and " << eventSupplement[iEvt].getNHits() << " hits" << std::endl;
 
 			if(VERBOSE){
@@ -281,6 +282,8 @@ RuntimeRecord buildTriplets(ExecutionParameters exec, EventDataLoadingParameters
 		} while (event % evtGroupSize != 0 && event < lastEvent);
 
 		LOG << "Loaded " << hits.size() << " hits in " << evtGroupSize << " events" << std::endl;
+
+		RuntimeRecord runtime(grid.config.nEvents, grid.config.nLayers, layerConfig.size(), hits.size(), totalValidTracks, exec.threads);
 
 		//transer hits to gpu
 		hits.transfer.initBuffers(*contx, hits);
@@ -297,19 +300,30 @@ RuntimeRecord buildTriplets(ExecutionParameters exec, EventDataLoadingParameters
 		grid.transfer.initBuffers(*contx,grid);
 		grid.transfer.toDevice(*contx,grid);
 
-		cl_ulong runtimeBuildGrid = 0;
 		GridBuilder gridBuilder(*contx);
+
+		runtime.buildGrid.startWalltime();
 		gridBuilder.run(hits, exec.threads, eventSupplement, layerSupplement, grid);
+		runtime.buildGrid.stopWalltime();
 
 		//run it
 		PairGeneratorSector pairGen(*contx);
+
+		runtime.pairGen.startWalltime();
 		Pairing  * pairs = pairGen.run(hits, exec.threads, layerConfig, grid);
+		runtime.pairGen.stopWalltime();
 
 		TripletThetaPhiPredictor predictor(*contx);
+
+		runtime.tripletPredict.startWalltime();
 		Pairing * tripletCandidates = predictor.run(hits, geom, geomSupplement, dict, exec.threads, layerConfig, grid, *pairs);
+		runtime.tripletPredict.stopWalltime();
 
 		TripletThetaPhiFilter tripletThetaPhi(*contx);
+
+		runtime.tripletFilter.startWalltime();
 		TrackletCollection * tracklets = tripletThetaPhi.run(hits, grid, *pairs, *tripletCandidates, exec.threads, layerConfig);
+		runtime.tripletFilter.stopWalltime();
 
 		//evaluate it
 
@@ -334,12 +348,12 @@ RuntimeRecord buildTriplets(ExecutionParameters exec, EventDataLoadingParameters
 
 						validTIP << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())) << std::endl;
 						etaHist[getEtaBin(getEta(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit3())))].valid++;
-						if(VERBOSE){
+
 							VLOG << zkr::cc::fore::green;
 							VLOG << "Track " << tracklet.trackId(hits) << " : " << tracklet.hit1() << "-" << tracklet.hit2() << "-" << tracklet.hit3();
 							VLOG << " TIP: " << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
 							VLOG << zkr::cc::console << std::endl;
-						}
+
 					}
 					else {
 						//fake triplet
@@ -347,14 +361,14 @@ RuntimeRecord buildTriplets(ExecutionParameters exec, EventDataLoadingParameters
 
 						fakeTIP << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())) << std::endl;
 						etaHist[getEtaBin(getEta(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit3())))].fake++;
-						if(VERBOSE){
+
 							VLOG << zkr::cc::fore::red;
 							VLOG << "Fake: " << tracklet.hit1() << "[" << hits.getValue(HitId(),tracklet.hit1()) << "]";
 							VLOG << "-" << tracklet.hit2() << "[" << hits.getValue(HitId(),tracklet.hit2()) << "]";
 							VLOG << "-" << tracklet.hit3() << "[" << hits.getValue(HitId(),tracklet.hit3()) << "]";
 							VLOG << " TIP: " << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
 							VLOG << zkr::cc::console << std::endl;
-						}
+
 					}
 				}
 
@@ -372,47 +386,8 @@ RuntimeRecord buildTriplets(ExecutionParameters exec, EventDataLoadingParameters
 
 				LOG << "Efficiency: " << ((double) foundTracks.size()) / validTracks[e].size() << " FakeRate: " << ((double) fakeTracks) / tracklets->size() << std::endl;
 
-				RuntimeRecord tmpRes;
-				tmpRes.nTracks = foundTracks.size();
-				tmpRes.efficiency =  ((double) foundTracks.size()) / validTracks[e].size();
-				tmpRes.fakeRate = ((double) fakeTracks) / tracklets->size();
-
-				//determine runtimes
-				tmpRes.buildGrid = runtimeBuildGrid;
-				VLOG << "Build Grid: " << runtimeBuildGrid << "ns" << std::endl;
-
-				profile_info pinfo = contx->report_profile(contx->PROFILE_WRITE);
-				tmpRes.dataTransferWrite = pinfo.runtime();
-				VLOG << "Data Transfer\tWritten: " << pinfo.runtime() << "ns\tRead: ";
-				pinfo = contx->report_profile(contx->PROFILE_READ);
-				tmpRes.dataTransferRead = pinfo.runtime();
-				VLOG << pinfo.runtime() << " ns" << std::endl;
-
-
-				pinfo = contx->report_profile(PairGeneratorSector::KERNEL_COMPUTE_EVT());
-				VLOG << "Pair Generation\tCompute: " << pinfo.runtime() << " ns\tStore: ";
-				tmpRes.pairGenComp = pinfo.runtime();
-				pinfo = contx->report_profile(PairGeneratorSector::KERNEL_STORE_EVT());
-				tmpRes.pairGenStore = pinfo.runtime();
-				VLOG << pinfo.runtime() << " ns" << std::endl;
-
-
-				pinfo = contx->report_profile(TripletThetaPhiPredictor::KERNEL_COMPUTE_EVT());
-				tmpRes.tripletPredictComp = pinfo.runtime();
-				VLOG << "Triplet Prediction\tCompute: " << pinfo.runtime() << " ns\tStore: ";
-				pinfo = contx->report_profile(TripletThetaPhiPredictor::KERNEL_STORE_EVT());
-				tmpRes.tripletPredictStore = pinfo.runtime();
-				VLOG << pinfo.runtime() << " ns" << std::endl;
-
-
-				pinfo = contx->report_profile(TripletThetaPhiFilter::KERNEL_COMPUTE_EVT());
-				tmpRes.tripletCheckComp = pinfo.runtime();
-				VLOG << "Triplet Checking\tCompute: " << pinfo.runtime() << " ns\tStore: ";
-				pinfo = contx->report_profile(TripletThetaPhiFilter::KERNEL_STORE_EVT());
-				tmpRes.tripletCheckStore = pinfo.runtime();
-				VLOG << pinfo.runtime() << " ns" << std::endl;
-
-				result += tmpRes;
+				runtime.fillRuntimes(*contx);
+				runtime.logPrint();
 			}
 		}
 
@@ -436,8 +411,6 @@ RuntimeRecord buildTriplets(ExecutionParameters exec, EventDataLoadingParameters
 	}
 
 	etaData.close();
-
-	return result;
 }
 
 int main(int argc, char *argv[]) {
@@ -463,6 +436,7 @@ int main(int argc, char *argv[]) {
 		("exec.threads", po::value<uint>(&exec.threads)->default_value(256), "number of work-items in one work-group")
 		("exec.eventGrouping", po::value<uint>(&exec.eventGrouping)->default_value(1), "number of concurrently processed events")
 		("exec.useCPU", po::value<bool>(&exec.useCPU)->default_value(false)->zero_tokens(), "force using CPU instead of GPGPU")
+		("exec.iterations", po::value<uint>(&exec.iterations)->default_value(1), "number of iterations for performance evaluation")
 		("exec.layerTripletConfig", po::value<std::string>(&exec.layerTripletConfigFile), "configuration file for layer triplets")
 	;
 
@@ -526,23 +500,9 @@ int main(int argc, char *argv[]) {
 	if(vm.count("prolix"))
 				exec.verbosity = Logger::cPROLIX;
 
-	RuntimeRecord res = buildTriplets(exec, loader, grid);
-
-	/*std::ofstream results("timings.csv", std::ios::app);
-	results << loader.maxTracks << ", " << res.totalDataTransfer() << ", " << res.buildGrid << ", "
-			<< res.totalPairGen() << ", " << res.totalTripletPredict() << ", " << res.totalTripletCheck() << ", "
-			<< res.totalComputation() << ", " << res.totalRuntime()
-			<< ", " << res.efficiency << ", " << res.fakeRate << std::endl;
-	results.close();*/
-
-	LOG << "Found: " << res.nTracks << " Tracks with mintPt=" << loader.minPt << " using "
-			  << exec.threads << " threads in " << res.totalRuntime() << " ns" << std::endl;
-	VLOG << "\tData transfer " << res.totalDataTransfer() << " ns" << std::endl;
-	VLOG << "\tBuild grid " << res.buildGrid << " ns" << std::endl;
-	VLOG << "\tPairGen "	<< res.totalPairGen() << " ns" << std::endl;
-	VLOG << "\tTripletPredict " << res.totalTripletPredict() << " ns" << std::endl;
-	VLOG << "\tTripletCheck " << res.totalTripletCheck() << " ns" << std::endl;
-	LOG << "\tTotal Computation "	<< res.totalComputation() << " ns" << std::endl;
+	//**********************************
+	buildTriplets(exec, loader, grid);
+	//**********************************
 
 	std::cout << Logger::getInstance();
 

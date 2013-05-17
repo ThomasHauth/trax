@@ -5,7 +5,8 @@
 #include <clever/clever.hpp>
 
 #include <datastructures/Logger.h>
-#include <datastructures/KernelWrapper.h>
+
+#include <datastructures/KernelWrapper.hpp>
 
 
 using namespace clever;
@@ -16,7 +17,7 @@ using namespace std;
 	every hit with every other hit.
 	The man intention is to test the data transfer and the data structure
  */
-class PrefixSum: public KernelWrapper
+class PrefixSum: public KernelWrapper<PrefixSum>
 {
 private:
 
@@ -32,16 +33,14 @@ public:
 		KernelWrapper(ctext),
 		prefixSumWG(ctext),
 		prefixSumPartial(ctext),
-		uniformAdd(ctext)
+		prefixSumUniformAdd(ctext)
 {
 		// create the buffers this algorithm will need to run
 		PLOG << "PrefixSum Kernel WorkGroupSize: " << prefixSumPartial.getWorkGroupSize() << std::endl;
 }
 
-	static std::string KERNEL_COMPUTE_EVT() {return "PREFIX_COMPUTE";}
-	static std::string KERNEL_STORE_EVT() {return "";}
-
 	cl_event run(cl_mem input, const uint size, uint nThreads);
+	cl_event run(cl_mem input, const uint size, uint nThreads, std::vector<cl_event> & lEvents);
 
 private:
 
@@ -220,9 +219,9 @@ private:
 	}
 	);
 
-	KERNEL3_CLASS( uniformAdd, cl_mem, uint, cl_mem,
+	KERNEL3_CLASS( prefixSumUniformAdd, cl_mem, uint, cl_mem,
 
-			__kernel void uniformAdd(
+			__kernel void prefixSumUniformAdd(
 					//input
 					__global uint * input, const uint size,
 					//partial sums
