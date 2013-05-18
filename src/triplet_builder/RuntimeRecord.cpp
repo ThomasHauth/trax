@@ -1,5 +1,8 @@
 #include "RuntimeRecord.h"
 
+#define PER * 1/
+#define SEP ' '
+
 long double nsToMs(long double ns) {
 	return ns * 1E-6;
 }
@@ -8,7 +11,46 @@ long double sToNs(long double ns) {
 	return ns * 1E9;
 }
 
-#define PER * 1/
+std::string csv(std::initializer_list<long double> args){
+	std::stringstream s;
+
+	for(auto it = args.begin(); it != args.end(); ++it){
+		s << *it;
+		if((it + 1) != args.end())
+			s << SEP;
+	}
+
+	return s.str();
+
+}
+
+std::string csv(std::initializer_list<uint> args){
+	std::stringstream s;
+
+	for(auto it = args.begin(); it != args.end(); ++it){
+		s << *it;
+		if((it + 1) != args.end())
+			s << SEP;
+	}
+
+	return s.str();
+
+}
+
+std::string csv(std::initializer_list<string> args){
+	std::stringstream s;
+
+	for(auto it = args.begin(); it != args.end(); ++it){
+		s << *it;
+		if((it + 1) != args.end())
+			s << SEP;
+	}
+
+	return s.str();
+
+}
+
+
 
 tRuntimeInfo tRuntimeInfo::operator+(const tRuntimeInfo & rhs) const {
 	tRuntimeInfo result(*this);
@@ -39,6 +81,22 @@ std::string tRuntimeInfo::prettyPrint(const tRuntimeInfo & var) const {
 			<< " kernel time: " << nsToMs(totalKernel()) << " +/- " << nsToMs(var.totalKernel()) << " ms = ( "
 			<< nsToMs(count) << " +/- " << nsToMs(var.count) << " + " << nsToMs(scan) << " +/- " << nsToMs(var.scan) << "+" << nsToMs(store) << " +/- " << nsToMs(var.store)
 			<< " ) ms [Count + Scan + Store]";
+
+	return s.str();
+}
+
+std::string tRuntimeInfo::csvDump() const {
+	std::stringstream s;
+
+	s << csv({ nsToMs(count), nsToMs(scan), nsToMs(store), nsToMs(walltime) });
+
+	return s.str();
+}
+
+std::string tRuntimeInfo::csvDump(const tRuntimeInfo & var) const{
+	std::stringstream s;
+
+	s << csv({ nsToMs(count), nsToMs(var.count), nsToMs(scan), nsToMs(var.scan), nsToMs(store), nsToMs(var.store), nsToMs(walltime), nsToMs(var.walltime) });
 
 	return s.str();
 }
@@ -82,6 +140,22 @@ std::string tIOInfo::prettyPrint(const tIOInfo & var) const {
 
 	return s.str();
 
+}
+
+std::string tIOInfo::csvDump() const {
+	std::stringstream s;
+
+	s << csv({ nsToMs(time), bytes });
+
+	return s.str();
+}
+
+std::string tIOInfo::csvDump(const tIOInfo & var) const{
+	std::stringstream s;
+
+	s << csv({ nsToMs(time), nsToMs(var.time), bytes, var.bytes });
+
+	return s.str();
 }
 
 void fillInfo(tKernelEvent t, tRuntimeInfo & info){
@@ -188,38 +262,38 @@ void RuntimeRecordClass::logPrint() const {
 
 	tIOInfo totalIOMean = writeMean + readMean;
 	tIOInfo totalIOVar = writeVar + readVar;
-	LOG << "Total IO: " << totalIOMean.prettyPrint(totalIOVar) << std::endl;
-	VLOG << "Read: " << readMean.prettyPrint(readVar) << std::endl;
-	VLOG << "Write: " << writeMean.prettyPrint(writeVar) << std::endl;
+	LOG << "Total IO: " << totalIOMean.prettyPrint(toVar(totalIOVar)) << std::endl;
+	VLOG << "Read: " << readMean.prettyPrint(toVar(readVar)) << std::endl;
+	VLOG << "Write: " << writeMean.prettyPrint(toVar(writeVar)) << std::endl;
 
 	tRuntimeInfo totalRuntimeMean = buildGridMean + pairGenMean + tripletPredictMean + tripletFilterMean;
 	tRuntimeInfo totalRuntimeVar = buildGridVar + pairGenVar + tripletPredictVar + tripletFilterVar;
 	LOG << "Total runtime: ";
-	LOG << totalRuntimeMean.prettyPrint(totalRuntimeVar) << std::endl;
+	LOG << totalRuntimeMean.prettyPrint(toVar(totalRuntimeVar)) << std::endl;
 	LOG << "Wall time -- per event: " << nsToMs(totalRuntimeMean.walltime PER events) << " ms"
 		<< " -- per layerTriplet: " << nsToMs(totalRuntimeMean.walltime PER (events*layerTriplets)) << " ms"
 		<< " -- per track: " << nsToMs(totalRuntimeMean.walltime PER tracks) << " ms" << std::endl;
 
 	VLOG << std::endl << "Grid building: ";
-	VLOG << buildGridMean.prettyPrint(buildGridVar) << std::endl;
+	VLOG << buildGridMean.prettyPrint(toVar(buildGridVar)) << std::endl;
 	VLOG << "Wall time -- per event: " << nsToMs(buildGridMean.walltime PER events) << " ms"
 		<< " -- per layer " << nsToMs(buildGridMean.walltime PER (events*layers)) << " ms"
 		<< " -- per hit: " << nsToMs(buildGridMean.walltime PER hits) << " ms" << std::endl;
 
 	VLOG << std::endl << "Pair generation: ";
-	VLOG << pairGenMean.prettyPrint(pairGenVar) << std::endl;
+	VLOG << pairGenMean.prettyPrint(toVar(pairGenVar)) << std::endl;
 	VLOG << "Wall time -- per event: " << nsToMs(pairGenMean.walltime PER events) << " ms"
 		 << " -- per layerTriplet " << nsToMs(pairGenMean.walltime PER (events*layerTriplets)) << " ms"
 		 << " -- per track: " << nsToMs(pairGenMean.walltime PER tracks) << " ms" << std::endl;
 
 	VLOG << std::endl << "Triplet prediction: ";
-	VLOG << tripletPredictMean.prettyPrint(tripletPredictVar) << std::endl;
+	VLOG << tripletPredictMean.prettyPrint(toVar(tripletPredictVar)) << std::endl;
 	VLOG << "Wall time -- per event: " << nsToMs(tripletPredictMean.walltime PER events) << " ms"
 		 << " -- per layerTriplet " << nsToMs(tripletPredictMean.walltime PER (events*layerTriplets)) << " ms"
 		 << " -- per track: " << nsToMs(tripletPredictMean.walltime PER tracks) << " ms" << std::endl;
 
 	VLOG << std::endl << "Triplet filtering: ";
-	VLOG << tripletFilterMean.prettyPrint(tripletFilterVar) << std::endl;
+	VLOG << tripletFilterMean.prettyPrint(toVar(tripletFilterVar)) << std::endl;
 	VLOG << "Wall time -- per event: " << nsToMs(tripletFilterMean.walltime PER events) << " ms"
 		 << " -- per layerTriplet " << nsToMs(tripletFilterMean.walltime PER (events*layerTriplets)) << " ms"
 		 << " -- per track: " << nsToMs(tripletFilterMean.walltime PER tracks) << " ms" << std::endl;
@@ -244,6 +318,16 @@ bool RuntimeRecord::operator==(const RuntimeRecord & r) const{
 	     && this->tracks == r.tracks;
 }
 
+std::string RuntimeRecord::csvDump() const {
+	std::stringstream s;
+
+	s << csv({events, layers, layerTriplets, threads, hits, tracks}) << SEP; //header
+	s << read.csvDump() << SEP << write.csvDump() << SEP; //IO
+	s << buildGrid.csvDump() << SEP << pairGen.csvDump() << SEP << tripletPredict.csvDump() << SEP << tripletFilter.csvDump(); //runtime
+
+	return s.str();
+}
+
 bool RuntimeRecord::operator==(const RuntimeRecordClass & r) const{
 	return	this->events == r.events
 		 && this->layerTriplets == r.layerTriplets
@@ -262,6 +346,17 @@ bool RuntimeRecordClass::operator==(const RuntimeRecord & r) const{
 	     && this->tracks == r.tracks;
 }
 
+std::string RuntimeRecordClass::csvDump() const {
+	std::stringstream s;
+
+	s << csv({events, layers, layerTriplets, threads, hits, tracks, (uint) records.size()}) << SEP; //header
+	s << readMean.csvDump(toVar(readVar)) << SEP << writeMean.csvDump(toVar(writeVar)) << SEP; //IO
+	s << buildGridMean.csvDump(toVar(buildGridVar)) << SEP << pairGenMean.csvDump(toVar(pairGenVar))
+	  << SEP << tripletPredictMean.csvDump(toVar(tripletPredictVar)) << SEP << tripletFilterMean.csvDump(toVar(tripletFilterVar)); //runtime
+
+	return s.str();
+}
+
 bool RuntimeRecordClass::operator==(const RuntimeRecordClass & r) const{
 	return	this->events == r.events
 		 && this->layerTriplets == r.layerTriplets
@@ -275,33 +370,45 @@ uint clamp(int n){
 	return n > 0 ? n : 1;
 }
 
+tRuntimeInfo RuntimeRecordClass::toVar(tRuntimeInfo m2) const{
+	tRuntimeInfo result;
+
+	result.count = std::sqrt(m2.count / (records.size() - 1));
+	result.scan = std::sqrt(m2.scan / (records.size() - 1));
+	result.store = std::sqrt(m2.store / (records.size() - 1));
+	result.walltime = std::sqrt(m2.walltime / (records.size() - 1));
+
+	return result;
+}
+
+tIOInfo RuntimeRecordClass::toVar(tIOInfo m2) const{
+	tIOInfo result;
+
+	result.time = std::sqrt(m2.time / (records.size() - 1));
+	result.bytes = std::sqrt(m2.bytes / (records.size() - 1));
+
+	return result;
+}
+
 //calculate moving mean and variance
 //n is INclusive new element
 void calculateMeanVar(tRuntimeInfo & mean, tRuntimeInfo & var, const tRuntimeInfo & x, uint n){
 
 	long double delta = x.count - mean.count;
 	mean.count += delta / n;
-	long double M2 = var.count * clamp(n-2); //var = M2 / (n-1) for OLD n
-	M2 += delta*(x.count - mean.count);
-	var.count =  M2 / clamp(n-1);
+	var.count +=  delta*(x.count - mean.count);
 
 	delta = x.scan - mean.scan;
 	mean.scan += delta / n;
-	M2 = var.scan * clamp(n-2); //var = M2 / (n-1) for OLD n
-	M2 += delta*(x.scan - mean.scan);
-	var.scan = M2 / clamp(n-1);
+	var.scan +=  delta*(x.scan - mean.scan);
 
 	delta = x.store - mean.store;
 	mean.store += delta / n;
-	M2 = var.store * clamp(n-2); //var = M2 / (n-1) for OLD n
-	M2 += delta*(x.store - mean.store);
-	var.store = M2 / clamp(n-1);
+	var.store +=  delta*(x.store - mean.store);;
 
 	delta = x.walltime - mean.walltime;
 	mean.walltime += delta / n;
-	M2 = var.walltime * clamp(n-2); //var = M2 / (n-1) for OLD n
-	M2 += delta*(x.walltime - mean.walltime);
-	var.walltime = M2 / clamp(n-1);
+	var.walltime +=  delta*(x.walltime - mean.walltime);
 
 }
 
@@ -309,17 +416,13 @@ void calculateMeanVar(tIOInfo & mean, tIOInfo & var, const tIOInfo & x, uint n){
 
 	long double delta = x.time - mean.time;
 	mean.time += delta / n;
-	long double M2 = var.time * clamp(n-2); //var = M2 / (n-1) for OLD n
-	M2 += delta*(x.time - mean.time);
-	var.time = M2 / clamp(n-1);
+	var.time += delta*(x.time - mean.time);
 
 
 	//bytes should actually be pretty much the same
 	delta = x.bytes - mean.bytes;
 	mean.bytes += delta / n;
-	M2 = var.bytes * clamp(n-2); //var = M2 / (n-1) for OLD n
-	M2 += delta*(x.bytes - mean.bytes);
-	var.bytes = M2 / clamp(n-1);
+	var.bytes += delta*(x.bytes - mean.bytes);
 
 }
 
@@ -432,40 +535,21 @@ void RuntimeRecords::merge(const RuntimeRecords & c){
 
 }
 
-/*RuntimeRecord RuntimeRecord::operator+(const RuntimeRecord& rhs) const {
-	RuntimeRecord result(*this);
+std::string RuntimeRecords::csvDump() const {
+	std::stringstream s;
 
-	result.nTracks += rhs.nTracks;
-	result.dataTransferRead += rhs.dataTransferRead;
-	result.dataTransferWrite += rhs.dataTransferWrite;
-	result.pairGenComp += rhs.pairGenComp;
-	result.pairGenStore += rhs.pairGenStore;
-	result.tripletPredictComp += rhs.tripletPredictComp;
-	result.tripletPredictStore += rhs.tripletPredictStore;
-	result.tripletCheckComp += rhs.tripletCheckComp;
-	result.tripletCheckStore += rhs.tripletCheckStore;
-	result.buildGrid += rhs.buildGrid;
+	//header
+	s << csv({"#events", "layers", "layerTriplets", "threads", "hits", "tracks", "n"}) << SEP; //header
+	s << csv({"readTime", "readTimeVar", "readBytes", "readBytesVar"}) << SEP; //read
+	s << csv({"writeTime", "writeTimeVar", "writeBytes", "writeBytesVar"}) << SEP; //write
+	s << csv({"buildGridCount", "buildGridCountVar", "buildGridScan", "buildGridScanVar", "buildGridStore", "buildGridStoreVar", "buildGridWalltime", "buildGridWalltimeVar"}) << SEP; //buildGrid
+	s << csv({"pairGenCount", "pairGenCountVar", "pairGenScan", "pairGenScanVar", "pairGenStore", "pairGenStoreVar", "pairGenWalltime", "pairGenWalltimeVar"}) << SEP; //pairGen
+	s << csv({"tripletPredictCount", "tripletPredictCountVar", "tripletPredictScan", "tripletPredictScanVar", "tripletPredictStore", "tripletPredictStoreVar", "tripletPredictWalltime", "tripletPredictWalltimeVar"}) << SEP; //tripletPredict
+	s << csv({"tripletFilterCount", "tripletFilterCountVar", "tripletFilterScan", "tripletFilterScanVar", "tripletFilterStore", "tripletFilterStoreVar", "tripletFilterWalltime", "tripletFilterWalltimeVar"}); //tripletFilter
+	s << std::endl;
 
-	result.efficiency = (this->nTracks*this->efficiency + rhs.nTracks*rhs.efficiency) / result.nTracks;
-	result.fakeRate = (this->nTracks*this->fakeRate + rhs.nTracks*rhs.fakeRate) / result.nTracks;
+	for(auto i : classes)
+		s << i.csvDump() << std::endl;
 
-	return result;
+	return s.str();
 }
-
-void RuntimeRecord::operator+=(const RuntimeRecord& rhs) {
-	this->dataTransferRead += rhs.dataTransferRead;
-	this->dataTransferWrite += rhs.dataTransferWrite;
-	this->pairGenComp += rhs.pairGenComp;
-	this->pairGenStore += rhs.pairGenStore;
-	this->tripletPredictComp += rhs.tripletPredictComp;
-	this->tripletPredictStore += rhs.tripletPredictStore;
-	this->tripletCheckComp += rhs.tripletCheckComp;
-	this->tripletCheckStore += rhs.tripletCheckStore;
-	this->buildGrid += rhs.buildGrid;
-
-	this->efficiency = (this->nTracks*this->efficiency + rhs.nTracks*rhs.efficiency) / (this->nTracks + rhs.nTracks);
-	this->fakeRate = (this->nTracks*this->fakeRate + rhs.nTracks*rhs.fakeRate) / (this->nTracks + rhs.nTracks);
-
-	this->nTracks += rhs.nTracks;
-}*/
-

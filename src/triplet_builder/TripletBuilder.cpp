@@ -436,6 +436,8 @@ int main(int argc, char *argv[]) {
 	EventDataLoadingParameters loader;
 	GridConfig grid;
 
+	std::string testSuiteFile;
+
 	po::options_description cLoader("Config File: Event Data Loading Options");
 	cLoader.add_options()
 		("data.edSrc", po::value<std::string>(&loader.eventDataFile), "event database")
@@ -468,7 +470,7 @@ int main(int argc, char *argv[]) {
 		("silent", "supress all messages from TripletFinder")
 		("verbose", "elaborate information")
 		("prolix", "prolix output -- degrades performance as data is transferred from device")
-		("testSuite", "run entire testSuite")
+		("testSuite", po::value<std::string>(&testSuiteFile), "specify a file defining test cases to be run")
 	;
 
 	po::variables_map vm;
@@ -495,17 +497,11 @@ int main(int argc, char *argv[]) {
 			cConfigFile.add(cGrid);
 			store(parse_config_file(ifs, cConfigFile), vm);
 			notify(vm);
+			ifs.close();
 		}
 	} else {
 		cout << "No config file specified!" <<std::endl;
 		return 1;
-	}
-
-	if(vm.count("testSuite")){
-
-		//TODO define testSuite
-
-		return 0;
 	}
 
 	//define verbosity level
@@ -517,18 +513,84 @@ int main(int argc, char *argv[]) {
 	if(vm.count("prolix"))
 				exec.verbosity = Logger::cPROLIX;
 
+
+	typedef std::pair<ExecutionParameters, EventDataLoadingParameters> tExecution;
+	std::vector<tExecution> executions;
+	executions.push_back(std::make_pair(exec, loader));
+
+	//****************************************
+	if(vm.count("testSuite")){
+
+		ifstream ifs(testSuiteFile);
+		if (!ifs)
+		{
+			cout << "can not open testSuite file: " << testSuiteFile << "\n";
+			return 0;
+		}
+		else
+		{
+			std::vector<uint> threads;
+			std::vector<uint> events;
+			std::vector<uint> tracks;
+
+			po::options_description cTestSuite;
+			cTestSuite.add_options()
+				("threads", po::value<std::vector<uint> >(&threads)->multitoken(), "work-group size")
+				("tracks", po::value<std::vector<uint> >(&tracks)->multitoken(), "tracks to load")
+				("eventGrouping", po::value<std::vector<uint> >(&events)->multitoken(), "events to process concurrently")
+			;
+
+			po::variables_map tests;
+			po::store(parse_config_file(ifs, cTestSuite), tests);
+			po::notify(tests);
+			ifs.close();
+
+			//add default values if necessary
+			if(events.size() == 0)
+				events.push_back(exec.eventGrouping);
+			if(threads.size() == 0)
+				threads.push_back(exec.threads);
+			if(tracks.size() == 0)
+				tracks.push_back(loader.maxTracks);
+
+			//add test cases
+			for(uint e : events){
+				for(uint t : threads){
+					for(uint n : tracks){
+
+						ExecutionParameters ep(exec); //clone default
+						EventDataLoadingParameters lp(loader);
+
+						ep.threads = t;
+						ep.eventGrouping = e; lp.maxEvents = e;
+						lp.maxTracks = n;
+
+						executions.push_back(std::make_pair(ep, lp));
+
+					}
+				}
+			}
+		}
+	}
+	//************************************
+
 	//**********************************
 	RuntimeRecords runtimeRecords;
-	for(uint i = 0; i < exec.iterations; ++i){
+	for(auto e : executions){ //standard case: only 1
+		for(uint i = 0; i < exec.iterations; ++i){
 
-		RuntimeRecords res = buildTriplets(exec, loader, grid);
+			RuntimeRecords res = buildTriplets(e.first, e.second, grid);
 
-		runtimeRecords.merge(res);
+			runtimeRecords.merge(res);
+		}
 	}
 	//**********************************
 
-	//TODO evaluate runtimeRecords
 	runtimeRecords.logPrint();
+
+	std::ofstream runtimeRecordsFile("runtimeRecords.csv", std::ios::trunc);
+	runtimeRecordsFile << runtimeRecords.csvDump();
+	runtimeRecordsFile.close();
 
 	std::cout << Logger::getInstance();
 

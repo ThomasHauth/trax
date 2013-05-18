@@ -35,6 +35,9 @@ struct tRuntimeInfo {
 
 	std::string prettyPrint() const;
 	std::string prettyPrint(const tRuntimeInfo & var) const;
+
+	std::string csvDump() const;
+	std::string csvDump(const tRuntimeInfo & var) const;
 };
 
 struct tIOInfo {
@@ -51,6 +54,9 @@ struct tIOInfo {
 
 	std::string prettyPrint() const;
 	std::string prettyPrint(const tIOInfo & var) const;
+
+	std::string csvDump() const;
+	std::string csvDump(const tIOInfo & var) const;
 };
 
 class RuntimeRecordClass;
@@ -87,6 +93,7 @@ public:
 	void fillRuntimes(const clever::context & ctx);
 
 	void logPrint() const;
+	std::string csvDump() const;
 
 	bool operator==(const RuntimeRecord & r) const;
 	bool operator==(const RuntimeRecordClass & r) const;
@@ -140,6 +147,9 @@ public:
 		threads = r.threads;
 	}
 
+	tRuntimeInfo toVar(tRuntimeInfo m2) const;
+	tIOInfo toVar(tIOInfo m2) const;
+
 	void addRecord(const RuntimeRecord & r);
 	void merge(const RuntimeRecordClass & c);
 
@@ -148,6 +158,7 @@ public:
 	}
 
 	void logPrint() const;
+	std::string csvDump() const;
 
 	bool operator==(const RuntimeRecord & r) const;
 	bool operator==(const RuntimeRecordClass & r) const;
@@ -168,6 +179,7 @@ public:
 	void merge(const RuntimeRecords & c);
 
 	void logPrint() const;
+	std::string csvDump() const;
 
 };
 
