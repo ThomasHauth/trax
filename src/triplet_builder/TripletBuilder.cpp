@@ -125,6 +125,11 @@ RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameter
 
 	//
 	LOG << "Creating context for " << (exec.useCPU ? "CPU" : "GPGPU") << "...";
+
+#ifndef CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL
+#define CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL 0
+#endif
+
 	clever::context *contx;
 	if(!exec.useCPU){
 		try{
@@ -138,7 +143,7 @@ RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameter
 			//if not use cpu
 			clever::context_settings settings = clever::context_settings::default_cpu();
 			settings.m_profile = true;
-			settings.m_cmd_queue_properties = CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL;
+			settings.m_cmd_queue_properties |= CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL;
 
 			contx = new clever::context(settings);
 			LOG << "error: fallback on CPU" << std::endl;
@@ -146,7 +151,7 @@ RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameter
 	} else {
 		clever::context_settings settings = clever::context_settings::default_cpu();
 		settings.m_profile = true;
-		settings.m_cmd_queue_properties = CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL;
+		settings.m_cmd_queue_properties |= CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL;
 
 		contx = new clever::context(settings);
 		LOG << "success" << std::endl;
@@ -519,7 +524,6 @@ int main(int argc, char *argv[]) {
 
 	typedef std::pair<ExecutionParameters, EventDataLoadingParameters> tExecution;
 	std::vector<tExecution> executions;
-	executions.push_back(std::make_pair(exec, loader));
 
 	//****************************************
 	if(vm.count("testSuite")){
@@ -574,6 +578,8 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
+	} else {
+		executions.push_back(std::make_pair(exec, loader));
 	}
 	//************************************
 
