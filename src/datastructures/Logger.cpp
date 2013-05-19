@@ -15,14 +15,18 @@ Logger& Logger::getInstance()
 }
 
 std::ostream & Logger::addLogEntry(uint level) {
+
+	if(logLevel == Logger::cLIVE)
+		return std::cout;
+
+	if(logLevel == Logger::cSILENT)
+		return nullStream;
+
 	std::stringstream* s = new std::stringstream();
 	tLogEntry entry = std::make_pair(level, s);
 	logEntries.push_back(entry);
 
-	if(logLevel != Logger::cLIVE)
-		return *(logEntries[logEntries.size()-1].second);
-	else
-		return std::cout;
+	return *(logEntries[logEntries.size()-1].second);
 }
 
 std::ostream & Logger::printLog(std::ostream & out){

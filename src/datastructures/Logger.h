@@ -4,6 +4,8 @@
 #include <vector>
 #include <iostream>
 #include <sstream>
+#include <boost/iostreams/stream.hpp>
+#include <boost/iostreams/device/null.hpp>
 
 class Logger : private boost::noncopyable {
 
@@ -33,10 +35,12 @@ public:
 
 
 private:
-	Logger() : logLevel(Logger::cNORMAL) {};
+	Logger() : logLevel(Logger::cNORMAL), nullStream( ( boost::iostreams::null_sink() ) ) { };
 
 	std::vector<tLogEntry> logEntries;
 	int logLevel;
+
+	 boost::iostreams::stream< boost::iostreams::null_sink > nullStream;
 
 public:
 	static constexpr int cLIVE = -2;
