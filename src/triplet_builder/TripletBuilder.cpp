@@ -470,6 +470,7 @@ int main(int argc, char *argv[]) {
 		("silent", "supress all messages from TripletFinder")
 		("verbose", "elaborate information")
 		("prolix", "prolix output -- degrades performance as data is transferred from device")
+		("live", "live output -- degrades performance")
 		("testSuite", po::value<std::string>(&testSuiteFile), "specify a file defining test cases to be run")
 	;
 
@@ -512,6 +513,8 @@ int main(int argc, char *argv[]) {
 			exec.verbosity = Logger::cVERBOSE;
 	if(vm.count("prolix"))
 				exec.verbosity = Logger::cPROLIX;
+	if(vm.count("live"))
+					exec.verbosity = Logger::cLIVE;
 
 
 	typedef std::pair<ExecutionParameters, EventDataLoadingParameters> tExecution;

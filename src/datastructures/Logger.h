@@ -39,6 +39,7 @@ private:
 	int logLevel;
 
 public:
+	static constexpr int cLIVE = -2;
 	static constexpr int cSILENT = -1;
 	static constexpr int cNORMAL = 0;
 	static constexpr int cVERBOSE = 1;

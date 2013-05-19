@@ -19,7 +19,10 @@ std::ostream & Logger::addLogEntry(uint level) {
 	tLogEntry entry = std::make_pair(level, s);
 	logEntries.push_back(entry);
 
-	return *(logEntries[logEntries.size()-1].second);
+	if(logLevel != Logger::cLIVE)
+		return *(logEntries[logEntries.size()-1].second);
+	else
+		return std::cout;
 }
 
 std::ostream & Logger::printLog(std::ostream & out){
