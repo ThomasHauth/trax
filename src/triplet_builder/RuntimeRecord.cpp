@@ -357,7 +357,7 @@ std::string RuntimeRecordClass::csvDump() const {
 	s << csv({events, layers, layerTriplets, threads, hits, tracks, (uint) records.size()}) << SEP; //header
 	s << readMean.csvDump(toVar(readVar)) << SEP << writeMean.csvDump(toVar(writeVar)) << SEP; //IO
 	s << buildGridMean.csvDump(toVar(buildGridVar)) << SEP << pairGenMean.csvDump(toVar(pairGenVar))
-	  << SEP << tripletPredictMean.csvDump(toVar(tripletPredictVar)) << SEP << tripletFilterMean.csvDump(toVar(tripletFilterVar)) << totalMean.csvDump(toVar(totalVar)); //runtime
+	  << SEP << tripletPredictMean.csvDump(toVar(tripletPredictVar)) << SEP << tripletFilterMean.csvDump(toVar(tripletFilterVar)) << SEP << totalMean.csvDump(toVar(totalVar)); //runtime
 
 	return s.str();
 }
@@ -551,7 +551,7 @@ std::string RuntimeRecords::csvDump() const {
 	s << csv({"pairGenCount", "pairGenCountVar", "pairGenScan", "pairGenScanVar", "pairGenStore", "pairGenStoreVar", "pairGenWalltime", "pairGenWalltimeVar", "pairGenKernel", "pairGenKernelVar"}) << SEP; //pairGen
 	s << csv({"tripletPredictCount", "tripletPredictCountVar", "tripletPredictScan", "tripletPredictScanVar", "tripletPredictStore", "tripletPredictStoreVar", "tripletPredictWalltime", "tripletPredictWalltimeVar", "tripletPredictKernel", "tripletPredictKernelVar"}) << SEP; //tripletPredict
 	s << csv({"tripletFilterCount", "tripletFilterCountVar", "tripletFilterScan", "tripletFilterScanVar", "tripletFilterStore", "tripletFilterStoreVar", "tripletFilterWalltime", "tripletFilterWalltimeVar", "tripletFilterKernel", "tripletFilterKernelVar"}) << SEP; //tripletFilter
-	s << csv({"totalCount", "totalCountVar", "totalScan", "totalScanVar", "totalStore", "totalStoreVar", "totalWalltime", "totalWalltimeVar", "totalKernel", "totalKernelVar"}) << SEP; //totalTiming
+	s << csv({"totalCount", "totalCountVar", "totalScan", "totalScanVar", "totalStore", "totalStoreVar", "totalWalltime", "totalWalltimeVar", "totalKernel", "totalKernelVar"}); //totalTiming
 	s << std::endl;
 
 	for(auto i : classes)

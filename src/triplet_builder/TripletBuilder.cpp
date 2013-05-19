@@ -585,13 +585,15 @@ int main(int argc, char *argv[]) {
 
 	//**********************************
 	RuntimeRecords runtimeRecords;
-	for(auto e : executions){ //standard case: only 1
+	for(uint e = 0; e < executions.size();++e){ //standard case: only 1
+		std::cout << "Experiment " << e << ": ";
 		for(uint i = 0; i < exec.iterations; ++i){
-
-			RuntimeRecords res = buildTriplets(e.first, e.second, grid);
+			std::cout << i+1 << "\t" << std::flush;
+			RuntimeRecords res = buildTriplets(executions[e].first, executions[e].second, grid);
 
 			runtimeRecords.merge(res);
 		}
+		std::cout << std::endl;
 	}
 	//**********************************
 
