@@ -602,7 +602,7 @@ int main(int argc, char *argv[]) {
 	std::stringstream runtimeOutputFile;
 	runtimeOutputFile << "runtime" << (testSuiteFile != "" ? "." : "") << testSuiteFile << (exec.useCPU ? ".cpu" : ".gpu") << ".csv";
 
-	std::ofstream runtimeRecordsFile("runtimeRecords.csv", std::ios::trunc);
+	std::ofstream runtimeRecordsFile(runtimeOutputFile.str(), std::ios::trunc);
 	runtimeRecordsFile << runtimeRecords.csvDump();
 	runtimeRecordsFile.close();
 
