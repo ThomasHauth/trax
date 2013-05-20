@@ -118,10 +118,7 @@ float getEtaBin(float eta){
 	return binwidth*floor(eta/binwidth);
 }
 
-RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameters loader, GridConfig gridConfig) {
-
-	//set up logger verbosity
-	Logger::getInstance().setLogLevel(exec.verbosity);
+clever::context * createContext(ExecutionParameters exec){
 
 	//
 	LOG << "Creating context for " << (exec.useCPU ? "CPU" : "GPGPU") << "...";
@@ -156,6 +153,11 @@ RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameter
 		contx = new clever::context(settings);
 		LOG << "success" << std::endl;
 	}
+
+	return contx;
+}
+
+RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameters loader, GridConfig gridConfig, clever::context * contx) {
 
 	RuntimeRecords runtimeRecords;
 
@@ -434,7 +436,7 @@ RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameter
 
 	} //destruction order block
 
-	delete contx;
+	//delete contx;
 
 	return runtimeRecords;
 }
@@ -590,17 +592,26 @@ int main(int argc, char *argv[]) {
 	//************************************
 
 	//**********************************
+
+	//set up logger verbosity
+	Logger::getInstance().setLogLevel(exec.verbosity);
+	clever::context * contx = createContext(exec);
+
 	RuntimeRecords runtimeRecords;
 	for(uint e = 0; e < executions.size();++e){ //standard case: only 1
 		std::cout << "Experiment " << e << ": ";
 		for(uint i = 0; i < exec.iterations; ++i){
 			std::cout << i+1 << "  " << std::flush;
-			RuntimeRecords res = buildTriplets(executions[e].first, executions[e].second, grid);
+			RuntimeRecords res = buildTriplets(executions[e].first, executions[e].second, grid, contx);
+
+			contx->clearAllBuffers();
 
 			runtimeRecords.merge(res);
 		}
 		std::cout << std::endl;
 	}
+
+	delete contx;
 	//**********************************
 
 	runtimeRecords.logPrint();
