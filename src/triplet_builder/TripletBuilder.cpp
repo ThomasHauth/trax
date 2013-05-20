@@ -588,7 +588,7 @@ int main(int argc, char *argv[]) {
 	for(uint e = 0; e < executions.size();++e){ //standard case: only 1
 		std::cout << "Experiment " << e << ": ";
 		for(uint i = 0; i < exec.iterations; ++i){
-			std::cout << i+1 << "\t" << std::flush;
+			std::cout << i+1 << "  " << std::flush;
 			RuntimeRecords res = buildTriplets(executions[e].first, executions[e].second, grid);
 
 			runtimeRecords.merge(res);
@@ -598,6 +598,9 @@ int main(int argc, char *argv[]) {
 	//**********************************
 
 	runtimeRecords.logPrint();
+
+	std::stringstream runtimeOutputFile;
+	runtimeOutputFile << "runtime" << (testSuiteFile != "" ? "." : "") << testSuiteFile << (exec.useCPU ? ".cpu" : ".gpu") << ".csv";
 
 	std::ofstream runtimeRecordsFile("runtimeRecords.csv", std::ios::trunc);
 	runtimeRecordsFile << runtimeRecords.csvDump();
