@@ -157,222 +157,225 @@ RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameter
 		LOG << "success" << std::endl;
 	}
 
-	//load radius dictionary
-	Dictionary dict;
-
-	std::ifstream radiusDictFile("radiusDictionary.dat");
-	CSVRow row;
-	while(radiusDictFile >> row)
-	{
-		dict.addWithValue(atof(row[1].c_str()));
-	}
-	radiusDictFile.close();
-
-	//load detectorGeometry
-	DetectorGeometry geom;
-
-	std::map<uint, std::pair<float, float> > exRadius; //min, max
-	for(int i = 1; i <= 13; ++i){
-		exRadius[i]= std::make_pair(10000.0, 0.0);
-	}
-
-	std::ifstream detectorGeometryFile("detectorRadius.dat");
-	while(detectorGeometryFile >> row)
-	{
-		uint detId = atoi(row[0].c_str());
-		uint layer = atoi(row[2].c_str());
-		uint dictEntry = atoi(row[1].c_str());
-
-		geom.addWithValue(detId, layer, dictEntry);
-		DictionaryEntry entry(dict, dictEntry);
-
-		if(entry.radius() > exRadius[layer].second) //maxiRadius
-			exRadius[layer].second = entry.radius();
-		if(entry.radius() < exRadius[layer].first) //minRadius
-			exRadius[layer].first = entry.radius();
-
-	}
-	detectorGeometryFile.close();
-
-	GeometrySupplement geomSupplement;
-	for(auto mr : exRadius){
-		geomSupplement.addWithValue(mr.first, mr.second.first, mr.second.second);
-	}
-
-	//transfer geometry to device
-	geom.transfer.initBuffers(*contx, geom);
-	geom.transfer.toDevice(*contx, geom);
-
-	geomSupplement.transfer.initBuffers(*contx, geomSupplement);
-	geomSupplement.transfer.toDevice(*contx, geomSupplement);
-
-	dict.transfer.initBuffers(*contx, dict);
-	dict.transfer.toDevice(*contx, dict);
-
-	//define statistics variables
 	RuntimeRecords runtimeRecords;
-	std::map<float, tEtaData> etaHist;
-	std::ofstream validTIP("validTIP.csv", std::ios::trunc);
-	std::ofstream fakeTIP("fakeTIP.csv", std::ios::trunc);
 
-	//Event Data Loader
-	EventLoader * edLoader;
-	if(!loader.singleEventLoader)
-		edLoader = new EventLoader(loader);
-	else
-		edLoader = new RepeatedEventLoader(loader);
+	{ //block to ensure proper destruction
 
-	uint lastEvent;
-	if(loader.maxEvents == -1)
-		lastEvent =edLoader->nEvents();
-	else
-		lastEvent = min(loader.maxEvents, edLoader->nEvents());
+		//load radius dictionary
+		Dictionary dict;
 
-	TripletConfigurations layerConfig;
-	loader.maxLayer = layerConfig.loadTripletConfigurationFromFile("layerTriplets.xml", 1); //TODO one defined for testing
-
-	layerConfig.transfer.initBuffers(*contx, layerConfig);
-	layerConfig.transfer.toDevice(*contx, layerConfig);
-
-	LOG << "Loaded " << layerConfig.size() << " layer triplet configurations" << std::endl;
-
-	if(VERBOSE){
-		for(uint i = 0; i < layerConfig.size(); ++ i){
-			TripletConfiguration config(layerConfig, i);
-			VLOG << "Layers " << config.layer1() << "-" << config.layer2() << "-" << config.layer3() << std::endl;
-			VLOG << "\t" << "dThetaCut: " << config.getValue<dThetaCut>() << " dThetaWindow: " << config.getValue<dThetaWindow>() << std::endl;
-			VLOG << "\t" << "dPhiCut: " << config.getValue<dPhiCut>() << " dTPhiWindow: " << config.getValue<dPhiWindow>() << std::endl;
-			VLOG << "\t" << "tipCut: " << config.getValue<tipCut>() << std::endl;
-			VLOG << "\t" << "pairSpreadZ: " << config.getValue<pairSpreadZ>() << " pairSpreadPhi: " << config.getValue<pairSpreadPhi>() << std::endl;
+		std::ifstream radiusDictFile("radiusDictionary.dat");
+		CSVRow row;
+		while(radiusDictFile >> row)
+		{
+			dict.addWithValue(atof(row[1].c_str()));
 		}
-	}
+		radiusDictFile.close();
 
-	//configure hit loading
+		//load detectorGeometry
+		DetectorGeometry geom;
 
-	const uint evtGroups = (uint) max(1.0f, ceil(((float) lastEvent )/ exec.eventGrouping)); //number of groups
+		std::map<uint, std::pair<float, float> > exRadius; //min, max
+		for(int i = 1; i <= 13; ++i){
+			exRadius[i]= std::make_pair(10000.0, 0.0);
+		}
 
-	uint event = 0;
-	for(uint eventGroup = 0; eventGroup < evtGroups; ++eventGroup){
+		std::ifstream detectorGeometryFile("detectorRadius.dat");
+		while(detectorGeometryFile >> row)
+		{
+			uint detId = atoi(row[0].c_str());
+			uint layer = atoi(row[2].c_str());
+			uint dictEntry = atoi(row[1].c_str());
 
-		uint evtGroupSize = std::min(exec.eventGrouping, lastEvent-event); //if last group is not a full group
+			geom.addWithValue(detId, layer, dictEntry);
+			DictionaryEntry entry(dict, dictEntry);
 
-		//initialize datastructures
-		EventSupplement eventSupplement(evtGroupSize);
-		LayerSupplement layerSupplement(loader.maxLayer, evtGroupSize);
+			if(entry.radius() > exRadius[layer].second) //maxiRadius
+				exRadius[layer].second = entry.radius();
+			if(entry.radius() < exRadius[layer].first) //minRadius
+				exRadius[layer].first = entry.radius();
 
-		gridConfig.nLayers = loader.maxLayer;
-		gridConfig.nEvents = evtGroupSize;
-		Grid grid(gridConfig);
+		}
+		detectorGeometryFile.close();
 
-		HitCollection hits;
-		std::map<uint, HitCollection::tTrackList> validTracks; //first: uint = evt in group second: tracklist
-		uint totalValidTracks = 0;
+		GeometrySupplement geomSupplement;
+		for(auto mr : exRadius){
+			geomSupplement.addWithValue(mr.first, mr.second.first, mr.second.second);
+		}
 
-		do{
-			uint iEvt = event % evtGroupSize;
-			PB_Event::PEvent pEvent = edLoader->getEvent(event);
+		//transfer geometry to device
+		geom.transfer.initBuffers(*contx, geom);
+		geom.transfer.toDevice(*contx, geom);
 
-			LOG << "Started processing Event " << pEvent.eventnumber() << " LumiSection " << pEvent.lumisection() << " Run " << pEvent.runnumber() << std::endl;
-			validTracks[iEvt] = hits.addEvent(pEvent, geom, eventSupplement, iEvt, layerSupplement,
-					loader.minPt, loader.maxTracks, loader.onlyTracks, loader.maxLayer);
+		geomSupplement.transfer.initBuffers(*contx, geomSupplement);
+		geomSupplement.transfer.toDevice(*contx, geomSupplement);
 
-			totalValidTracks += validTracks[iEvt].size();
-			LOG << "Loaded " << validTracks[iEvt].size() << " tracks with minPt " << loader.minPt << " GeV and " << eventSupplement[iEvt].getNHits() << " hits" << std::endl;
+		dict.transfer.initBuffers(*contx, dict);
+		dict.transfer.toDevice(*contx, dict);
 
-			if(VERBOSE){
-				for(uint i = 1; i <= loader.maxLayer; ++i)
-					VLOG << "Layer " << i << ": " << layerSupplement[iEvt*loader.maxLayer + i-1].getNHits() << " hits" << "\t Offset: " << layerSupplement[iEvt*loader.maxLayer + i-1].getOffset() << std::endl;
+		//define statistics variables
+		std::map<float, tEtaData> etaHist;
+		std::ofstream validTIP("validTIP.csv", std::ios::trunc);
+		std::ofstream fakeTIP("fakeTIP.csv", std::ios::trunc);
+
+		//Event Data Loader
+		EventLoader * edLoader;
+		if(!loader.singleEventLoader)
+			edLoader = new EventLoader(loader);
+		else
+			edLoader = new RepeatedEventLoader(loader);
+
+		uint lastEvent;
+		if(loader.maxEvents == -1)
+			lastEvent =edLoader->nEvents();
+		else
+			lastEvent = min(loader.maxEvents, edLoader->nEvents());
+
+		TripletConfigurations layerConfig;
+		loader.maxLayer = layerConfig.loadTripletConfigurationFromFile("layerTriplets.xml", 1); //TODO one defined for testing
+
+		layerConfig.transfer.initBuffers(*contx, layerConfig);
+		layerConfig.transfer.toDevice(*contx, layerConfig);
+
+		LOG << "Loaded " << layerConfig.size() << " layer triplet configurations" << std::endl;
+
+		if(VERBOSE){
+			for(uint i = 0; i < layerConfig.size(); ++ i){
+				TripletConfiguration config(layerConfig, i);
+				VLOG << "Layers " << config.layer1() << "-" << config.layer2() << "-" << config.layer3() << std::endl;
+				VLOG << "\t" << "dThetaCut: " << config.getValue<dThetaCut>() << " dThetaWindow: " << config.getValue<dThetaWindow>() << std::endl;
+				VLOG << "\t" << "dPhiCut: " << config.getValue<dPhiCut>() << " dTPhiWindow: " << config.getValue<dPhiWindow>() << std::endl;
+				VLOG << "\t" << "tipCut: " << config.getValue<tipCut>() << std::endl;
+				VLOG << "\t" << "pairSpreadZ: " << config.getValue<pairSpreadZ>() << " pairSpreadPhi: " << config.getValue<pairSpreadPhi>() << std::endl;
 			}
+		}
 
-			++event;
-		} while (event % evtGroupSize != 0 && event < lastEvent);
+		//configure hit loading
 
-		LOG << "Loaded " << hits.size() << " hits in " << evtGroupSize << " events" << std::endl;
+		const uint evtGroups = (uint) max(1.0f, ceil(((float) lastEvent )/ exec.eventGrouping)); //number of groups
 
-		RuntimeRecord runtime(grid.config.nEvents, grid.config.nLayers, layerConfig.size(), hits.size(), totalValidTracks, exec.threads);
+		uint event = 0;
+		for(uint eventGroup = 0; eventGroup < evtGroups; ++eventGroup){
 
-		//transer hits to gpu
-		hits.transfer.initBuffers(*contx, hits);
-		hits.transfer.toDevice(*contx, hits);
+			uint evtGroupSize = std::min(exec.eventGrouping, lastEvent-event); //if last group is not a full group
 
-		//transferring layer supplement
-		eventSupplement.transfer.initBuffers(*contx, eventSupplement);
-		eventSupplement.transfer.toDevice(*contx,eventSupplement);
+			//initialize datastructures
+			EventSupplement eventSupplement(evtGroupSize);
+			LayerSupplement layerSupplement(loader.maxLayer, evtGroupSize);
 
-		//transferring layer supplement
-		layerSupplement.transfer.initBuffers(*contx, layerSupplement);
-		layerSupplement.transfer.toDevice(*contx,layerSupplement);
-		//initializating grid
-		grid.transfer.initBuffers(*contx,grid);
-		grid.transfer.toDevice(*contx,grid);
+			gridConfig.nLayers = loader.maxLayer;
+			gridConfig.nEvents = evtGroupSize;
+			Grid grid(gridConfig);
 
-		GridBuilder gridBuilder(*contx);
+			HitCollection hits;
+			std::map<uint, HitCollection::tTrackList> validTracks; //first: uint = evt in group second: tracklist
+			uint totalValidTracks = 0;
 
-		runtime.buildGrid.startWalltime();
-		gridBuilder.run(hits, exec.threads, eventSupplement, layerSupplement, grid);
-		runtime.buildGrid.stopWalltime();
+			do{
+				uint iEvt = event % evtGroupSize;
+				PB_Event::PEvent pEvent = edLoader->getEvent(event);
 
-		//run it
-		PairGeneratorSector pairGen(*contx);
+				LOG << "Started processing Event " << pEvent.eventnumber() << " LumiSection " << pEvent.lumisection() << " Run " << pEvent.runnumber() << std::endl;
+				validTracks[iEvt] = hits.addEvent(pEvent, geom, eventSupplement, iEvt, layerSupplement,
+						loader.minPt, loader.maxTracks, loader.onlyTracks, loader.maxLayer);
 
-		runtime.pairGen.startWalltime();
-		Pairing  * pairs = pairGen.run(hits, exec.threads, layerConfig, grid);
-		runtime.pairGen.stopWalltime();
+				totalValidTracks += validTracks[iEvt].size();
+				LOG << "Loaded " << validTracks[iEvt].size() << " tracks with minPt " << loader.minPt << " GeV and " << eventSupplement[iEvt].getNHits() << " hits" << std::endl;
 
-		TripletThetaPhiPredictor predictor(*contx);
+				if(VERBOSE){
+					for(uint i = 1; i <= loader.maxLayer; ++i)
+						VLOG << "Layer " << i << ": " << layerSupplement[iEvt*loader.maxLayer + i-1].getNHits() << " hits" << "\t Offset: " << layerSupplement[iEvt*loader.maxLayer + i-1].getOffset() << std::endl;
+				}
 
-		runtime.tripletPredict.startWalltime();
-		Pairing * tripletCandidates = predictor.run(hits, geom, geomSupplement, dict, exec.threads, layerConfig, grid, *pairs);
-		runtime.tripletPredict.stopWalltime();
+				++event;
+			} while (event % evtGroupSize != 0 && event < lastEvent);
 
-		TripletThetaPhiFilter tripletThetaPhi(*contx);
+			LOG << "Loaded " << hits.size() << " hits in " << evtGroupSize << " events" << std::endl;
 
-		runtime.tripletFilter.startWalltime();
-		TrackletCollection * tracklets = tripletThetaPhi.run(hits, grid, *pairs, *tripletCandidates, exec.threads, layerConfig);
-		runtime.tripletFilter.stopWalltime();
+			RuntimeRecord runtime(grid.config.nEvents, grid.config.nLayers, layerConfig.size(), hits.size(), totalValidTracks, exec.threads);
 
-		//evaluate it
+			//transer hits to gpu
+			hits.transfer.initBuffers(*contx, hits);
+			hits.transfer.toDevice(*contx, hits);
 
-		//runtime
-		runtime.fillRuntimes(*contx);
-		runtime.logPrint();
-		runtimeRecords.addRecord(runtime);
+			//transferring layer supplement
+			eventSupplement.transfer.initBuffers(*contx, eventSupplement);
+			eventSupplement.transfer.toDevice(*contx,eventSupplement);
 
-		//physics
-		for(uint e = 0; e < grid.config.nEvents; ++e){
+			//transferring layer supplement
+			layerSupplement.transfer.initBuffers(*contx, layerSupplement);
+			layerSupplement.transfer.toDevice(*contx,layerSupplement);
+			//initializating grid
+			grid.transfer.initBuffers(*contx,grid);
+			grid.transfer.toDevice(*contx,grid);
 
-			for(uint p = 0; p < layerConfig.size(); ++ p){
+			GridBuilder gridBuilder(*contx);
 
-				LOG << "Evaluating event " << e << " layer triplet " << p  << std::endl;
+			runtime.buildGrid.startWalltime();
+			gridBuilder.run(hits, exec.threads, eventSupplement, layerSupplement, grid);
+			runtime.buildGrid.stopWalltime();
 
-				std::set<uint> foundTracks;
-				uint fakeTracks = 0;
+			//run it
+			PairGeneratorSector pairGen(*contx);
 
-				uint nFoundTracklets = tracklets->getTrackletOffsets()[e * layerConfig.size() + p + 1] - tracklets->getTrackletOffsets()[e * layerConfig.size() + p];
+			runtime.pairGen.startWalltime();
+			Pairing  * pairs = pairGen.run(hits, exec.threads, layerConfig, grid);
+			runtime.pairGen.stopWalltime();
 
-				LOG << "Found " << nFoundTracklets << " triplets:" << std::endl;
-				for(uint i = tracklets->getTrackletOffsets()[e * layerConfig.size() + p]; i <tracklets->getTrackletOffsets()[e * layerConfig.size() + p + 1]; ++i){
-					Tracklet tracklet(*tracklets, i);
+			TripletThetaPhiPredictor predictor(*contx);
 
-					if(tracklet.isValid(hits)){
-						//valid triplet
-						foundTracks.insert(tracklet.trackId(hits));
+			runtime.tripletPredict.startWalltime();
+			Pairing * tripletCandidates = predictor.run(hits, geom, geomSupplement, dict, exec.threads, layerConfig, grid, *pairs);
+			runtime.tripletPredict.stopWalltime();
 
-						validTIP << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())) << std::endl;
-						etaHist[getEtaBin(getEta(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit3())))].valid++;
+			TripletThetaPhiFilter tripletThetaPhi(*contx);
+
+			runtime.tripletFilter.startWalltime();
+			TrackletCollection * tracklets = tripletThetaPhi.run(hits, grid, *pairs, *tripletCandidates, exec.threads, layerConfig);
+			runtime.tripletFilter.stopWalltime();
+
+			//evaluate it
+
+			//runtime
+			runtime.fillRuntimes(*contx);
+			runtime.logPrint();
+			runtimeRecords.addRecord(runtime);
+
+			//physics
+			for(uint e = 0; e < grid.config.nEvents; ++e){
+
+				for(uint p = 0; p < layerConfig.size(); ++ p){
+
+					LOG << "Evaluating event " << e << " layer triplet " << p  << std::endl;
+
+					std::set<uint> foundTracks;
+					uint fakeTracks = 0;
+
+					uint nFoundTracklets = tracklets->getTrackletOffsets()[e * layerConfig.size() + p + 1] - tracklets->getTrackletOffsets()[e * layerConfig.size() + p];
+
+					LOG << "Found " << nFoundTracklets << " triplets:" << std::endl;
+					for(uint i = tracklets->getTrackletOffsets()[e * layerConfig.size() + p]; i <tracklets->getTrackletOffsets()[e * layerConfig.size() + p + 1]; ++i){
+						Tracklet tracklet(*tracklets, i);
+
+						if(tracklet.isValid(hits)){
+							//valid triplet
+							foundTracks.insert(tracklet.trackId(hits));
+
+							validTIP << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())) << std::endl;
+							etaHist[getEtaBin(getEta(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit3())))].valid++;
 
 							VLOG << zkr::cc::fore::green;
 							VLOG << "Track " << tracklet.trackId(hits) << " : " << tracklet.hit1() << "-" << tracklet.hit2() << "-" << tracklet.hit3();
 							VLOG << " TIP: " << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
 							VLOG << zkr::cc::console << std::endl;
 
-					}
-					else {
-						//fake triplet
-						++fakeTracks;
+						}
+						else {
+							//fake triplet
+							++fakeTracks;
 
-						fakeTIP << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())) << std::endl;
-						etaHist[getEtaBin(getEta(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit3())))].fake++;
+							fakeTIP << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())) << std::endl;
+							etaHist[getEtaBin(getEta(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit3())))].fake++;
 
 							VLOG << zkr::cc::fore::red;
 							VLOG << "Fake: " << tracklet.hit1() << "[" << hits.getValue(HitId(),tracklet.hit1()) << "]";
@@ -381,54 +384,57 @@ RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameter
 							VLOG << " TIP: " << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
 							VLOG << zkr::cc::console << std::endl;
 
+						}
 					}
-				}
 
-				//output not found tracks
-				for(auto vTrack : validTracks[e]) {
-					if( foundTracks.find(vTrack.first) == foundTracks.end()){
-						VLOG << "Didn't find track " << vTrack.first << std::endl;
+					//output not found tracks
+					for(auto vTrack : validTracks[e]) {
+						if( foundTracks.find(vTrack.first) == foundTracks.end()){
+							VLOG << "Didn't find track " << vTrack.first << std::endl;
 
-						PB_Event::PHit innerHit = vTrack.second[0];
-						PB_Event::PHit outerHit = vTrack.second[vTrack.second.size()-1];
+							PB_Event::PHit innerHit = vTrack.second[0];
+							PB_Event::PHit outerHit = vTrack.second[vTrack.second.size()-1];
 
-						etaHist[getEtaBin(getEta(innerHit, outerHit))].missed++;
+							etaHist[getEtaBin(getEta(innerHit, outerHit))].missed++;
+						}
 					}
+
+					LOG << "Efficiency: " << ((double) foundTracks.size()) / validTracks[e].size() << " FakeRate: " << ((double) fakeTracks) / tracklets->size() << std::endl;
+
 				}
-
-				LOG << "Efficiency: " << ((double) foundTracks.size()) / validTracks[e].size() << " FakeRate: " << ((double) fakeTracks) / tracklets->size() << std::endl;
-
 			}
+
+			//delete variables
+			delete pairs;
+			delete tripletCandidates;
+			delete tracklets;
+
+			//reset kernels event counts
+			GridBuilder::clearEvents();
+			PairGeneratorSector::clearEvents();
+			TripletThetaPhiPredictor::clearEvents();
+			TripletThetaPhiFilter::clearEvents();
+			PrefixSum::clearEvents();
+
 		}
 
-		//delete variables
-		delete pairs;
-		delete tripletCandidates;
-		delete tracklets;
+		delete edLoader;
 
-		//reset kernels event counts
-		GridBuilder::clearEvents();
-		PairGeneratorSector::clearEvents();
-		TripletThetaPhiPredictor::clearEvents();
-		TripletThetaPhiFilter::clearEvents();
-		PrefixSum::clearEvents();
+		validTIP.close();
+		fakeTIP.close();
 
-	}
+		std::ofstream etaData("etaData.csv", std::ios::trunc);
+
+		etaData << "#etaBin, valid, fake, missed" << std::endl;
+		for(auto t : etaHist){
+			etaData << t.first << "," << t.second.valid << "," << t.second.fake << "," << t.second.missed << std::endl;
+		}
+
+		etaData.close();
+
+	} //destruction order block
 
 	delete contx;
-	delete edLoader;
-
-	validTIP.close();
-	fakeTIP.close();
-
-	std::ofstream etaData("etaData.csv", std::ios::trunc);
-
-	etaData << "#etaBin, valid, fake, missed" << std::endl;
-	for(auto t : etaHist){
-		etaData << t.first << "," << t.second.valid << "," << t.second.fake << "," << t.second.missed << std::endl;
-	}
-
-	etaData.close();
 
 	return runtimeRecords;
 }
