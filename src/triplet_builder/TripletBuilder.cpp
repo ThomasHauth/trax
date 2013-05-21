@@ -123,9 +123,9 @@ clever::context * createContext(ExecutionParameters exec){
 	//
 	LOG << "Creating context for " << (exec.useCPU ? "CPU" : "GPGPU") << "...";
 
-#ifndef CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL
+//#ifndef CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL
 #define CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL 0
-#endif
+//#endif
 
 	clever::context *contx;
 	if(!exec.useCPU){
@@ -599,7 +599,8 @@ int main(int argc, char *argv[]) {
 
 	RuntimeRecords runtimeRecords;
 	for(uint e = 0; e < executions.size();++e){ //standard case: only 1
-		std::cout << "Experiment " << e << ": ";
+		std::cout << "Experiment " << e << ": " << std::endl;
+		std::cout << executions[e].first << " " << executions[e].second << std::endl;
 		for(uint i = 0; i < exec.iterations; ++i){
 			std::cout << i+1 << "  " << std::flush;
 			RuntimeRecords res = buildTriplets(executions[e].first, executions[e].second, grid, contx);

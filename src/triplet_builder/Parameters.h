@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream>
+
 class ExecutionParameters{
 
 public:
@@ -24,3 +26,6 @@ public:
 	bool onlyTracks;
 	bool singleEventLoader;
 };
+
+std::ostream& operator<< (std::ostream& stream, const ExecutionParameters & exec);
+std::ostream& operator<< (std::ostream& stream, const EventDataLoadingParameters & loader);

@@ -1,0 +1,13 @@
+threads = 128
+threads = 256
+threads = 512
+threads = 1024
+
+tracks = 128
+tracks = 256
+tracks = 512
+tracks = 1024
+
+eventGrouping = 128
+eventGrouping = 256
+eventGrouping = 512

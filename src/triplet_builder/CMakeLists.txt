@@ -4,6 +4,7 @@ project (trax)
 add_executable(tripletBuilder
 	lib/ccolor.cpp
 	RuntimeRecord.cpp
+	Parameters.cpp
 	TripletBuilder.cpp
 )
 

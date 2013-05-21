@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+
+<layerTriplets>
+	
+	<layerTriplet>
+		<layer1>1</layer1>
+		<layer2>2</layer2>
+		<layer3>3</layer3>
+
+		<dThetaCut>0.05</dThetaCut>
+		<dThetaWindow>0.1</dThetaWindow>
+		<dPhiCut>0.1</dPhiCut>
+		<dPhiWindow>0.1</dPhiWindow>
+		<tipCut>0.75</tipCut>
+		<pairSpreadZ>2</pairSpreadZ>
+		<pairSpreadPhi>2</pairSpreadPhi>
+	</layerTriplet>
+	
+	<layerTriplet>
+		<layer1>2</layer1>
+		<layer2>3</layer2>
+		<layer3>4</layer3>
+
+		<dThetaCut>0.05</dThetaCut>
+		<dThetaWindow>0.1</dThetaWindow>
+		<dPhiCut>0.1</dPhiCut>
+		<dPhiWindow>0.1</dPhiWindow>
+		<tipCut>0.75</tipCut>
+		<pairSpreadZ>2</pairSpreadZ>
+		<pairSpreadPhi>2</pairSpreadPhi>
+	</layerTriplet>
+
+</layerTriplets>
