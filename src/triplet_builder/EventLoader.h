@@ -17,7 +17,10 @@ public:
 	EventLoader(EventDataLoadingParameters config ){
 		params = config;
 
-		int fd = open(config.eventDataFile.c_str(), O_RDONLY);
+		std::stringstream f;
+		f << getenv("TRAX_DIR") << "/data/" << config.eventDataFile;
+
+		int fd = open(f.str().c_str(), O_RDONLY);
 		google::protobuf::io::FileInputStream fStream(fd);
 		google::protobuf::io::CodedInputStream cStream(&fStream);
 
@@ -62,7 +65,10 @@ public:
 	RepeatedEventLoader(EventDataLoadingParameters config ){
 		params = config;
 
-		int fd = open(config.eventDataFile.c_str(), O_RDONLY);
+		std::stringstream f;
+		f << getenv("TRAX_DIR") << "/data/" << config.eventDataFile;
+
+		int fd = open(f.str().c_str(), O_RDONLY);
 		google::protobuf::io::FileInputStream fStream(fd);
 		google::protobuf::io::CodedInputStream cStream(&fStream);
 

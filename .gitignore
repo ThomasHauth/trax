@@ -1,6 +1,10 @@
 .metadata
 build/
+bin/
 data/
+physics/
+runtime/
+core
 src/.settings/
 .cproject
 .project

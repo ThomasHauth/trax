@@ -118,6 +118,9 @@ float getEtaBin(float eta){
 	return binwidth*floor(eta/binwidth);
 }
 
+
+std::string traxDir = getenv("TRAX_DIR");
+
 clever::context * createContext(ExecutionParameters exec){
 
 	//
@@ -166,7 +169,7 @@ RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameter
 		//load radius dictionary
 		Dictionary dict;
 
-		std::ifstream radiusDictFile("radiusDictionary.dat");
+		std::ifstream radiusDictFile(traxDir + "/configs/radiusDictionary.dat");
 		CSVRow row;
 		while(radiusDictFile >> row)
 		{
@@ -182,7 +185,7 @@ RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameter
 			exRadius[i]= std::make_pair(10000.0, 0.0);
 		}
 
-		std::ifstream detectorGeometryFile("detectorRadius.dat");
+		std::ifstream detectorGeometryFile(traxDir + "/configs/detectorRadius.dat");
 		while(detectorGeometryFile >> row)
 		{
 			uint detId = atoi(row[0].c_str());
@@ -217,8 +220,8 @@ RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameter
 
 		//define statistics variables
 		std::map<float, tEtaData> etaHist;
-		std::ofstream validTIP("validTIP.csv", std::ios::trunc);
-		std::ofstream fakeTIP("fakeTIP.csv", std::ios::trunc);
+		std::ofstream validTIP(traxDir + "/physics/validTIP.csv", std::ios::trunc);
+		std::ofstream fakeTIP(traxDir + "/physics/fakeTIP.csv", std::ios::trunc);
 
 		//Event Data Loader
 		EventLoader * edLoader;
@@ -234,7 +237,7 @@ RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameter
 			lastEvent = min(loader.maxEvents, edLoader->nEvents());
 
 		TripletConfigurations layerConfig;
-		loader.maxLayer = layerConfig.loadTripletConfigurationFromFile("layerTriplets.xml", 1); //TODO one defined for testing
+		loader.maxLayer = layerConfig.loadTripletConfigurationFromFile(traxDir + "/configs/" + exec.layerTripletConfigFile, 1); //TODO one defined for testing
 
 		layerConfig.transfer.initBuffers(*contx, layerConfig);
 		layerConfig.transfer.toDevice(*contx, layerConfig);
@@ -425,7 +428,7 @@ RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameter
 		validTIP.close();
 		fakeTIP.close();
 
-		std::ofstream etaData("etaData.csv", std::ios::trunc);
+		std::ofstream etaData(traxDir + "/physics/etaData.csv", std::ios::trunc);
 
 		etaData << "#etaBin, valid, fake, missed" << std::endl;
 		for(auto t : etaHist){
@@ -439,6 +442,16 @@ RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameter
 	//delete contx;
 
 	return runtimeRecords;
+}
+
+std::string getFilename (const std::string& str)
+{
+	//std::cout << "Splitting: " << str << '\n';
+	unsigned found = str.find_last_of("/\\");
+	//std::cout << " path: " << str.substr(0,found) << '\n';
+	//std::cout << " file: " << str.substr(found+1) << '\n';
+
+	return str.substr(found+1);
 }
 
 int main(int argc, char *argv[]) {
@@ -497,7 +510,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if(vm.count("config")){
-		ifstream ifs(exec.configFile);
+		ifstream ifs(traxDir + "/configs/" + getFilename(exec.configFile));
 		if (!ifs)
 		{
 			cout << "can not open config file: " << exec.configFile << "\n";
@@ -536,7 +549,7 @@ int main(int argc, char *argv[]) {
 	//****************************************
 	if(vm.count("testSuite")){
 
-		ifstream ifs(testSuiteFile);
+		ifstream ifs(traxDir + "/configs/" + getFilename(testSuiteFile));
 		if (!ifs)
 		{
 			cout << "can not open testSuite file: " << testSuiteFile << "\n";
@@ -618,7 +631,7 @@ int main(int argc, char *argv[]) {
 	runtimeRecords.logPrint();
 
 	std::stringstream runtimeOutputFile;
-	runtimeOutputFile << "runtime" << (testSuiteFile != "" ? "." : "") << testSuiteFile << (exec.useCPU ? ".cpu" : ".gpu") << ".csv";
+	runtimeOutputFile << traxDir << "/runtime/" << "runtime" << (testSuiteFile != "" ? "." : "") << getFilename(testSuiteFile) << (exec.useCPU ? ".cpu" : ".gpu") << ".csv";
 
 	std::ofstream runtimeRecordsFile(runtimeOutputFile.str(), std::ios::trunc);
 	runtimeRecordsFile << runtimeRecords.csvDump();
