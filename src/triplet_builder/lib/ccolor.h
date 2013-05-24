@@ -1,5 +1,7 @@
 // ccolor.hpp
 
+#pragma once
+
 #include <stdio.h>
 
 #define CC_CONSOLE_COLOR_DEFAULT "\033[0m"

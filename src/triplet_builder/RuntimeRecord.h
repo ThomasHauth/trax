@@ -14,6 +14,8 @@
 #include <algorithms/TripletThetaPhiFilter.h>
 #include <algorithms/PrefixSum.h>
 
+#include "utils.h"
+
 
 
 using namespace clever;

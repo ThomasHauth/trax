@@ -102,12 +102,30 @@ public:
 			clever::CollectionView<HitCollection>(collection, i)
 	{
 
+		x = getValue<GlobalX>();
+		y = getValue<GlobalY>();
+		z = getValue<GlobalZ>();
+
 	}
+
+	// read-only get a pointer to one hit in the collection
+	Hit(const HitCollection & collection, index_type i) :
+		clever::CollectionView<HitCollection>(collection, i)
+		{
+
+		x = getValue<GlobalX>();
+		y = getValue<GlobalY>();
+		z = getValue<GlobalZ>();
+
+		}
 
 // create a new hit in the collection
 	Hit(HitCollection & collection) :
 			clever::CollectionView<HitCollection>(collection)
 	{
+		x = 0;
+		y = 0;
+		z = 0;
 	}
 
 	bool operator==(const Hit & rhs) const {
@@ -120,17 +138,17 @@ public:
 
 	float globalX() const
 	{
-		return getValue<GlobalX>();
+		return x;
 	}
 
 	float globalY() const
 	{
-		return getValue<GlobalY>();
+		return y;
 	}
 
 	float globalZ() const
 	{
-		return getValue<GlobalZ>();
+		return z;
 	}
 
 	float phi() const {
@@ -140,5 +158,27 @@ public:
 	float theta() const {
 		return atan2( sqrt(globalX()*globalX() + globalY()*globalY()) ,globalZ()*globalZ());
 	}
+
+protected:
+	float x;
+	float y;
+	float z;
+
+};
+
+class PHitWrapper : public Hit {
+
+public:
+
+	PHitWrapper(const PB_Event::PHit & hit)
+	: Hit(pHitCollection)
+	{
+		x = hit.position().x();
+		y = hit.position().y();
+		z = hit.position().z();
+	}
+
+private:
+	static HitCollection pHitCollection;
 
 };

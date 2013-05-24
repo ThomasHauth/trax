@@ -86,6 +86,13 @@ public:
 
 	}
 
+	// read-only get a pointer to one hit in the collection
+	Tracklet(const TrackletCollection & collection, index_type i) :
+		clever::CollectionView<TrackletCollection>(collection, i)
+		{
+
+		}
+
 // create a new hit in the collection
 	Tracklet(TrackletCollection & collection) :
 			clever::CollectionView<TrackletCollection>(collection)

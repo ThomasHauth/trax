@@ -41,7 +41,12 @@ uint TripletConfigurations::calculatePairSpreadPhi(uint layer1, uint layer2, flo
 //	due to curvature \abs{\Delta_\phi} \leq  \abs{\arccos\left( \frac{r_2}{2 r_\mathrm{min}}\right)} - \arccos\left(\frac{r_1}{2 r_\mathrm{min}}\right)}
 //	due to TIP       + \arctan\left(\frac{d_0 (r_2 - r_1)}{r_1 r_2}\right)}
 
-	float rMin = minPt / (Bz * 1.602177e-19); //q = e = 1.602177×10^-19 C  (coulombs)
+		// e = 1.602177×10^-19 C  (coulombs)
+		const double Q = 1.602177E-19;
+		// 1 GeV/c = 5.344286×10^-19 J s/m  (joule seconds per meter)
+		const double GEV_C = 5.344286E-19;
+
+	float rMin = minPt * GEV_C / (Bz * Q);
 
 	LayerGeometry gLayer1(geom, layer1);
 	LayerGeometry gLayer2(geom, layer2);

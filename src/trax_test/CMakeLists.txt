@@ -9,7 +9,7 @@ add_executable(trax_test
 	trax_test.cpp
 )
 
-#target_link_libraries(trax_test datastructures)
+target_link_libraries(trax_test datastructures)
 #target_link_libraries(trax_test algorithms)
 
 target_link_libraries(trax_test "OpenCL")

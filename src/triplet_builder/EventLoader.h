@@ -7,6 +7,7 @@
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 
 #include <datastructures/serialize/Event.pb.h>
+#include <datastructures/serialize/PEventStore.h>
 #include <datastructures/Logger.h>
 
 #include "Parameters.h"
@@ -16,6 +17,7 @@ class EventLoader{
 public:
 	EventLoader(EventDataLoadingParameters config ){
 		params = config;
+		read = 0;
 
 		std::stringstream f;
 		f << getenv("TRAX_DIR") << "/data/" << config.eventDataFile;
@@ -45,18 +47,19 @@ public:
 		return pContainer.events_size();
 	}
 
-	virtual const PB_Event::PEvent & getEvent(uint e) const {
-		return pContainer.events(e);
+	virtual const PB_Event::PEvent & getEvent() const {
+		return pContainer.events(read++);
 	}
 
 
 protected:
-	EventLoader() { }
+	EventLoader() : read(0) { }
 
 	EventDataLoadingParameters params;
 
 private:
 	PB_Event::PEventContainer pContainer;
+	mutable uint read;
 };
 
 class RepeatedEventLoader : public EventLoader{
@@ -96,11 +99,41 @@ public:
 		return params.maxEvents;
 	}
 
-	virtual const PB_Event::PEvent & getEvent(uint e) const {
+	virtual const PB_Event::PEvent & getEvent() const {
 		return event;
 	}
 
 
 private:
 	PB_Event::PEvent event;
+};
+
+class EventStoreLoader : public EventLoader{
+
+public:
+	EventStoreLoader(EventDataLoadingParameters config ){
+		params = config;
+
+		std::stringstream f;
+		f << getenv("TRAX_DIR") << "/data/" << config.eventDataFile;
+
+		esIn = new EventStoreInput(f.str());
+
+	}
+
+	virtual ~EventStoreLoader(){
+		esIn->Close();
+		delete esIn;
+	}
+
+	virtual int nEvents() const {
+		return esIn->getEvents();
+	}
+
+	virtual const PB_Event::PEvent & getEvent() const {
+		return *(esIn->readNextElement()); //caller needs to ensure to not to read over file limit
+	}
+
+private:
+	EventStoreInput * esIn;
 };

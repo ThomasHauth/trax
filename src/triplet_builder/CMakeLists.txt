@@ -4,6 +4,7 @@ project (trax)
 add_executable(tripletBuilder
 	lib/ccolor.cpp
 	RuntimeRecord.cpp
+	PhysicsRecord.cpp
 	Parameters.cpp
 	TripletBuilder.cpp
 )
@@ -13,6 +14,8 @@ target_link_libraries(tripletBuilder algorithms)
 
 target_link_libraries(tripletBuilder "OpenCL")
 target_link_libraries(tripletBuilder "boost_program_options")
+target_link_libraries(tripletBuilder "boost_system")
+target_link_libraries(tripletBuilder "boost_filesystem")
 target_link_libraries(tripletBuilder "rt")
 
 GET_TARGET_PROPERTY(TRIPLET_BUILDER_BIN tripletBuilder LOCATION)

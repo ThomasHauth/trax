@@ -11,6 +11,7 @@
 #include <fcntl.h>
 
 #include <boost/program_options.hpp>
+#include <boost/filesystem.hpp>
 
 #include <clever/clever.hpp>
 
@@ -37,86 +38,12 @@
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 
 #include "RuntimeRecord.h"
+#include "PhysicsRecord.h"
 #include "Parameters.h"
 #include "EventLoader.h"
 
 #include "lib/ccolor.h"
 #include "lib/CSV.h"
-
-float getTIP(const Hit & p1, const Hit & p2, const Hit & p3){
-	//circle fit
-	//map points to parabloid: (x,y) -> (x,y,x^2+y^2)
-	float3 pP1 (p1.globalX(),
-			p1.globalY(),
-			p1.globalX() * p1.globalX() + p1.globalY() * p1.globalY());
-
-	float3 pP2 (p2.globalX(),
-			p2.globalY(),
-			p2.globalX() * p2.globalX() + p2.globalY() * p2.globalY());
-
-	float3 pP3 (p3.globalX(),
-			p3.globalY(),
-			p3.globalX() * p3.globalX() + p3.globalY() * p3.globalY());
-
-	//span two vectors
-	float3 a(pP2.x - pP1.x, pP2.y - pP1.y, pP2.z - pP1.z);
-	float3 b(pP3.x - pP1.x, pP3.y - pP1.y, pP3.z - pP1.z);
-
-	//compute unit cross product
-	float3 n(a.y*b.z - a.z*b.y,
-			a.z*b.x - a.x*b.z,
-			a.x*b.y - a.y*b.x );
-	float value = sqrt(n.x*n.x+n.y*n.y+n.z*n.z);
-	n.x /= value; n.y /= value; n.z /= value;
-
-	//formula for orign and radius of circle from Strandlie et al.
-	float2 cOrigin((-n.x) / (2*n.z),
-			(-n.y) / (2*n.z));
-
-	float c = -(n.x*pP1.x + n.y*pP1.y + n.z*pP1.z);
-
-	float cR = sqrt((1 - n.z*n.z - 4 * c * n.z) / (4*n.z*n.z));
-
-	//find point of closest approach to (0,0) = cOrigin + cR * unitVec(toOrigin)
-	float2 v(-cOrigin.x, -cOrigin.y);
-	value = sqrt(v.x*v.x+v.y*v.y);
-	v.x /= value; v.y /= value;;
-
-	float2 pCA = (cOrigin.x + cR*v.x,
-			cOrigin.y + cR*v.y);
-
-	//TIP = distance of point of closest approach to origin
-	float tip = sqrt(pCA.x*pCA.x + pCA.y*pCA.y);
-
-	return tip;
-}
-
-struct tEtaData{
-	uint valid;
-	uint fake;
-	uint missed;
-
-	tEtaData() : valid(0), fake(0), missed(0) {}
-};
-
-float getEta(const Hit & innerHit, const Hit & outerHit){
-	float3 p (outerHit.globalX() - innerHit.globalX(), outerHit.globalY() - innerHit.globalY(), outerHit.globalZ() - innerHit.globalZ());
-
-	double t(p.z/std::sqrt(p.x*p.x+p.y*p.y));
-	return asinh(t);
-}
-
-float getEta(const PB_Event::PHit & innerHit, const PB_Event::PHit & outerHit){
-	float3 p (outerHit.position().x() - innerHit.position().x(), outerHit.position().y() - innerHit.position().y(), outerHit.position().z() - innerHit.position().z());
-
-	double t(p.z/std::sqrt(p.x*p.x+p.y*p.y));
-	return asinh(t);
-}
-
-float getEtaBin(float eta){
-	float binwidth = 0.1;
-	return binwidth*floor(eta/binwidth);
-}
 
 
 std::string traxDir = getenv("TRAX_DIR");
@@ -160,9 +87,10 @@ clever::context * createContext(ExecutionParameters exec){
 	return contx;
 }
 
-RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameters loader, GridConfig gridConfig, clever::context * contx) {
+std::pair<RuntimeRecords, PhysicsRecords> buildTriplets(ExecutionParameters exec, EventDataLoadingParameters loader, GridConfig gridConfig, clever::context * contx) {
 
 	RuntimeRecords runtimeRecords;
+	PhysicsRecords physicsRecords;
 
 	{ //block to ensure proper destruction
 
@@ -217,11 +145,6 @@ RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameter
 
 		dict.transfer.initBuffers(*contx, dict);
 		dict.transfer.toDevice(*contx, dict);
-
-		//define statistics variables
-		std::map<float, tEtaData> etaHist;
-		std::ofstream validTIP(traxDir + "/physics/validTIP.csv", std::ios::trunc);
-		std::ofstream fakeTIP(traxDir + "/physics/fakeTIP.csv", std::ios::trunc);
 
 		//Event Data Loader
 		EventLoader * edLoader;
@@ -278,7 +201,7 @@ RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameter
 
 			do{
 				uint iEvt = event % evtGroupSize;
-				PB_Event::PEvent pEvent = edLoader->getEvent(event);
+				PB_Event::PEvent pEvent = edLoader->getEvent();
 
 				LOG << "Started processing Event " << pEvent.eventnumber() << " LumiSection " << pEvent.lumisection() << " Run " << pEvent.runnumber() << std::endl;
 				validTracks[iEvt] = hits.addEvent(pEvent, geom, eventSupplement, iEvt, layerSupplement,
@@ -348,64 +271,10 @@ RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameter
 
 			//physics
 			for(uint e = 0; e < grid.config.nEvents; ++e){
-
 				for(uint p = 0; p < layerConfig.size(); ++ p){
-
-					LOG << "Evaluating event " << e << " layer triplet " << p  << std::endl;
-
-					std::set<uint> foundTracks;
-					uint fakeTracks = 0;
-
-					uint nFoundTracklets = tracklets->getTrackletOffsets()[e * layerConfig.size() + p + 1] - tracklets->getTrackletOffsets()[e * layerConfig.size() + p];
-
-					LOG << "Found " << nFoundTracklets << " triplets:" << std::endl;
-					for(uint i = tracklets->getTrackletOffsets()[e * layerConfig.size() + p]; i <tracklets->getTrackletOffsets()[e * layerConfig.size() + p + 1]; ++i){
-						Tracklet tracklet(*tracklets, i);
-
-						if(tracklet.isValid(hits)){
-							//valid triplet
-							foundTracks.insert(tracklet.trackId(hits));
-
-							validTIP << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())) << std::endl;
-							etaHist[getEtaBin(getEta(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit3())))].valid++;
-
-							VLOG << zkr::cc::fore::green;
-							VLOG << "Track " << tracklet.trackId(hits) << " : " << tracklet.hit1() << "-" << tracklet.hit2() << "-" << tracklet.hit3();
-							VLOG << " TIP: " << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
-							VLOG << zkr::cc::console << std::endl;
-
-						}
-						else {
-							//fake triplet
-							++fakeTracks;
-
-							fakeTIP << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())) << std::endl;
-							etaHist[getEtaBin(getEta(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit3())))].fake++;
-
-							VLOG << zkr::cc::fore::red;
-							VLOG << "Fake: " << tracklet.hit1() << "[" << hits.getValue(HitId(),tracklet.hit1()) << "]";
-							VLOG << "-" << tracklet.hit2() << "[" << hits.getValue(HitId(),tracklet.hit2()) << "]";
-							VLOG << "-" << tracklet.hit3() << "[" << hits.getValue(HitId(),tracklet.hit3()) << "]";
-							VLOG << " TIP: " << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
-							VLOG << zkr::cc::console << std::endl;
-
-						}
-					}
-
-					//output not found tracks
-					for(auto vTrack : validTracks[e]) {
-						if( foundTracks.find(vTrack.first) == foundTracks.end()){
-							VLOG << "Didn't find track " << vTrack.first << std::endl;
-
-							PB_Event::PHit innerHit = vTrack.second[0];
-							PB_Event::PHit outerHit = vTrack.second[vTrack.second.size()-1];
-
-							etaHist[getEtaBin(getEta(innerHit, outerHit))].missed++;
-						}
-					}
-
-					LOG << "Efficiency: " << ((double) foundTracks.size()) / validTracks[e].size() << " FakeRate: " << ((double) fakeTracks) / tracklets->size() << std::endl;
-
+					PhysicsRecord physics(e, p);
+					physics.fillData(*tracklets, validTracks[e], hits, layerConfig.size());
+					physicsRecords.addRecord(physics);
 				}
 			}
 
@@ -425,23 +294,11 @@ RuntimeRecords buildTriplets(ExecutionParameters exec, EventDataLoadingParameter
 
 		delete edLoader;
 
-		validTIP.close();
-		fakeTIP.close();
-
-		std::ofstream etaData(traxDir + "/physics/etaData.csv", std::ios::trunc);
-
-		etaData << "#etaBin, valid, fake, missed" << std::endl;
-		for(auto t : etaHist){
-			etaData << t.first << "," << t.second.valid << "," << t.second.fake << "," << t.second.missed << std::endl;
-		}
-
-		etaData.close();
-
 	} //destruction order block
 
 	//delete contx;
 
-	return runtimeRecords;
+	return std::make_pair(runtimeRecords, physicsRecords);
 }
 
 std::string getFilename (const std::string& str)
@@ -611,16 +468,18 @@ int main(int argc, char *argv[]) {
 	clever::context * contx = createContext(exec);
 
 	RuntimeRecords runtimeRecords;
+	PhysicsRecords physicsRecords;
 	for(uint e = 0; e < executions.size();++e){ //standard case: only 1
 		std::cout << "Experiment " << e << ": " << std::endl;
 		std::cout << executions[e].first << " " << executions[e].second << std::endl;
 		for(uint i = 0; i < exec.iterations; ++i){
 			std::cout << i+1 << "  " << std::flush;
-			RuntimeRecords res = buildTriplets(executions[e].first, executions[e].second, grid, contx);
+			auto res = buildTriplets(executions[e].first, executions[e].second, grid, contx);
 
 			contx->clearAllBuffers();
 
-			runtimeRecords.merge(res);
+			runtimeRecords.merge(res.first);
+			physicsRecords.merge(res.second);
 		}
 		std::cout << std::endl;
 	}
@@ -630,12 +489,23 @@ int main(int argc, char *argv[]) {
 
 	runtimeRecords.logPrint();
 
-	std::stringstream runtimeOutputFile;
-	runtimeOutputFile << traxDir << "/runtime/" << "runtime" << (testSuiteFile != "" ? "." : "") << getFilename(testSuiteFile) << (exec.useCPU ? ".cpu" : ".gpu") << ".csv";
+	std::stringstream outputFileRuntime;
+	outputFileRuntime << traxDir << "/runtime/" << "runtime" << (testSuiteFile != "" ? "." : "") << getFilename(testSuiteFile) << (exec.useCPU ? ".cpu" : ".gpu") << ".csv";
 
-	std::ofstream runtimeRecordsFile(runtimeOutputFile.str(), std::ios::trunc);
+	std::ofstream runtimeRecordsFile(outputFileRuntime.str(), std::ios::trunc);
 	runtimeRecordsFile << runtimeRecords.csvDump();
 	runtimeRecordsFile.close();
+
+	std::stringstream outputFilePhysics;
+	outputFilePhysics << traxDir << "/physics/" << "physics." << getFilename(exec.configFile) << ".csv";
+	std::stringstream outputDirPhysics;
+	outputDirPhysics << traxDir << "/physics/" << getFilename(exec.configFile);
+
+	boost::filesystem::create_directories(outputDirPhysics.str());
+
+	std::ofstream physicsRecordsFile(outputFilePhysics.str(), std::ios::trunc);
+	physicsRecordsFile << physicsRecords.csvDump(outputDirPhysics.str());
+	physicsRecordsFile.close();
 
 	std::cout << Logger::getInstance();
 

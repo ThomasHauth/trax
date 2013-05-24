@@ -130,3 +130,5 @@ HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event,
 
 	return findableTracks;
 }
+
+HitCollection PHitWrapper::pHitCollection;

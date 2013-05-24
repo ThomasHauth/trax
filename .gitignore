@@ -4,6 +4,7 @@ bin/
 data/
 physics/
 runtime/
+plotting/*.csv
 core
 src/.settings/
 .cproject

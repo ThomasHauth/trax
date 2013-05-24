@@ -9,6 +9,8 @@ events_gpu = np.genfromtxt("runtime.multipleEvents.test.gpu.csv", delimiter = " 
 # varying work-group sizes
 threads_gpu = np.genfromtxt("runtime.threads.test.gpu.csv", delimiter = " ", names=True)
 
+# varying tracks per event
+tracks_gpu = np.genfromtxt("runtime.tracks.test.gpu.csv", delimiter = " ", names=True)
 
 ###################################################
 # time for n concurrent events
@@ -98,9 +100,10 @@ plt.figure()
 walltimeGPU1 = threads_gpu[threads_gpu['threads'] == 1]['totalWalltime']
 kerneltimeGPU1 = threads_gpu[threads_gpu['threads'] == 1]['totalKernel']
 
-print walltimeGPU1, kerneltimeGPU1
+kernelScan1 = threads_gpu[threads_gpu['threads'] == 1]['buildGridScan']
 
-plt.plot(threads_gpu['threads'], threads_gpu['threads'], ':', label='ideal')
+plt.plot(threads_gpu['threads'], threads_gpu['threads'], 'b:', label='ideal')
+plt.plot(threads_gpu['threads'], kernelScan1 / threads_gpu['buildGridScan'], 'bo:', label='prefix sum')
 plt.plot(threads_gpu['threads'], walltimeGPU1/ threads_gpu['totalWalltime'], 'go-', label='speedup wall time GPU')
 plt.plot(threads_gpu['threads'], kerneltimeGPU1 / threads_gpu['totalKernel'], 'go--', label='speedup kernel time GPU')
 
@@ -108,8 +111,76 @@ plt.title('Speedup for varying work-group sizes')
 plt.xlabel('threads')
 plt.ylabel(r'speedup [ms]')
 plt.xlim(np.min(threads_gpu['threads']), np.max(threads_gpu['threads']))
-plt.xscale('log')
+#plt.xscale('log')
 
 plt.legend()
+
+###################################################
+# processing time with tracks per event
+plt.figure()
+
+plt.errorbar(tracks_gpu['tracks'], tracks_gpu['totalWalltime'], yerr=tracks_gpu['totalWalltimeVar'] ,fmt='go-', label='wall time GPU')
+plt.errorbar(tracks_gpu['tracks'], tracks_gpu['totalKernel'], yerr=tracks_gpu['totalKernelVar'],fmt='go--', label='kernel time GPU')
+
+plt.title(r'Processing time for $n$ tracks per event')
+plt.xlabel('tracks')
+plt.ylabel(r'time [ms]')
+#plt.xlim(np.min(threads_gpu['threads']), np.max(threads_gpu['threads']))
+#plt.xscale('log')
+
+plt.legend()
+
+###################################################
+# grid building time with hits per event
+plt.figure()
+
+plt.errorbar(tracks_gpu['hits'], tracks_gpu['buildGridWalltime'], yerr=tracks_gpu['buildGridWalltimeVar'] ,fmt='go-', label='wall time GPU')
+plt.errorbar(tracks_gpu['hits'], tracks_gpu['buildGridKernel'], yerr=tracks_gpu['buildGridKernelVar'],fmt='go--', label='kernel time GPU')
+
+plt.title(r'Grid building for $n$ hits')
+plt.xlabel('hits')
+plt.ylabel(r'time [ms]')
+#plt.xlim(np.min(threads_gpu['threads']), np.max(threads_gpu['threads']))
+#plt.xscale('log')
+
+plt.legend()
+
+###################################################
+# data transferred (tracks)
+fig = plt.figure()
+
+plt.title(r'Data transfer volumne')
+
+ax1 = fig.add_subplot(111)
+t = ax1.plot(tracks_gpu['tracks'], (tracks_gpu['writeBytes'] / 10**6 ), 'go-', label='transferred bytes')
+ax1.set_xlabel('tracks')
+ax1.set_ylabel(r'[MB]')
+
+ax2 = ax1.twinx()
+ax2.set_ylabel('bandwith [GB/s]')
+b = ax2.plot(tracks_gpu['tracks'], tracks_gpu['writeBytes'] / (10**6 * tracks_gpu['writeTime']), 'bo--', label='bandwith')
+
+lns = t+b
+labs = [l.get_label() for l in lns]
+ax1.legend(lns, labs, loc=2)
+
+###################################################
+# data transferred (events)
+fig = plt.figure()
+
+plt.title(r'Data transfer volumne')
+
+ax1 = fig.add_subplot(111)
+t = ax1.plot(events_gpu['events'], (events_gpu['writeBytes'] / 10**6 ), 'go-', label='transferred bytes')
+ax1.set_xlabel('events')
+ax1.set_ylabel(r'[MB]')
+
+ax2 = ax1.twinx()
+ax2.set_ylabel('bandwith [GB/s]')
+b = ax2.plot(events_gpu['events'], events_gpu['writeBytes'] / (10**6 * events_gpu['writeTime']), 'bo--', label='bandwith')
+
+lns = t+b
+labs = [l.get_label() for l in lns]
+ax1.legend(lns, labs, loc=2)
 
 plt.show()

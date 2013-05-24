@@ -1,56 +1,5 @@
 #include "RuntimeRecord.h"
 
-#define PER * 1/
-#define SEP ' '
-
-long double nsToMs(long double ns) {
-	return ns * 1E-6;
-}
-
-long double sToNs(long double ns) {
-	return ns * 1E9;
-}
-
-std::string csv(std::initializer_list<long double> args){
-	std::stringstream s;
-
-	for(auto it = args.begin(); it != args.end(); ++it){
-		s << *it;
-		if((it + 1) != args.end())
-			s << SEP;
-	}
-
-	return s.str();
-
-}
-
-std::string csv(std::initializer_list<uint> args){
-	std::stringstream s;
-
-	for(auto it = args.begin(); it != args.end(); ++it){
-		s << *it;
-		if((it + 1) != args.end())
-			s << SEP;
-	}
-
-	return s.str();
-
-}
-
-std::string csv(std::initializer_list<string> args){
-	std::stringstream s;
-
-	for(auto it = args.begin(); it != args.end(); ++it){
-		s << *it;
-		if((it + 1) != args.end())
-			s << SEP;
-	}
-
-	return s.str();
-
-}
-
-
 
 tRuntimeInfo tRuntimeInfo::operator+(const tRuntimeInfo & rhs) const {
 	tRuntimeInfo result(*this);
@@ -66,9 +15,9 @@ tRuntimeInfo tRuntimeInfo::operator+(const tRuntimeInfo & rhs) const {
 std::string tRuntimeInfo::prettyPrint() const {
 	std::stringstream s;
 
-	s << "wall time: " << nsToMs(walltime) << " ms"
-			<< " kernel time: " << nsToMs(totalKernel()) << " ms = ( "
-			<< nsToMs(count) << " + " << nsToMs(scan) << "+" << nsToMs(store)
+	s << "wall time: " << Utils::nsToMs(walltime) << " ms"
+			<< " kernel time: " << Utils::nsToMs(totalKernel()) << " ms = ( "
+			<< Utils::nsToMs(count) << " + " << Utils::nsToMs(scan) << "+" << Utils::nsToMs(store)
 			<< " ) ms [Count + Scan + Store]";
 
 	return s.str();
@@ -77,9 +26,9 @@ std::string tRuntimeInfo::prettyPrint() const {
 std::string tRuntimeInfo::prettyPrint(const tRuntimeInfo & var) const {
 	std::stringstream s;
 
-	s << "wall time: " << nsToMs(walltime) << " +/- " << nsToMs(var.walltime) << " ms"
-			<< " kernel time: " << nsToMs(totalKernel()) << " +/- " << nsToMs(var.totalKernel()) << " ms = ( "
-			<< nsToMs(count) << " +/- " << nsToMs(var.count) << " + " << nsToMs(scan) << " +/- " << nsToMs(var.scan) << "+" << nsToMs(store) << " +/- " << nsToMs(var.store)
+	s << "wall time: " << Utils::nsToMs(walltime) << " +/- " << Utils::nsToMs(var.walltime) << " ms"
+			<< " kernel time: " << Utils::nsToMs(totalKernel()) << " +/- " << Utils::nsToMs(var.totalKernel()) << " ms = ( "
+			<< Utils::nsToMs(count) << " +/- " << Utils::nsToMs(var.count) << " + " << Utils::nsToMs(scan) << " +/- " << Utils::nsToMs(var.scan) << "+" << Utils::nsToMs(store) << " +/- " << Utils::nsToMs(var.store)
 			<< " ) ms [Count + Scan + Store]";
 
 	return s.str();
@@ -88,7 +37,7 @@ std::string tRuntimeInfo::prettyPrint(const tRuntimeInfo & var) const {
 std::string tRuntimeInfo::csvDump() const {
 	std::stringstream s;
 
-	s << csv({ nsToMs(count), nsToMs(scan), nsToMs(store), nsToMs(walltime), nsToMs(totalKernel()) });
+	s << Utils::csv({ Utils::nsToMs(count), Utils::nsToMs(scan), Utils::nsToMs(store), Utils::nsToMs(walltime), Utils::nsToMs(totalKernel()) });
 
 	return s.str();
 }
@@ -96,7 +45,7 @@ std::string tRuntimeInfo::csvDump() const {
 std::string tRuntimeInfo::csvDump(const tRuntimeInfo & var) const{
 	std::stringstream s;
 
-	s << csv({ nsToMs(count), nsToMs(var.count), nsToMs(scan), nsToMs(var.scan), nsToMs(store), nsToMs(var.store), nsToMs(walltime), nsToMs(var.walltime), nsToMs(totalKernel()), nsToMs(var.totalKernel()) });
+	s << Utils::csv({ Utils::nsToMs(count), Utils::nsToMs(var.count), Utils::nsToMs(scan), Utils::nsToMs(var.scan), Utils::nsToMs(store), Utils::nsToMs(var.store), Utils::nsToMs(walltime), Utils::nsToMs(var.walltime), Utils::nsToMs(totalKernel()), Utils::nsToMs(var.totalKernel()) });
 
 	return s.str();
 }
@@ -104,13 +53,13 @@ std::string tRuntimeInfo::csvDump(const tRuntimeInfo & var) const{
 void tRuntimeInfo::startWalltime(){
 	struct timespec t;
 	clock_gettime(CLOCK_REALTIME, &t);
-	walltime = sToNs(t.tv_sec)  + t.tv_nsec;
+	walltime = Utils::sToNs(t.tv_sec)  + t.tv_nsec;
 }
 
 void tRuntimeInfo::stopWalltime(){
 	struct timespec t;
 	clock_gettime(CLOCK_REALTIME, &t);
-	walltime = (sToNs(t.tv_sec) + t.tv_nsec) - walltime;
+	walltime = (Utils::sToNs(t.tv_sec) + t.tv_nsec) - walltime;
 }
 
 tIOInfo tIOInfo::operator+(const tIOInfo & rhs) const {
@@ -126,7 +75,7 @@ std::string tIOInfo::prettyPrint() const {
 
 	std::stringstream s;
 
-	s << bytes << " bytes in " << nsToMs(time) << " ms (" << bandwith() << " GB/s)";
+	s << bytes << " bytes in " << Utils::nsToMs(time) << " ms (" << bandwith() << " GB/s)";
 
 	return s.str();
 
@@ -136,7 +85,7 @@ std::string tIOInfo::prettyPrint(const tIOInfo & var) const {
 
 	std::stringstream s;
 
-	s << bytes << " bytes in " << nsToMs(time) << " +/- " << nsToMs(var.time) << " ms (" << bandwith() << " GB/s)";
+	s << bytes << " bytes in " << Utils::nsToMs(time) << " +/- " << Utils::nsToMs(var.time) << " ms (" << bandwith() << " GB/s)";
 
 	return s.str();
 
@@ -145,7 +94,7 @@ std::string tIOInfo::prettyPrint(const tIOInfo & var) const {
 std::string tIOInfo::csvDump() const {
 	std::stringstream s;
 
-	s << csv({ nsToMs(time), bytes });
+	s << Utils::csv({ Utils::nsToMs(time), bytes });
 
 	return s.str();
 }
@@ -153,7 +102,7 @@ std::string tIOInfo::csvDump() const {
 std::string tIOInfo::csvDump(const tIOInfo & var) const{
 	std::stringstream s;
 
-	s << csv({ nsToMs(time), nsToMs(var.time), bytes, var.bytes });
+	s << Utils::csv({ Utils::nsToMs(time), Utils::nsToMs(var.time), bytes, var.bytes });
 
 	return s.str();
 }
@@ -223,33 +172,33 @@ void RuntimeRecord::logPrint() const {
 	tRuntimeInfo totalRuntime = buildGrid + pairGen + tripletPredict + tripletFilter;
 	LOG << "Total runtime: ";
 	LOG << totalRuntime.prettyPrint() << std::endl;
-	LOG << "Wall time -- per event: " << nsToMs(totalRuntime.walltime PER events) << " ms"
-		<< " -- per layerTriplet: " << nsToMs(totalRuntime.walltime PER (events*layerTriplets)) << " ms"
-		<< " -- per track: " << nsToMs(totalRuntime.walltime PER tracks) << " ms" << std::endl;
+	LOG << "Wall time -- per event: " << Utils::nsToMs(totalRuntime.walltime PER events) << " ms"
+		<< " -- per layerTriplet: " << Utils::nsToMs(totalRuntime.walltime PER (events*layerTriplets)) << " ms"
+		<< " -- per track: " << Utils::nsToMs(totalRuntime.walltime PER tracks) << " ms" << std::endl;
 
 	VLOG << std::endl << "Grid building: ";
 	VLOG << buildGrid.prettyPrint() << std::endl;
-	VLOG << "Wall time -- per event: " << nsToMs(buildGrid.walltime PER events) << " ms"
-		<< " -- per layer " << nsToMs(buildGrid.walltime PER (events*layers)) << " ms"
-		<< " -- per hit: " << nsToMs(buildGrid.walltime PER hits) << " ms" << std::endl;
+	VLOG << "Wall time -- per event: " << Utils::nsToMs(buildGrid.walltime PER events) << " ms"
+		<< " -- per layer " << Utils::nsToMs(buildGrid.walltime PER (events*layers)) << " ms"
+		<< " -- per hit: " << Utils::nsToMs(buildGrid.walltime PER hits) << " ms" << std::endl;
 
 	VLOG << std::endl << "Pair generation: ";
 	VLOG << pairGen.prettyPrint() << std::endl;
-	VLOG << "Wall time -- per event: " << nsToMs(pairGen.walltime PER events) << " ms"
-		 << " -- per layerTriplet " << nsToMs(pairGen.walltime PER (events*layerTriplets)) << " ms"
-		 << " -- per track: " << nsToMs(pairGen.walltime PER tracks) << " ms" << std::endl;
+	VLOG << "Wall time -- per event: " << Utils::nsToMs(pairGen.walltime PER events) << " ms"
+		 << " -- per layerTriplet " << Utils::nsToMs(pairGen.walltime PER (events*layerTriplets)) << " ms"
+		 << " -- per track: " << Utils::nsToMs(pairGen.walltime PER tracks) << " ms" << std::endl;
 
 	VLOG << std::endl << "Triplet prediction: ";
 	VLOG << tripletPredict.prettyPrint() << std::endl;
-	VLOG << "Wall time -- per event: " << nsToMs(tripletPredict.walltime PER events) << " ms"
-		 << " -- per layerTriplet " << nsToMs(tripletPredict.walltime PER (events*layerTriplets)) << " ms"
-		 << " -- per track: " << nsToMs(tripletPredict.walltime PER tracks) << " ms" << std::endl;
+	VLOG << "Wall time -- per event: " << Utils::nsToMs(tripletPredict.walltime PER events) << " ms"
+		 << " -- per layerTriplet " << Utils::nsToMs(tripletPredict.walltime PER (events*layerTriplets)) << " ms"
+		 << " -- per track: " << Utils::nsToMs(tripletPredict.walltime PER tracks) << " ms" << std::endl;
 
 	VLOG << std::endl << "Triplet filtering: ";
 	VLOG << tripletFilter.prettyPrint() << std::endl;
-	VLOG << "Wall time -- per event: " << nsToMs(tripletFilter.walltime PER events) << " ms"
-		 << " -- per layerTriplet " << nsToMs(tripletFilter.walltime PER (events*layerTriplets)) << " ms"
-		 << " -- per track: " << nsToMs(tripletFilter.walltime PER tracks) << " ms" << std::endl;
+	VLOG << "Wall time -- per event: " << Utils::nsToMs(tripletFilter.walltime PER events) << " ms"
+		 << " -- per layerTriplet " << Utils::nsToMs(tripletFilter.walltime PER (events*layerTriplets)) << " ms"
+		 << " -- per track: " << Utils::nsToMs(tripletFilter.walltime PER tracks) << " ms" << std::endl;
 
 
 }
@@ -270,33 +219,33 @@ void RuntimeRecordClass::logPrint() const {
 	tRuntimeInfo totalRuntimeVar = buildGridVar + pairGenVar + tripletPredictVar + tripletFilterVar;
 	LOG << "Total runtime: ";
 	LOG << totalRuntimeMean.prettyPrint(toVar(totalRuntimeVar)) << std::endl;
-	LOG << "Wall time -- per event: " << nsToMs(totalRuntimeMean.walltime PER events) << " ms"
-		<< " -- per layerTriplet: " << nsToMs(totalRuntimeMean.walltime PER (events*layerTriplets)) << " ms"
-		<< " -- per track: " << nsToMs(totalRuntimeMean.walltime PER tracks) << " ms" << std::endl;
+	LOG << "Wall time -- per event: " << Utils::nsToMs(totalRuntimeMean.walltime PER events) << " ms"
+		<< " -- per layerTriplet: " << Utils::nsToMs(totalRuntimeMean.walltime PER (events*layerTriplets)) << " ms"
+		<< " -- per track: " << Utils::nsToMs(totalRuntimeMean.walltime PER tracks) << " ms" << std::endl;
 
 	VLOG << std::endl << "Grid building: ";
 	VLOG << buildGridMean.prettyPrint(toVar(buildGridVar)) << std::endl;
-	VLOG << "Wall time -- per event: " << nsToMs(buildGridMean.walltime PER events) << " ms"
-		<< " -- per layer " << nsToMs(buildGridMean.walltime PER (events*layers)) << " ms"
-		<< " -- per hit: " << nsToMs(buildGridMean.walltime PER hits) << " ms" << std::endl;
+	VLOG << "Wall time -- per event: " << Utils::nsToMs(buildGridMean.walltime PER events) << " ms"
+		<< " -- per layer " << Utils::nsToMs(buildGridMean.walltime PER (events*layers)) << " ms"
+		<< " -- per hit: " << Utils::nsToMs(buildGridMean.walltime PER hits) << " ms" << std::endl;
 
 	VLOG << std::endl << "Pair generation: ";
 	VLOG << pairGenMean.prettyPrint(toVar(pairGenVar)) << std::endl;
-	VLOG << "Wall time -- per event: " << nsToMs(pairGenMean.walltime PER events) << " ms"
-		 << " -- per layerTriplet " << nsToMs(pairGenMean.walltime PER (events*layerTriplets)) << " ms"
-		 << " -- per track: " << nsToMs(pairGenMean.walltime PER tracks) << " ms" << std::endl;
+	VLOG << "Wall time -- per event: " << Utils::nsToMs(pairGenMean.walltime PER events) << " ms"
+		 << " -- per layerTriplet " << Utils::nsToMs(pairGenMean.walltime PER (events*layerTriplets)) << " ms"
+		 << " -- per track: " << Utils::nsToMs(pairGenMean.walltime PER tracks) << " ms" << std::endl;
 
 	VLOG << std::endl << "Triplet prediction: ";
 	VLOG << tripletPredictMean.prettyPrint(toVar(tripletPredictVar)) << std::endl;
-	VLOG << "Wall time -- per event: " << nsToMs(tripletPredictMean.walltime PER events) << " ms"
-		 << " -- per layerTriplet " << nsToMs(tripletPredictMean.walltime PER (events*layerTriplets)) << " ms"
-		 << " -- per track: " << nsToMs(tripletPredictMean.walltime PER tracks) << " ms" << std::endl;
+	VLOG << "Wall time -- per event: " << Utils::nsToMs(tripletPredictMean.walltime PER events) << " ms"
+		 << " -- per layerTriplet " << Utils::nsToMs(tripletPredictMean.walltime PER (events*layerTriplets)) << " ms"
+		 << " -- per track: " << Utils::nsToMs(tripletPredictMean.walltime PER tracks) << " ms" << std::endl;
 
 	VLOG << std::endl << "Triplet filtering: ";
 	VLOG << tripletFilterMean.prettyPrint(toVar(tripletFilterVar)) << std::endl;
-	VLOG << "Wall time -- per event: " << nsToMs(tripletFilterMean.walltime PER events) << " ms"
-		 << " -- per layerTriplet " << nsToMs(tripletFilterMean.walltime PER (events*layerTriplets)) << " ms"
-		 << " -- per track: " << nsToMs(tripletFilterMean.walltime PER tracks) << " ms" << std::endl;
+	VLOG << "Wall time -- per event: " << Utils::nsToMs(tripletFilterMean.walltime PER events) << " ms"
+		 << " -- per layerTriplet " << Utils::nsToMs(tripletFilterMean.walltime PER (events*layerTriplets)) << " ms"
+		 << " -- per track: " << Utils::nsToMs(tripletFilterMean.walltime PER tracks) << " ms" << std::endl;
 
 
 }
@@ -323,7 +272,7 @@ std::string RuntimeRecord::csvDump() const {
 
 	tRuntimeInfo total = buildGrid + pairGen + tripletPredict + tripletFilter;
 
-	s << csv({events, layers, layerTriplets, threads, hits, tracks}) << SEP; //header
+	s << Utils::csv({events, layers, layerTriplets, threads, hits, tracks}) << SEP; //header
 	s << read.csvDump() << SEP << write.csvDump() << SEP; //IO
 	s << buildGrid.csvDump() << SEP << pairGen.csvDump() << SEP << tripletPredict.csvDump() << SEP << tripletFilter.csvDump() << SEP << total.csvDump(); //runtime
 
@@ -354,7 +303,7 @@ std::string RuntimeRecordClass::csvDump() const {
 	tRuntimeInfo totalMean = buildGridMean + pairGenMean + tripletPredictMean + tripletFilterMean;
 	tRuntimeInfo totalVar = buildGridVar + pairGenVar + tripletPredictVar + tripletFilterVar;
 
-	s << csv({events, layers, layerTriplets, threads, hits, tracks, (uint) records.size()}) << SEP; //header
+	s << Utils::csv({events, layers, layerTriplets, threads, hits, tracks, (uint) records.size()}) << SEP; //header
 	s << readMean.csvDump(toVar(readVar)) << SEP << writeMean.csvDump(toVar(writeVar)) << SEP; //IO
 	s << buildGridMean.csvDump(toVar(buildGridVar)) << SEP << pairGenMean.csvDump(toVar(pairGenVar))
 	  << SEP << tripletPredictMean.csvDump(toVar(tripletPredictVar)) << SEP << tripletFilterMean.csvDump(toVar(tripletFilterVar)) << SEP << totalMean.csvDump(toVar(totalVar)); //runtime
@@ -544,14 +493,14 @@ std::string RuntimeRecords::csvDump() const {
 	std::stringstream s;
 
 	//header
-	s << csv({"events", "layers", "layerTriplets", "threads", "hits", "tracks", "n"}) << SEP; //header
-	s << csv({"readTime", "readTimeVar", "readBytes", "readBytesVar"}) << SEP; //read
-	s << csv({"writeTime", "writeTimeVar", "writeBytes", "writeBytesVar"}) << SEP; //write
-	s << csv({"buildGridCount", "buildGridCountVar", "buildGridScan", "buildGridScanVar", "buildGridStore", "buildGridStoreVar", "buildGridWalltime", "buildGridWalltimeVar", "buildGridKernel", "buildGridKernelVar"}) << SEP; //buildGrid
-	s << csv({"pairGenCount", "pairGenCountVar", "pairGenScan", "pairGenScanVar", "pairGenStore", "pairGenStoreVar", "pairGenWalltime", "pairGenWalltimeVar", "pairGenKernel", "pairGenKernelVar"}) << SEP; //pairGen
-	s << csv({"tripletPredictCount", "tripletPredictCountVar", "tripletPredictScan", "tripletPredictScanVar", "tripletPredictStore", "tripletPredictStoreVar", "tripletPredictWalltime", "tripletPredictWalltimeVar", "tripletPredictKernel", "tripletPredictKernelVar"}) << SEP; //tripletPredict
-	s << csv({"tripletFilterCount", "tripletFilterCountVar", "tripletFilterScan", "tripletFilterScanVar", "tripletFilterStore", "tripletFilterStoreVar", "tripletFilterWalltime", "tripletFilterWalltimeVar", "tripletFilterKernel", "tripletFilterKernelVar"}) << SEP; //tripletFilter
-	s << csv({"totalCount", "totalCountVar", "totalScan", "totalScanVar", "totalStore", "totalStoreVar", "totalWalltime", "totalWalltimeVar", "totalKernel", "totalKernelVar"}); //totalTiming
+	s << Utils::csv({"events", "layers", "layerTriplets", "threads", "hits", "tracks", "n"}) << SEP; //header
+	s << Utils::csv({"readTime", "readTimeVar", "readBytes", "readBytesVar"}) << SEP; //read
+	s << Utils::csv({"writeTime", "writeTimeVar", "writeBytes", "writeBytesVar"}) << SEP; //write
+	s << Utils::csv({"buildGridCount", "buildGridCountVar", "buildGridScan", "buildGridScanVar", "buildGridStore", "buildGridStoreVar", "buildGridWalltime", "buildGridWalltimeVar", "buildGridKernel", "buildGridKernelVar"}) << SEP; //buildGrid
+	s << Utils::csv({"pairGenCount", "pairGenCountVar", "pairGenScan", "pairGenScanVar", "pairGenStore", "pairGenStoreVar", "pairGenWalltime", "pairGenWalltimeVar", "pairGenKernel", "pairGenKernelVar"}) << SEP; //pairGen
+	s << Utils::csv({"tripletPredictCount", "tripletPredictCountVar", "tripletPredictScan", "tripletPredictScanVar", "tripletPredictStore", "tripletPredictStoreVar", "tripletPredictWalltime", "tripletPredictWalltimeVar", "tripletPredictKernel", "tripletPredictKernelVar"}) << SEP; //tripletPredict
+	s << Utils::csv({"tripletFilterCount", "tripletFilterCountVar", "tripletFilterScan", "tripletFilterScanVar", "tripletFilterStore", "tripletFilterStoreVar", "tripletFilterWalltime", "tripletFilterWalltimeVar", "tripletFilterKernel", "tripletFilterKernelVar"}) << SEP; //tripletFilter
+	s << Utils::csv({"totalCount", "totalCountVar", "totalScan", "totalScanVar", "totalStore", "totalStoreVar", "totalWalltime", "totalWalltimeVar", "totalKernel", "totalKernelVar"}); //totalTiming
 	s << std::endl;
 
 	for(auto i : classes)
