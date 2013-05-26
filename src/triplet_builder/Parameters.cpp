@@ -8,7 +8,7 @@
 #include "Parameters.h"
 
 std::ostream& operator<< (std::ostream& stream, const ExecutionParameters & exec){
-	stream << "Threads: " << exec.threads << " Evt groups " << exec.eventGrouping;
+	stream << "Threads: " << exec.threads << " Evt groups " << exec.eventGrouping << " Layer triplets: " << exec.layerTriplets;
 
 	return stream;
 }

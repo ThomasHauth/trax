@@ -59,6 +59,10 @@ void PhysicsRecord::fillData(const TrackletCollection& tracklets,
 
 	LOG << "Evaluating event " << event << " layer triplet " << layerTriplet  << std::endl;
 
+	//std::ofstream histo("ptCalc", std::ios::app);
+
+	//uint cPt = 0; uint swPt = 0; uint rwPt = 0;
+
 	std::set<uint> foundTracks;
 	uint fakeTracks = 0;
 	uint foundClones = 0;
@@ -77,6 +81,18 @@ void PhysicsRecord::fillData(const TrackletCollection& tracklets,
 				eta[getEtaBin(getEta(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit3())))].valid++;
 				pt[getPtBin(getPt(Hit(hits,tracklet.hit1()),  Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())))].valid++;
 
+				/*double calculatedPt = getPt(Hit(hits,tracklet.hit1()),  Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
+				double mcPt = mcTruth.at(tracklet.trackId(hits))[0].simtrackpt();
+
+				histo << fabs(calculatedPt - mcPt) / mcPt << std::endl;
+
+				if((fabs(calculatedPt - mcPt) / mcPt) < 0.1)
+					cPt++;
+				else if((fabs(calculatedPt - mcPt) / mcPt) < 0.9)
+					swPt++;
+				else
+					rwPt++;*/
+
 				VLOG << zkr::cc::fore::green;
 				VLOG << "Track " << tracklet.trackId(hits) << " : " << tracklet.hit1() << "-" << tracklet.hit2() << "-" << tracklet.hit3();
 				VLOG << " TIP: " << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
@@ -87,6 +103,18 @@ void PhysicsRecord::fillData(const TrackletCollection& tracklets,
 
 				eta[getEtaBin(getEta(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit3())))].clones++;
 				pt[getPtBin(getPt(Hit(hits,tracklet.hit1()),  Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())))].clones++;
+
+				/*double calculatedPt = getPt(Hit(hits,tracklet.hit1()),  Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
+				double mcPt = mcTruth.at(tracklet.trackId(hits))[0].simtrackpt();
+
+				histo << fabs(calculatedPt - mcPt) / mcPt << std::endl;
+
+				if((fabs(calculatedPt - mcPt) / mcPt) < 0.1)
+					cPt++;
+				else if((fabs(calculatedPt - mcPt) / mcPt) < 0.9)
+					swPt++;
+				else
+					rwPt++;*/
 
 				VLOG << zkr::cc::fore::yellow;
 				VLOG << "Track " << tracklet.trackId(hits) << " : " << tracklet.hit1() << "-" << tracklet.hit2() << "-" << tracklet.hit3();
@@ -112,6 +140,8 @@ void PhysicsRecord::fillData(const TrackletCollection& tracklets,
 		}
 	}
 
+	//std::cout << "\tINTERMEIDATE: correctly calculated: " << cPt << " slightly wrongly calculated: " << swPt << " really wrong " << rwPt << std::endl;
+
 	//output not found tracks
 	for(auto vTrack : mcTruth) {
 		if( foundTracks.find(vTrack.first) == foundTracks.end()){
@@ -121,19 +151,33 @@ void PhysicsRecord::fillData(const TrackletCollection& tracklets,
 			PHitWrapper middleHit(vTrack.second[floor(vTrack.second.size()/2)]);
 			PHitWrapper outerHit(vTrack.second[vTrack.second.size()-1]);
 
-			std::cout << "simTrack: " << vTrack.second[0].simtrackpt()
-					  << " calculated " << getPt(innerHit,  middleHit, outerHit) << std::endl;
+			/*double calculatedPt = getPt(innerHit,  middleHit, outerHit);
+			double mcPt = vTrack.second[0].simtrackpt();
+
+			histo << fabs(calculatedPt - mcPt) / mcPt << std::endl;
+
+			if((fabs(calculatedPt - mcPt) / mcPt) < 0.1)
+				cPt++;
+			else if((fabs(calculatedPt - mcPt) / mcPt) < 0.9)
+				swPt++;
+			else
+				rwPt++;*/
 
 			eta[getEtaBin(getEta(innerHit, outerHit))].missed++;
 			pt[getPtBin(getPt(innerHit,  middleHit, outerHit))].missed++;
 		}
 	}
 
+
 	efficiencyMean = ((double) foundTracks.size()) / mcTruth.size();
 	fakeRateMean = ((double) fakeTracks) / nFoundTracklets;
 	cloneRateMean = ((double) foundClones) / nFoundTracklets;
 
+	//std::cout << "correctly calculated: " << cPt << " slightly wrongly calculated: " << swPt << " really wrong " << rwPt << std::endl;
+
 	LOG << "Efficiency: " << efficiencyMean  << " FakeRate: " << fakeRateMean << " CloneRate: " << cloneRateMean << std::endl;
+
+	//histo.close();
 
 }
 

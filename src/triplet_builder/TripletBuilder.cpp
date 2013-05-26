@@ -160,7 +160,7 @@ std::pair<RuntimeRecords, PhysicsRecords> buildTriplets(ExecutionParameters exec
 			lastEvent = min(loader.maxEvents, edLoader->nEvents());
 
 		TripletConfigurations layerConfig;
-		loader.maxLayer = layerConfig.loadTripletConfigurationFromFile(traxDir + "/configs/" + exec.layerTripletConfigFile, 1); //TODO one defined for testing
+		loader.maxLayer = layerConfig.loadTripletConfigurationFromFile(traxDir + "/configs/" + exec.layerTripletConfigFile, exec.layerTriplets);
 
 		layerConfig.transfer.initBuffers(*contx, layerConfig);
 		layerConfig.transfer.toDevice(*contx, layerConfig);
@@ -338,6 +338,7 @@ int main(int argc, char *argv[]) {
 		("exec.useCPU", po::value<bool>(&exec.useCPU)->default_value(false)->zero_tokens(), "force using CPU instead of GPGPU")
 		("exec.iterations", po::value<uint>(&exec.iterations)->default_value(1), "number of iterations for performance evaluation")
 		("exec.layerTripletConfig", po::value<std::string>(&exec.layerTripletConfigFile), "configuration file for layer triplets")
+		("exec.layerTriplets", po::value<int>(&exec.layerTriplets)->default_value(-1), "number of layer triplets to load, default all: -1")
 	;
 
 	po::options_description cGrid("Config File: Grid Options");

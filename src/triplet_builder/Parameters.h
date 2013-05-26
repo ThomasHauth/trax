@@ -12,6 +12,7 @@ public:
 	int verbosity;
 	std::string layerTripletConfigFile;
 	std::string configFile;
+	int layerTriplets;
 
 };
 

@@ -7,11 +7,11 @@
 		<layer2>2</layer2>
 		<layer3>3</layer3>
 
-		<dThetaCut>0.05</dThetaCut>
-		<dThetaWindow>0.1</dThetaWindow>
-		<dPhiCut>0.1</dPhiCut>
+		<dThetaCut>0.01</dThetaCut>
+		<dThetaWindow>0.05</dThetaWindow>
+		<dPhiCut>0.075</dPhiCut>
 		<dPhiWindow>0.1</dPhiWindow>
-		<tipCut>0.75</tipCut>
+		<tipCut>0.5</tipCut>
 		<pairSpreadZ>2</pairSpreadZ>
 		<pairSpreadPhi>2</pairSpreadPhi>
 	</layerTriplet>
@@ -21,12 +21,40 @@
 		<layer2>3</layer2>
 		<layer3>4</layer3>
 
-		<dThetaCut>0.05</dThetaCut>
-		<dThetaWindow>0.1</dThetaWindow>
-		<dPhiCut>0.1</dPhiCut>
-		<dPhiWindow>0.1</dPhiWindow>
-		<tipCut>0.75</tipCut>
+		<dThetaCut>0.2</dThetaCut>
+		<dThetaWindow>0.4</dThetaWindow>
+		<dPhiCut>0.2</dPhiCut>
+		<dPhiWindow>0.4</dPhiWindow>
+		<tipCut>0.5</tipCut>
 		<pairSpreadZ>2</pairSpreadZ>
+		<pairSpreadPhi>2</pairSpreadPhi>
+	</layerTriplet>
+	
+	<layerTriplet>
+		<layer1>3</layer1>
+		<layer2>4</layer2>
+		<layer3>5</layer3>
+
+		<dThetaCut>0.4</dThetaCut>
+		<dThetaWindow>0.6</dThetaWindow>
+		<dPhiCut>0.4</dPhiCut>
+		<dPhiWindow>0.6</dPhiWindow>
+		<tipCut>1.0</tipCut>
+		<pairSpreadZ>3</pairSpreadZ>
+		<pairSpreadPhi>2</pairSpreadPhi>
+	</layerTriplet>
+	
+	<layerTriplet>
+		<layer1>4</layer1>
+		<layer2>5</layer2>
+		<layer3>8</layer3>
+
+		<dThetaCut>0.5</dThetaCut>
+		<dThetaWindow>0.7</dThetaWindow>
+		<dPhiCut>0.4</dPhiCut>
+		<dPhiWindow>0.6</dPhiWindow>
+		<tipCut>3.5</tipCut>
+		<pairSpreadZ>4</pairSpreadZ>
 		<pairSpreadPhi>2</pairSpreadPhi>
 	</layerTriplet>
 
