@@ -100,16 +100,17 @@ public:
 			float angle2 = atan2(sqrt((hitGlobalX[thirdHit] - hitGlobalX[secondHit])*(hitGlobalX[thirdHit] - hitGlobalX[secondHit])
 					+ (hitGlobalY[thirdHit] - hitGlobalY[secondHit])*(hitGlobalY[thirdHit] - hitGlobalY[secondHit]))
 																								, ( hitGlobalZ[thirdHit] - hitGlobalZ[secondHit] ));
-			float ratio = angle2/angle1;
-			valid = valid * (1-dThetaCut <= ratio && ratio <= 1+dThetaCut);
+			float delta = fabs(angle2/angle1);
+			valid = valid * (1-dThetaCut <= delta && delta <= 1+dThetaCut);
 
 			//tanPhi1
 			angle1 = atan2((hitGlobalY[secondHit] - hitGlobalY[firstHit]) , ( hitGlobalX[secondHit] - hitGlobalX[firstHit] ));
 			//tanPhi2
 			angle2 = atan2((hitGlobalY[thirdHit] - hitGlobalY[secondHit]) , ( hitGlobalX[thirdHit] - hitGlobalX[secondHit] ));
 
-			ratio = angle2/angle1;
-			valid = valid * (1-dPhiCut <= ratio && ratio <= 1+dPhiCut);
+			delta = angle2 - angle1;
+			delta += (delta>180) ? -360 : (delta<-180) ? 360 : 0; //fix wrap around
+			valid = valid * (fabs(delta) <= dPhiCut);
 
 			//circle fit
 			//map points to parabloid: (x,y) -> (x,y,x^2+y^2)

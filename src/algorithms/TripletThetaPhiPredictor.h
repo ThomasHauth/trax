@@ -56,7 +56,7 @@ public:
 
 	__kernel void predictCount(
 					//detector geometry
-					__global const uchar * detRadius, __global const float * radiusDict,__global const float * minLayerRadius, __global const float * maxLayerRadius,
+					__global const uchar * detRadius, __global const float * radiusDict,__global const float * gMinLayerRadius, __global const float * gMaxLayerRadius,
 					//grid data structure
 					__global const uint * grid, __global const uint * layer3, const uint nLayers,
 					const float minZ, const float sectorSizeZ, const uint nSectorsZ,
@@ -105,6 +105,8 @@ public:
 
 		float dThetaWindow = thetaWindow[layerTriplet];
 		float dPhiWindow = phiWindow[layerTriplet];
+		float minLayerRadius = gMinLayerRadius[layer];
+		float maxLayerRadius = gMaxLayerRadius[layer];
 
 		PRINTF(("%lu-%lu-%lu: oracle from %u\n", event, layerTriplet, thread, oOffset));
 
@@ -142,8 +144,8 @@ public:
 
 			//radius
 			float r = signRadius * radiusDict[detRadius[detId[secondHit]]];
-			float dRmax = signRadius * maxLayerRadius[layer] - r;
-			float dRmin = signRadius * minLayerRadius[layer] - r;
+			float dRmax = signRadius * maxLayerRadius - r;
+			float dRmin = signRadius * minLayerRadius - r;
 
 			//z_3 = z_2 + dr * cot(theta) => cot(theta) = tan(pi/2 - theta)
 
