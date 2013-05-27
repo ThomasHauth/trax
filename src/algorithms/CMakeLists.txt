@@ -6,6 +6,7 @@ add_library(algorithms
 	GridBuilder.cpp
 	PairGeneratorSector.cpp
 	TripletThetaPhiPredictor.cpp
+	TripletThetaPhiConstrainedPredictor.cpp
 	TripletThetaPhiFilter.cpp
 	TripletConnectivity.cpp
 )

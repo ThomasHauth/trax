@@ -169,9 +169,9 @@ void PhysicsRecord::fillData(const TrackletCollection& tracklets,
 	}
 
 
-	efficiencyMean = ((double) foundTracks.size()) / mcTruth.size();
-	fakeRateMean = ((double) fakeTracks) / nFoundTracklets;
-	cloneRateMean = ((double) foundClones) / nFoundTracklets;
+	efficiencyMean = ((double) foundTracks.size()) / Utils::clamp(mcTruth.size());
+	fakeRateMean = ((double) fakeTracks) / Utils::clamp(nFoundTracklets);
+	cloneRateMean = ((double) foundClones) / Utils::clamp(nFoundTracklets);
 
 	//std::cout << "correctly calculated: " << cPt << " slightly wrongly calculated: " << swPt << " really wrong " << rwPt << std::endl;
 
@@ -201,15 +201,15 @@ void PhysicsRecord::merge(const PhysicsRecord& c) {
 	n += c.n;
 
 	long double delta = c.efficiencyMean - efficiencyMean;
-	efficiencyMean += delta / n;
+	efficiencyMean += delta / Utils::clamp(n);
 	efficiencyVar +=  delta*(c.efficiencyMean - efficiencyMean) + c.efficiencyVar;
 
 	delta = c.fakeRateMean - fakeRateMean;
-	fakeRateMean += delta / n;
+	fakeRateMean += delta / Utils::clamp(n);
 	fakeRateVar +=  delta*(c.fakeRateMean - fakeRateMean) + c.fakeRateVar;
 
 	delta = c.cloneRateMean - cloneRateMean;
-	cloneRateMean += delta / n;
+	cloneRateMean += delta / Utils::clamp(n);
 	cloneRateVar +=  delta*(c.cloneRateMean - cloneRateMean) + c.cloneRateVar;
 
 }

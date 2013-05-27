@@ -147,11 +147,7 @@ std::pair<RuntimeRecords, PhysicsRecords> buildTriplets(ExecutionParameters exec
 		dict.transfer.toDevice(*contx, dict);
 
 		//Event Data Loader
-		EventLoader * edLoader;
-		if(!loader.singleEventLoader)
-			edLoader = new EventLoader(loader);
-		else
-			edLoader = new RepeatedEventLoader(loader);
+		EventLoader * edLoader = EventLoaderFactory::create(loader.eventLoader, loader);
 
 		uint lastEvent;
 		if(loader.maxEvents == -1)
@@ -328,7 +324,8 @@ int main(int argc, char *argv[]) {
 		("data.minPt", po::value<float>(&loader.minPt)->default_value(1.0), "MC data only: minimum track Pt")
 		("data.tracks", po::value<int>(&loader.maxTracks)->default_value(-1), "MC data only: number of valid tracks to load, all tracks: -1")
 		("data.onlyTracks", po::value<bool>(&loader.onlyTracks)->default_value(true), "MC data only: load only tracks with hits in each layer")
-		("data.singleEventLoader", po::value<bool>(&loader.singleEventLoader)->default_value(false), "only load a single event and use it maxEvents times")
+		("data.eventLoader", po::value<std::string>(&loader.eventLoader)->default_value("standard"),
+				"specify event loader: \"standard\" for PEventContainer (default); \"store\" for EventStore; \"repeated\" for performance measurements")
 	;
 
 	po::options_description cExec("Config File: Execution Options");

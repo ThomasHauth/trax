@@ -109,7 +109,27 @@ plt.plot(threads_gpu['threads'], kerneltimeGPU1 / threads_gpu['totalKernel'], 'g
 
 plt.title('Speedup for varying work-group sizes')
 plt.xlabel('threads')
-plt.ylabel(r'speedup [ms]')
+plt.ylabel(r'speedup')
+plt.xlim(np.min(threads_gpu['threads']), np.max(threads_gpu['threads']))
+#plt.xscale('log')
+
+plt.legend()
+
+###################################################
+# efficiency for varying work-group sizes
+plt.figure()
+
+walltimeGPU1 = threads_gpu[threads_gpu['threads'] == 1]['totalWalltime']
+kerneltimeGPU1 = threads_gpu[threads_gpu['threads'] == 1]['totalKernel']
+
+kernelScan1 = threads_gpu[threads_gpu['threads'] == 1]['buildGridScan']
+
+plt.plot(threads_gpu['threads'], (walltimeGPU1/ threads_gpu['totalWalltime']) / threads_gpu['threads'], 'go-', label='speedup wall time GPU')
+plt.plot(threads_gpu['threads'], (kerneltimeGPU1 / threads_gpu['totalKernel'])/ threads_gpu['threads'], 'go--', label='speedup kernel time GPU')
+
+plt.title('Speedup for varying work-group sizes')
+plt.xlabel('threads')
+plt.ylabel(r'efficiency')
 plt.xlim(np.min(threads_gpu['threads']), np.max(threads_gpu['threads']))
 #plt.xscale('log')
 

@@ -26,7 +26,9 @@ struct pairSpreadZ : public clever::UIntItem { };
 
 struct pairSpreadPhi : public clever::UIntItem { };
 
-#define TRIPLET_CONFIGURATION_COLLECTION_ITEMS Layer1, Layer2, Layer3, dThetaCut, dThetaWindow, dPhiCut, dPhiWindow, tipCut, pairSpreadZ, pairSpreadPhi
+struct nCandidates : public clever::UIntItem { };
+
+#define TRIPLET_CONFIGURATION_COLLECTION_ITEMS Layer1, Layer2, Layer3, dThetaCut, dThetaWindow, dPhiCut, dPhiWindow, tipCut, pairSpreadZ, pairSpreadPhi, nCandidates
 
 typedef clever::Collection<TRIPLET_CONFIGURATION_COLLECTION_ITEMS> TripletConfigurationItems;
 

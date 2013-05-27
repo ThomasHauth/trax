@@ -25,7 +25,7 @@ public:
 	int maxTracks;
 	float minPt;
 	bool onlyTracks;
-	bool singleEventLoader;
+	std::string eventLoader;
 };
 
 std::ostream& operator<< (std::ostream& stream, const ExecutionParameters & exec);

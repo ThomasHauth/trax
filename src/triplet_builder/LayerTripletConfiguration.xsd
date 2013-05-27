@@ -17,6 +17,7 @@
               <xs:element type="xs:float" name="tipCut"/>
               <xs:element type="xs:byte" name="pairSpreadZ"/>
               <xs:element type="xs:byte" name="pairSpreadPhi"/>
+              <xs:element type="xs:byte" name="nCandidates"/>
             </xs:sequence>
           </xs:complexType>
         </xs:element>

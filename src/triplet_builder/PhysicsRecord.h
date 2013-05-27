@@ -85,7 +85,7 @@ public:
 	void merge(const PhysicsRecord & c);
 
 	long double toVar(long double x) const{
-		return n > 1 ? std::sqrt(x / (n - 1)) : 0;
+		return n > 1 ? std::sqrt(x / Utils::clamp(n - 1)) : 0;
 	}
 
 	std::string csvDump(std::string outputDir = "") const;

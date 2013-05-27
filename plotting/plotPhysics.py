@@ -27,30 +27,28 @@ plt.legend()
 #******************************
 # plot over eta
 
-data = etas[0]
-
-plt.figure()
-plt.plot(data['bin'], data['valid'] / (data['valid'] + data['missed']), 'go', label='efficiency')
-plt.plot(data['bin'], data['fake'] / (data['valid'] + data['fake'] + data['clones']), 'ro', label='fake rate')
-plt.plot(data['bin'], data['clones'] / (data['valid'] + data['fake'] + data['clones']), 'yo', label='clone rate')
-
-plt.title(r'$t\bar{t}$ simulated event studies over $\eta$')
-plt.xlabel(r'$\eta$')
-plt.legend()
+for data in etas:
+    plt.figure()
+    plt.plot(data['bin'], data['valid'] / (data['valid'] + data['missed']), 'go', label='efficiency')
+    plt.plot(data['bin'], data['fake'] / (data['valid'] + data['fake'] + data['clones']), 'ro', label='fake rate')
+    plt.plot(data['bin'], data['clones'] / (data['valid'] + data['fake'] + data['clones']), 'yo', label='clone rate')
+    
+    plt.title(r'$t\bar{t}$ simulated event studies over $\eta$')
+    plt.xlabel(r'$\eta$')
+    plt.legend()
 
 #******************************
 # plot over eta
 
-data = pts[0]
-
-plt.figure()
-plt.plot(data['bin'], data['valid'] / (data['valid'] + data['missed']), 'go', label='efficiency')
-plt.plot(data['bin'], data['fake'] / (data['valid'] + data['fake'] + data['clones']), 'ro', label='fake rate')
-plt.plot(data['bin'], data['clones'] / (data['valid'] + data['fake'] + data['clones']), 'yo', label='clone rate')
-
-plt.title(r'$t\bar{t}$ simulated event studies over $p_T$')
-plt.xlabel(r'$p_t$ in [$\frac{GeV}{c}$]')
-plt.xscale("log")
-plt.legend()
+for data in pts:
+    plt.figure()
+    plt.plot(data['bin'], data['valid'] / (data['valid'] + data['missed']), 'go', label='efficiency')
+    plt.plot(data['bin'], data['fake'] / (data['valid'] + data['fake'] + data['clones']), 'ro', label='fake rate')
+    plt.plot(data['bin'], data['clones'] / (data['valid'] + data['fake'] + data['clones']), 'yo', label='clone rate')
+    
+    plt.title(r'$t\bar{t}$ simulated event studies over $p_T$')
+    plt.xlabel(r'$p_t$ in [$\frac{GeV}{c}$]')
+    plt.xscale("log")
+    plt.legend()
 
 plt.show()

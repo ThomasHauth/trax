@@ -320,17 +320,13 @@ bool RuntimeRecordClass::operator==(const RuntimeRecordClass & r) const{
 	     && this->tracks == r.tracks;
 }
 
-uint clamp(int n){
-	return n > 0 ? n : 1;
-}
-
 tRuntimeInfo RuntimeRecordClass::toVar(tRuntimeInfo m2) const{
 	tRuntimeInfo result;
 
-	result.count = std::sqrt(m2.count / (records.size() - 1));
-	result.scan = std::sqrt(m2.scan / (records.size() - 1));
-	result.store = std::sqrt(m2.store / (records.size() - 1));
-	result.walltime = std::sqrt(m2.walltime / (records.size() - 1));
+	result.count = std::sqrt(m2.count / Utils::clamp(records.size() - 1));
+	result.scan = std::sqrt(m2.scan / Utils::clamp(records.size() - 1));
+	result.store = std::sqrt(m2.store / Utils::clamp(records.size() - 1));
+	result.walltime = std::sqrt(m2.walltime / Utils::clamp(records.size() - 1));
 
 	return result;
 }
@@ -338,8 +334,8 @@ tRuntimeInfo RuntimeRecordClass::toVar(tRuntimeInfo m2) const{
 tIOInfo RuntimeRecordClass::toVar(tIOInfo m2) const{
 	tIOInfo result;
 
-	result.time = std::sqrt(m2.time / (records.size() - 1));
-	result.bytes = std::sqrt(m2.bytes / (records.size() - 1));
+	result.time = std::sqrt(m2.time / Utils::clamp(records.size() - 1));
+	result.bytes = std::sqrt(m2.bytes / Utils::clamp(records.size() - 1));
 
 	return result;
 }
@@ -349,19 +345,19 @@ tIOInfo RuntimeRecordClass::toVar(tIOInfo m2) const{
 void calculateMeanVar(tRuntimeInfo & mean, tRuntimeInfo & var, const tRuntimeInfo & x, uint n){
 
 	long double delta = x.count - mean.count;
-	mean.count += delta / n;
+	mean.count += delta / Utils::clamp(n);
 	var.count +=  delta*(x.count - mean.count);
 
 	delta = x.scan - mean.scan;
-	mean.scan += delta / n;
+	mean.scan += delta / Utils::clamp(n);
 	var.scan +=  delta*(x.scan - mean.scan);
 
 	delta = x.store - mean.store;
-	mean.store += delta / n;
+	mean.store += delta / Utils::clamp(n);
 	var.store +=  delta*(x.store - mean.store);;
 
 	delta = x.walltime - mean.walltime;
-	mean.walltime += delta / n;
+	mean.walltime += delta / Utils::clamp(n);
 	var.walltime +=  delta*(x.walltime - mean.walltime);
 
 }
@@ -369,13 +365,13 @@ void calculateMeanVar(tRuntimeInfo & mean, tRuntimeInfo & var, const tRuntimeInf
 void calculateMeanVar(tIOInfo & mean, tIOInfo & var, const tIOInfo & x, uint n){
 
 	long double delta = x.time - mean.time;
-	mean.time += delta / n;
+	mean.time += delta / Utils::clamp(n);
 	var.time += delta*(x.time - mean.time);
 
 
 	//bytes should actually be pretty much the same
 	delta = x.bytes - mean.bytes;
-	mean.bytes += delta / n;
+	mean.bytes += delta / Utils::clamp(n);
 	var.bytes += delta*(x.bytes - mean.bytes);
 
 }

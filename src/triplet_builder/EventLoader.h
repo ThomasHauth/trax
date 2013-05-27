@@ -15,6 +15,7 @@
 class EventLoader{
 
 public:
+
 	EventLoader(EventDataLoadingParameters config ){
 		params = config;
 		read = 0;
@@ -41,6 +42,7 @@ public:
 
 	}
 
+
 	virtual ~EventLoader(){}
 
 	virtual int nEvents() const {
@@ -65,6 +67,7 @@ private:
 class RepeatedEventLoader : public EventLoader{
 
 public:
+
 	RepeatedEventLoader(EventDataLoadingParameters config ){
 		params = config;
 
@@ -103,7 +106,6 @@ public:
 		return event;
 	}
 
-
 private:
 	PB_Event::PEvent event;
 };
@@ -111,6 +113,7 @@ private:
 class EventStoreLoader : public EventLoader{
 
 public:
+
 	EventStoreLoader(EventDataLoadingParameters config ){
 		params = config;
 
@@ -118,6 +121,8 @@ public:
 		f << getenv("TRAX_DIR") << "/data/" << config.eventDataFile;
 
 		esIn = new EventStoreInput(f.str());
+
+		LOG << "Opened file " << config.eventDataFile << " with " << nEvents() << " events" << std::endl;
 
 	}
 
@@ -136,4 +141,27 @@ public:
 
 private:
 	EventStoreInput * esIn;
+};
+
+
+class EventLoaderFactory {
+
+public:
+	static EventLoader * create(std::string evtLoader, EventDataLoadingParameters config){
+
+		EventLoader * loader = NULL;
+
+		if(evtLoader == "standard")
+			loader = new EventLoader(config);
+
+		if(evtLoader == "repeated")
+			loader =  new RepeatedEventLoader(config);
+
+		if(evtLoader == "store")
+			loader =  new EventStoreLoader(config);
+
+
+		return loader;
+	}
+
 };

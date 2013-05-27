@@ -14,6 +14,7 @@
 		<tipCut>0.5</tipCut>
 		<pairSpreadZ>2</pairSpreadZ>
 		<pairSpreadPhi>2</pairSpreadPhi>
+		<nCandidates>4</nCandidates>
 	</layerTriplet>
 	
 	<layerTriplet>
@@ -28,6 +29,7 @@
 		<tipCut>0.5</tipCut>
 		<pairSpreadZ>2</pairSpreadZ>
 		<pairSpreadPhi>2</pairSpreadPhi>
+		<nCandidates>16</nCandidates>
 	</layerTriplet>
 	
 	<layerTriplet>
@@ -42,6 +44,7 @@
 		<tipCut>1.0</tipCut>
 		<pairSpreadZ>3</pairSpreadZ>
 		<pairSpreadPhi>2</pairSpreadPhi>
+		<nCandidates>64</nCandidates>
 	</layerTriplet>
 	
 	<layerTriplet>
@@ -56,6 +59,7 @@
 		<tipCut>3.5</tipCut>
 		<pairSpreadZ>4</pairSpreadZ>
 		<pairSpreadPhi>2</pairSpreadPhi>
+		<nCandidates>128</nCandidates>
 	</layerTriplet>
 
 </layerTriplets>
