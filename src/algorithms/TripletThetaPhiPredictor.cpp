@@ -115,14 +115,23 @@ Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeom
 
 		LOG << "Running predict store kernel...";
 		evt = predictStore.run(
+				//geometry
+				geom.transfer.buffer(RadiusDict()), dict.transfer.buffer(Radius()), geomSupplement.transfer.buffer(MinRadius()), geomSupplement.transfer.buffer(MaxRadius()),
+				grid.transfer.buffer(Boundary()), layerTriplets.transfer.buffer(Layer3()), grid.config.nLayers,
+				grid.config.MIN_Z, grid.config.sectorSizeZ(), grid.config.nSectorsZ,
+				grid.config.MIN_PHI, grid.config.sectorSizePhi(), grid.config.nSectorsPhi,
 				//configuration
-				grid.transfer.buffer(Boundary()), grid.config.nSectorsZ, grid.config.nSectorsPhi,
-				layerTriplets.transfer.buffer(Layer3()), grid.config.nLayers,
+				layerTriplets.transfer.buffer(dThetaWindow()), layerTriplets.transfer.buffer(dPhiWindow()),
 				//input
 				pairs.pairing.get_mem(), pairs.pairingOffsets.get_mem(),
+				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
+				hits.transfer.buffer(DetectorId()),
+				//oracle
 				m_oracle.get_mem(), m_oracleOffset.get_mem(), m_prefixSum.get_mem(),
 				// output
 				m_triplets->pairing.get_mem(), m_triplets->pairingOffsets.get_mem(),
+				//local
+				local_param(sizeof(cl_uint), (grid.config.nSectorsZ+1)*(grid.config.nSectorsPhi+1)),
 				//thread config
 				range(nThreads, nLayerTriplets, grid.config.nEvents),
 				range(nThreads, 1,1));
