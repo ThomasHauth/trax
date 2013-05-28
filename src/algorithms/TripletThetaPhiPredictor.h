@@ -42,7 +42,7 @@ public:
 	Pairing * run(HitCollection & hits, const DetectorGeometry & geom, const GeometrySupplement & geomSupplement, const Dictionary & dict,
 			int nThreads, const TripletConfigurations & layerTriplets, const Grid & grid, const Pairing & pairs);
 
-	KERNEL26_CLASSP( predictCount, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL24_CLASSP( predictCount, cl_mem, cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem, uint,
 			cl_float, cl_float, uint,
 			cl_float, cl_float, uint,
@@ -50,7 +50,7 @@ public:
 			cl_mem, cl_mem,
 			cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem,
-			cl_mem, cl_mem, cl_mem,
+			cl_mem,
 			local_param,
 			oclDEFINES,
 
@@ -68,7 +68,7 @@ public:
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
 					__global const uint * detId, __global const int * hitId,
 					// intermeditate data: oracle for hit pair + candidate combination, prefix sum for found tracklets
-					__global uint * oracle, __global const ulong * oracleOffset, __global uint * prefixSum,
+					__global uint * prefixSum,
 					//local buffers
 					__local uint * lGrid3)
 	{
@@ -100,7 +100,7 @@ public:
 
 		PRINTF(("%lu-%lu-%lu: second layer from %u with %u hits\n", event, layerTriplet, thread, offset, nHits3));
 
-		ulong oOffset = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
+		//ulong oOffset = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
 		uint nFound = 0;
 
 		float dThetaWindow = thetaWindow[layerTriplet];
@@ -108,7 +108,7 @@ public:
 		float minLayerRadius = gMinLayerRadius[layer];
 		float maxLayerRadius = gMaxLayerRadius[layer];
 
-		PRINTF(("%lu-%lu-%lu: oracle from %u\n", event, layerTriplet, thread, oOffset));
+		PRINTF(("%lu-%lu-%lu: oracle from %u\n", event, layerTriplet, thread, 0));
 
 
 		//PRINTF("id %lu threads %lu workload %i start %i end %i maxEnd %i \n", id, threads, workload, i, end, nPairs);
@@ -245,12 +245,12 @@ public:
 					//update oracle
 					index = (i - pairOffset)*nHits3 + j - (j >= zSectorEnd) * zSectorLength - offset;
 
-					PRINTF((valid ? "%lu-%lu-%lu: setting bit for %u and %u (%u) -> %u: %u-%u\n" : "", event, layerTriplet, thread, i-pairOffset, j - (j >= zSectorEnd) * zSectorLength, j,  index, ((oOffset + index) / 32), (valid << (index % 32))));
+					PRINTF((valid ? "%lu-%lu-%lu: setting bit for %u and %u (%u)\n" : "", event, layerTriplet, thread, i-pairOffset, j - (j >= zSectorEnd) * zSectorLength, j));
 
 					//if(valid && ((oOffset + index) / 32) > 89766864)
 						//printf("%lu-%lu-%lu: setting bit for %u and %u (%u) -> %u: %u-%u\n", event, layerTriplet, thread, i-pairOffset, j - (j >= zSectorEnd) * zSectorLength, j,  index, ((oOffset + index) / 32), (valid << (index % 32)));
 
-					atomic_or(&oracle[(oOffset + index) / 32], (valid << (index % 32)));
+					//atomic_or(&oracle[(oOffset + index) / 32], (valid << (index % 32)));
 
 				} // end hit loop
 			} // end sector loop
@@ -262,7 +262,7 @@ public:
 		//PRINTF("[%lu] rejZ: %u, rejP: %u, rejB: %u\n", gid, rejZ, rejP, rejB);
 	});
 
-	KERNEL27_CLASSP(predictStore, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL25_CLASSP(predictStore, cl_mem, cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem, uint,
 			cl_float, cl_float, uint,
 			cl_float, cl_float, uint,
@@ -270,7 +270,7 @@ public:
 			cl_mem, cl_mem,
 			cl_mem, cl_mem, cl_mem,
 			cl_mem,
-			cl_mem, cl_mem, cl_mem,
+			cl_mem,
 			cl_mem, cl_mem,
 			local_param,
 			oclDEFINES,
@@ -289,7 +289,7 @@ public:
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
 					__global const uint * detId,
 					// input for oracle and prefix sum
-					__global const uint * oracle, __global const ulong * oracleOffset, __global const uint * prefixSum,
+					__global const uint * prefixSum,
 					// output triplet candidates
 					__global uint2 * triplets, __global uint * tripletOffsets,
 					//local buffers
@@ -331,7 +331,7 @@ public:
 		PRINTF(("%lu-%lu-%lu: second layer from %u with %u hits\n", event, layerTriplet, thread, offset, nHits3));
 
 		//configure oracle
-		ulong byte = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
+		//ulong byte = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
 		//uint bit = (byte + i*nHits2) % 32;
 		//byte += (i*nHits2); byte /= 32;
 		//uint sOracle = oracle[byte];
@@ -431,14 +431,46 @@ public:
 
 				for(; j < end2 && pos < nextThread; ++j){ // pos < prefixSum[id+1] can lead to thread divergence
 
+					// check z range
+					ulong index = j - (j >= zSectorEnd) * zSectorLength;
+					bool valid = zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh;
+
+					/*
+										if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[index]){
+											PRINTF("%i-%i-%i [%i]: z exp[%f]: %f - %f; z act: %f\n", firstHit, secondHit, index, hitId[firstHit], hitGlobalZ[secondHit], zLow, zHigh, hitGlobalZ[index]);
+											float thetaAct = atan2(sign(hitGlobalY[index])*sqrt((hitGlobalX[index] - hitGlobalX[secondHit])*(hitGlobalX[index] - hitGlobalX[secondHit])
+													+ (hitGlobalY[index] - hitGlobalY[secondHit])*(hitGlobalY[index] - hitGlobalY[secondHit]))
+													, ( hitGlobalZ[index] - hitGlobalZ[secondHit] ));
+											//if(!(thetaLow <= thetaAct && thetaAct <= thetaHigh))
+											PRINTF("\ttheta exp[%f]: %f - %f; theta act: %f\n", theta, atan(1/cotThetaLow), atan(1/cotThetaHigh), thetaAct);
+											//else {
+											float r2 = sqrt(hitGlobalX[secondHit]*hitGlobalX[secondHit] + hitGlobalY[secondHit]*hitGlobalY[secondHit]);
+											float r3 = sqrt(hitGlobalX[index]*hitGlobalX[index] + hitGlobalY[index]*hitGlobalY[index]);
+
+											PRINTF("\tdr exp: %f - %f; dr act: %f\n", dRmin, dRmax, r3-r2);
+											//}
+										}
+					 */
+
+					// check phi range
+					float actPhi = atan2(hitGlobalY[index],hitGlobalX[index]);
+					valid = valid * ((!wrapAround && (phiLow <= actPhi && actPhi <= phiHigh))
+							|| (wrapAround && ((phiLow <= actPhi && actPhi <= M_PI_F) || (-M_PI_F <= actPhi && actPhi <= phiHigh))));
+
+					/*
+										if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[index]){
+											PRINTF("%i-%i-%i [%i]: phi exp: %f - %f; phi act: %f\n", firstHit, secondHit, index, hitId[firstHit], phiLow, phiHigh, actPhi);
+											//}
+										}
+
 					//is this a valid triplet?
 					ulong index = (i - pairOffset)*nHits3 + j - (j >= zSectorEnd) * zSectorLength - offset;
-					bool valid = oracle[(byte + index) / 32] & (1 << (index % 32));
+					//bool valid = oracle[(byte + index) / 32] & (1 << (index % 32));
 
 					PRINTF((valid ? "%lu-%lu-%lu: valid bit for %u and %u -> %u written at %u\n" : "", event, layerTriplet, thread, i-pairOffset, offset+j,  index, pos));
 
 					//performance gain?
-					/*bool valid = sOracle & (1 << bit);
+					bool valid = sOracle & (1 << bit);
 				++bit;
 				if(bit == 32){
 					bit = 0;
@@ -449,7 +481,7 @@ public:
 					//last triplet written on [pos] is valid one
 					if(valid){
 						triplets[pos].x = i;
-						triplets[pos].y = j - (j >= zSectorEnd) * zSectorLength;;
+						triplets[pos].y = index;
 					}
 
 					//if(valid)

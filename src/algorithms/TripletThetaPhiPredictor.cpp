@@ -10,40 +10,8 @@
 Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeometry & geom, const GeometrySupplement & geomSupplement, const Dictionary & dict,
 			int nThreads, const TripletConfigurations & layerTriplets, const Grid & grid, const Pairing & pairs){
 
-		std::vector<ulong> oracleOffset;
-		ulong totalMaxTriplets = 0;
-
-		uint nLayerTriplets = layerTriplets.size();
-		std::vector<uint> nFoundPairs = pairs.getPairingOffsets();
-
-		for(uint e = 0; e < grid.config.nEvents; ++e){
-			for(uint p = 0; p < nLayerTriplets; ++p){
-
-				TripletConfiguration layerTriplet(layerTriplets, p);
-
-
-				LayerGrid layer3(grid, layerTriplet.layer3(),e);
-
-				//plus 1 for offset shift [0] == 0 so nFoundHits for [0] is [1] - [0]
-				ulong nMaxTriplets = ((ulong)  nFoundPairs[e * nLayerTriplets + p + 1] - nFoundPairs[e * nLayerTriplets + p ])*layer3.size();
-				std::cout << " contro." << nMaxTriplets << std::endl;
-				nMaxTriplets = 32 * std::ceil(nMaxTriplets / 32.0); //round to next multiple of 32
-
-				oracleOffset.push_back(totalMaxTriplets);
-				totalMaxTriplets += nMaxTriplets;
-			}
-		}
-
-		LOG << "Initializing oracle offsets for triplet prediction...";
-		clever::vector<ulong, 1> m_oracleOffset(oracleOffset, ctx);
-		LOG << "done[" << m_oracleOffset.get_count()  << "]" << std::endl;
-
-		LOG << "Initializing oracle for prediction...";
-		clever::vector<uint, 1> m_oracle(0, std::ceil(totalMaxTriplets / 32.0), ctx);
-		LOG << "done[" << m_oracle.get_count()  << "]" << std::endl;
-
 		LOG << "Initializing prefix sum for prediction...";
-		clever::vector<uint, 1> m_prefixSum(0, grid.config.nEvents*nLayerTriplets*nThreads+1, ctx);
+		clever::vector<uint, 1> m_prefixSum(0, grid.config.nEvents*layerTriplets.size()*nThreads+1, ctx);
 		LOG << "done[" << m_prefixSum.get_count()  << "]" << std::endl;
 
 		LOG << "Running predict kernel...";
@@ -60,10 +28,10 @@ Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeom
 				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
 				hits.transfer.buffer(DetectorId()), hits.transfer.buffer(HitId()),
 				// output
-				m_oracle.get_mem(), m_oracleOffset.get_mem(), m_prefixSum.get_mem(),
+				m_prefixSum.get_mem(),
 				local_param(sizeof(cl_uint), (grid.config.nSectorsZ+1)*(grid.config.nSectorsPhi+1)),
 				//thread config
-				range(nThreads, nLayerTriplets, grid.config.nEvents),
+				range(nThreads, layerTriplets.size(), grid.config.nEvents),
 				range(nThreads, 1,1));
 		TripletThetaPhiPredictor::events.push_back(evt);
 		LOG << "done" << std::endl;
@@ -75,18 +43,6 @@ Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeom
 			PLOG << "done" << std::endl;
 			PLOG << "Prefix sum: ";
 			for(auto i : vPrefixSum){
-				PLOG << i << " ; ";
-			}
-			PLOG << std::endl;
-		}
-
-		if(PROLIX){
-			PLOG << "Fetching oracle for prediction...";
-			std::vector<uint> oracle(m_oracle.get_count());
-			transfer::download(m_oracle,oracle,ctx);
-			PLOG << "done" << std::endl;
-			PLOG << "Oracle: ";
-			for(auto i : oracle){
 				PLOG << i << " ; ";
 			}
 			PLOG << std::endl;
@@ -128,13 +84,13 @@ Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeom
 				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
 				hits.transfer.buffer(DetectorId()),
 				//oracle
-				m_oracle.get_mem(), m_oracleOffset.get_mem(), m_prefixSum.get_mem(),
+				m_prefixSum.get_mem(),
 				// output
 				m_triplets->pairing.get_mem(), m_triplets->pairingOffsets.get_mem(),
 				//local
 				local_param(sizeof(cl_uint), (grid.config.nSectorsZ+1)*(grid.config.nSectorsPhi+1)),
 				//thread config
-				range(nThreads, nLayerTriplets, grid.config.nEvents),
+				range(nThreads, layerTriplets.size(), grid.config.nEvents),
 				range(nThreads, 1,1));
 		TripletThetaPhiPredictor::events.push_back(evt);
 		LOG << "done" << std::endl;
