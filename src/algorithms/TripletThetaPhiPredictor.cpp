@@ -10,8 +10,8 @@
 Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeometry & geom, const GeometrySupplement & geomSupplement, const Dictionary & dict,
 			int nThreads, const TripletConfigurations & layerTriplets, const Grid & grid, const Pairing & pairs){
 
-		std::vector<uint> oracleOffset;
-		uint totalMaxTriplets = 0;
+		std::vector<ulong> oracleOffset;
+		ulong totalMaxTriplets = 0;
 
 		uint nLayerTriplets = layerTriplets.size();
 		std::vector<uint> nFoundPairs = pairs.getPairingOffsets();
@@ -25,7 +25,8 @@ Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeom
 				LayerGrid layer3(grid, layerTriplet.layer3(),e);
 
 				//plus 1 for offset shift [0] == 0 so nFoundHits for [0] is [1] - [0]
-				uint nMaxTriplets = (nFoundPairs[e * nLayerTriplets + p + 1] - nFoundPairs[e * nLayerTriplets + p ])*layer3.size();
+				ulong nMaxTriplets = ((ulong)  nFoundPairs[e * nLayerTriplets + p + 1] - nFoundPairs[e * nLayerTriplets + p ])*layer3.size();
+				std::cout << " contro." << nMaxTriplets << std::endl;
 				nMaxTriplets = 32 * std::ceil(nMaxTriplets / 32.0); //round to next multiple of 32
 
 				oracleOffset.push_back(totalMaxTriplets);
@@ -34,7 +35,7 @@ Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeom
 		}
 
 		LOG << "Initializing oracle offsets for triplet prediction...";
-		clever::vector<uint, 1> m_oracleOffset(oracleOffset, ctx);
+		clever::vector<ulong, 1> m_oracleOffset(oracleOffset, ctx);
 		LOG << "done[" << m_oracleOffset.get_count()  << "]" << std::endl;
 
 		LOG << "Initializing oracle for prediction...";

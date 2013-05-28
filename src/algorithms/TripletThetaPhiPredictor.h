@@ -68,7 +68,7 @@ public:
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
 					__global const uint * detId, __global const int * hitId,
 					// intermeditate data: oracle for hit pair + candidate combination, prefix sum for found tracklets
-					__global uint * oracle, __global const uint * oracleOffset, __global uint * prefixSum,
+					__global uint * oracle, __global const ulong * oracleOffset, __global uint * prefixSum,
 					//local buffers
 					__local uint * lGrid3)
 	{
@@ -100,7 +100,7 @@ public:
 
 		PRINTF(("%lu-%lu-%lu: second layer from %u with %u hits\n", event, layerTriplet, thread, offset, nHits3));
 
-		uint oOffset = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
+		ulong oOffset = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
 		uint nFound = 0;
 
 		float dThetaWindow = thetaWindow[layerTriplet];
@@ -207,7 +207,7 @@ public:
 
 				for(; j < end2; ++j){
 					// check z range
-					uint index = j - (j >= zSectorEnd) * zSectorLength;
+					ulong index = j - (j >= zSectorEnd) * zSectorLength;
 					bool valid = zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh;
 
 /*
@@ -289,7 +289,7 @@ public:
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
 					__global const uint * detId,
 					// input for oracle and prefix sum
-					__global const uint * oracle, __global const uint * oracleOffset, __global const uint * prefixSum,
+					__global const uint * oracle, __global const ulong * oracleOffset, __global const uint * prefixSum,
 					// output triplet candidates
 					__global uint2 * triplets, __global uint * tripletOffsets,
 					//local buffers
@@ -331,7 +331,7 @@ public:
 		PRINTF(("%lu-%lu-%lu: second layer from %u with %u hits\n", event, layerTriplet, thread, offset, nHits3));
 
 		//configure oracle
-		uint byte = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
+		ulong byte = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
 		//uint bit = (byte + i*nHits2) % 32;
 		//byte += (i*nHits2); byte /= 32;
 		//uint sOracle = oracle[byte];
@@ -432,7 +432,7 @@ public:
 				for(; j < end2 && pos < nextThread; ++j){ // pos < prefixSum[id+1] can lead to thread divergence
 
 					//is this a valid triplet?
-					uint index = (i - pairOffset)*nHits3 + j - (j >= zSectorEnd) * zSectorLength - offset;
+					ulong index = (i - pairOffset)*nHits3 + j - (j >= zSectorEnd) * zSectorLength - offset;
 					bool valid = oracle[(byte + index) / 32] & (1 << (index % 32));
 
 					PRINTF((valid ? "%lu-%lu-%lu: valid bit for %u and %u -> %u written at %u\n" : "", event, layerTriplet, thread, i-pairOffset, offset+j,  index, pos));
