@@ -54,7 +54,7 @@ clever::context * createContext(ExecutionParameters exec){
 	LOG << "Creating context for " << (exec.useCPU ? "CPU" : "GPGPU") << "...";
 
 //#ifndef CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL
-#define CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL 0
+//#define CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL 0
 //#endif
 
 	clever::context *contx;

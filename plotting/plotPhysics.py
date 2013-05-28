@@ -5,6 +5,13 @@ import matplotlib.pyplot as plt
  # tt bar physics
 ttbar = np.genfromtxt("physics.ttBar.reco.conf.csv", delimiter = " ", names=True)
 
+# cmssw data
+cmssw_org = np.genfromtxt("cmsswTiming.org.csv", delimiter = " ", names=True)
+cmssw_org.sort(order='tracks')
+
+cmssw_kd = np.genfromtxt("cmsswTiming.kd.csv", delimiter = " ", names=True)
+cmssw_kd.sort(order='tracks')
+
 # load eta and pt histograms
 etas = []
 pts = []
@@ -22,6 +29,21 @@ plt.errorbar(ttbar['layerTriplet']+1, ttbar['cr'], yerr=ttbar['crVar'], fmt='yo-
 
 plt.title(r'$t\bar{t}$ simulated event studies')
 plt.xlabel("layer triplet")
+plt.legend()
+
+#******************************
+#plot cmssw over tracks
+plt.figure()
+plt.plot(cmssw_org['tracks'], cmssw_org['eff'], 'go-', label='CMSSW efficiency')
+plt.plot(cmssw_org['tracks'], cmssw_org['fr'], 'ro-', label='CMSSW fake rate')
+plt.plot(cmssw_org['tracks'], cmssw_org['cr'], 'yo-', label='CMSSW clone rate')
+
+#plt.plot(cmssw_kd['tracks'], cmssw_kd['eff'], 'go--', label=r'CMSSW $k$-d tree efficiency')
+#plt.plot(cmssw_kd['tracks'], cmssw_kd['fr'], 'ro--', label=r'CMSSW $k$-d tree fake rate')
+#plt.plot(cmssw_kd['tracks'], cmssw_kd['cr'], 'yo--', label=r'CMSSW $k$-d tree clone rate')
+
+plt.title('Physics performance over number of tracks')
+plt.xlabel('tracks')
 plt.legend()
 
 #******************************

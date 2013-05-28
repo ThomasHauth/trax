@@ -1,5 +1,0 @@
-Experiment 0: 
-Threads: 32 Evt groups 3 Layer triplets: -1 Max evts: -1 Max tracks: 100
-1  libprotobuf FATAL /usr/include/google/protobuf/repeated_field.h:659] CHECK failed: (index) < (size()): 
-terminate called after throwing an instance of 'google::protobuf::FatalException'
-  what():  CHECK failed: (index) < (size()): 

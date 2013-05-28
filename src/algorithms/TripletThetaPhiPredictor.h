@@ -245,7 +245,10 @@ public:
 					//update oracle
 					index = (i - pairOffset)*nHits3 + j - (j >= zSectorEnd) * zSectorLength - offset;
 
-					PRINTF((valid ? "%lu-%lu-%lu: setting bit for %u and %u (%u) -> %u\n" : "", event, layerTriplet, thread, i-pairOffset, j - (j >= zSectorEnd) * zSectorLength, j,  index));
+					PRINTF((valid ? "%lu-%lu-%lu: setting bit for %u and %u (%u) -> %u: %u-%u\n" : "", event, layerTriplet, thread, i-pairOffset, j - (j >= zSectorEnd) * zSectorLength, j,  index, ((oOffset + index) / 32), (valid << (index % 32))));
+
+					//if(valid && ((oOffset + index) / 32) > 89766864)
+						//printf("%lu-%lu-%lu: setting bit for %u and %u (%u) -> %u: %u-%u\n", event, layerTriplet, thread, i-pairOffset, j - (j >= zSectorEnd) * zSectorLength, j,  index, ((oOffset + index) / 32), (valid << (index % 32)));
 
 					atomic_or(&oracle[(oOffset + index) / 32], (valid << (index % 32)));
 

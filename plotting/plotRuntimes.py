@@ -12,6 +12,13 @@ threads_gpu = np.genfromtxt("runtime.threads.test.gpu.csv", delimiter = " ", nam
 # varying tracks per event
 tracks_gpu = np.genfromtxt("runtime.tracks.test.gpu.csv", delimiter = " ", names=True)
 
+# cmssw data
+cmssw_org = np.genfromtxt("cmsswTiming.org.csv", delimiter = " ", names=True)
+cmssw_org.sort(order='tracks')
+
+cmssw_kd = np.genfromtxt("cmsswTiming.kd.csv", delimiter = " ", names=True)
+cmssw_kd.sort(order='tracks')
+
 ###################################################
 # time for n concurrent events
 plt.figure()
@@ -100,10 +107,7 @@ plt.figure()
 walltimeGPU1 = threads_gpu[threads_gpu['threads'] == 1]['totalWalltime']
 kerneltimeGPU1 = threads_gpu[threads_gpu['threads'] == 1]['totalKernel']
 
-kernelScan1 = threads_gpu[threads_gpu['threads'] == 1]['buildGridScan']
-
 plt.plot(threads_gpu['threads'], threads_gpu['threads'], 'b:', label='ideal')
-plt.plot(threads_gpu['threads'], kernelScan1 / threads_gpu['buildGridScan'], 'bo:', label='prefix sum')
 plt.plot(threads_gpu['threads'], walltimeGPU1/ threads_gpu['totalWalltime'], 'go-', label='speedup wall time GPU')
 plt.plot(threads_gpu['threads'], kerneltimeGPU1 / threads_gpu['totalKernel'], 'go--', label='speedup kernel time GPU')
 
@@ -124,10 +128,10 @@ kerneltimeGPU1 = threads_gpu[threads_gpu['threads'] == 1]['totalKernel']
 
 kernelScan1 = threads_gpu[threads_gpu['threads'] == 1]['buildGridScan']
 
-plt.plot(threads_gpu['threads'], (walltimeGPU1/ threads_gpu['totalWalltime']) / threads_gpu['threads'], 'go-', label='speedup wall time GPU')
-plt.plot(threads_gpu['threads'], (kerneltimeGPU1 / threads_gpu['totalKernel'])/ threads_gpu['threads'], 'go--', label='speedup kernel time GPU')
+plt.plot(threads_gpu['threads'], (walltimeGPU1/ threads_gpu['totalWalltime']) / threads_gpu['threads'], 'go-', label='efficiency wall time GPU')
+plt.plot(threads_gpu['threads'], (kerneltimeGPU1 / threads_gpu['totalKernel'])/ threads_gpu['threads'], 'go--', label='efficiency kernel time GPU')
 
-plt.title('Speedup for varying work-group sizes')
+plt.title('Efficiency for varying work-group sizes')
 plt.xlabel('threads')
 plt.ylabel(r'efficiency')
 plt.xlim(np.min(threads_gpu['threads']), np.max(threads_gpu['threads']))
@@ -141,6 +145,9 @@ plt.figure()
 
 plt.errorbar(tracks_gpu['tracks'], tracks_gpu['totalWalltime'], yerr=tracks_gpu['totalWalltimeVar'] ,fmt='go-', label='wall time GPU')
 plt.errorbar(tracks_gpu['tracks'], tracks_gpu['totalKernel'], yerr=tracks_gpu['totalKernelVar'],fmt='go--', label='kernel time GPU')
+
+plt.errorbar(cmssw_org['tracks'], cmssw_org['time'], yerr=cmssw_org['timeVar'] ,fmt='ro--', label='CMSSW original')
+plt.errorbar(cmssw_kd['tracks'], cmssw_kd['time'], yerr=cmssw_kd['timeVar'] ,fmt='ro-', label=r'CMSSW $k$-d tree')
 
 plt.title(r'Processing time for $n$ tracks per event')
 plt.xlabel('tracks')
