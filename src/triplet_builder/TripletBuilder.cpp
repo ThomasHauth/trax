@@ -30,6 +30,7 @@
 #include <datastructures/serialize/Event.pb.h>
 
 #include <algorithms/PairGeneratorSector.h>
+#include <algorithms/PairGeneratorBeamspot.h>
 #include <algorithms/TripletThetaPhiPredictor.h>
 #include <algorithms/TripletThetaPhiFilter.h>
 #include <algorithms/GridBuilder.h>
@@ -54,7 +55,7 @@ clever::context * createContext(ExecutionParameters exec){
 	LOG << "Creating context for " << (exec.useCPU ? "CPU" : "GPGPU") << "...";
 
 //#ifndef CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL
-#define CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL 0
+//#define CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL 0
 //#endif
 
 	clever::context *contx;
@@ -240,10 +241,10 @@ std::pair<RuntimeRecords, PhysicsRecords> buildTriplets(ExecutionParameters exec
 			runtime.buildGrid.stopWalltime();
 
 			//run it
-			PairGeneratorSector pairGen(*contx);
+			PairGeneratorBeamspot pairGen(*contx);
 
 			runtime.pairGen.startWalltime();
-			Pairing  * pairs = pairGen.run(hits, exec.threads, layerConfig, grid);
+			Pairing  * pairs = pairGen.run(hits, geomSupplement, exec.threads, layerConfig, grid);
 			runtime.pairGen.stopWalltime();
 
 			TripletThetaPhiPredictor predictor(*contx);

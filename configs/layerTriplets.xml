@@ -13,6 +13,7 @@
 		<dPhiWindow>0.1</dPhiWindow>
 		<tipCut>0.5</tipCut>
 		<pairSpreadZ>2</pairSpreadZ>
+		<z0>2</z0>
 		<pairSpreadPhi>2</pairSpreadPhi>
 		<nCandidates>4</nCandidates>
 	</layerTriplet>
@@ -28,6 +29,7 @@
 		<dPhiWindow>0.4</dPhiWindow>
 		<tipCut>0.5</tipCut>
 		<pairSpreadZ>2</pairSpreadZ>
+		<z0>10</z0>
 		<pairSpreadPhi>2</pairSpreadPhi>
 		<nCandidates>16</nCandidates>
 	</layerTriplet>
@@ -43,6 +45,7 @@
 		<dPhiWindow>0.6</dPhiWindow>
 		<tipCut>1.0</tipCut>
 		<pairSpreadZ>3</pairSpreadZ>
+		<z0>15</z0>
 		<pairSpreadPhi>2</pairSpreadPhi>
 		<nCandidates>64</nCandidates>
 	</layerTriplet>
@@ -58,6 +61,7 @@
 		<dPhiWindow>0.6</dPhiWindow>
 		<tipCut>3.5</tipCut>
 		<pairSpreadZ>4</pairSpreadZ>
+		<z0>30</z0>
 		<pairSpreadPhi>2</pairSpreadPhi>
 		<nCandidates>128</nCandidates>
 	</layerTriplet>

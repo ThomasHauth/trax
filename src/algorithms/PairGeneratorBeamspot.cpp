@@ -1,8 +1,8 @@
-#include "PairGeneratorSector.h"
+#include "PairGeneratorBeamspot.h"
 #include <algorithms/PrefixSum.h>
 
 
-Pairing * PairGeneratorSector::run(HitCollection & hits, const GeometrySupplement & geomSupplement,
+Pairing * PairGeneratorBeamspot::run(HitCollection & hits, const GeometrySupplement & geomSupplement,
 				uint nThreads, const TripletConfigurations & layerTriplets, const Grid & grid)
 		{
 
@@ -42,12 +42,14 @@ Pairing * PairGeneratorSector::run(HitCollection & hits, const GeometrySupplemen
 
 	LOG << "Running pair gen kernel...";
 	cl_event evt = pairCount.run(
-			//configuration
+			//geometry
+			geomSupplement.transfer.buffer(MinRadius()), geomSupplement.transfer.buffer(MaxRadius()),
+			//grid
 			layerTriplets.transfer.buffer(Layer1()), layerTriplets.transfer.buffer(Layer2()), grid.config.nLayers,
 			grid.transfer.buffer(Boundary()),
 			grid.config.MIN_Z, grid.config.sectorSizeZ(),	grid.config.nSectorsZ,
 			grid.config.MIN_PHI, grid.config.sectorSizePhi(), grid.config.nSectorsPhi,
-			layerTriplets.transfer.buffer(pairSpreadZ()), layerTriplets.transfer.buffer(pairSpreadPhi()),
+			layerTriplets.transfer.buffer(z0()), layerTriplets.transfer.buffer(pairSpreadPhi()), layerTriplets.transfer.buffer(dThetaWindow()),
 			// hit input
 			hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
 			// intermeditate data: oracle for hit pairs, prefix sum for found pairs
@@ -57,7 +59,7 @@ Pairing * PairGeneratorSector::run(HitCollection & hits, const GeometrySupplemen
 			//thread config
 			range(nThreads, nLayerTriplets, grid.config.nEvents),
 			range(nThreads, 1,1));
-	PairGeneratorSector::events.push_back(evt);
+	PairGeneratorBeamspot::events.push_back(evt);
 	LOG << "done" << std::endl;
 
 	if(PROLIX){
@@ -89,7 +91,7 @@ Pairing * PairGeneratorSector::run(HitCollection & hits, const GeometrySupplemen
 
 	//Calculate prefix sum
 	PrefixSum prefixSum(ctx);
-	evt = prefixSum.run(m_prefixSum.get_mem(), m_prefixSum.get_count(), nThreads, PairGeneratorSector::events);
+	evt = prefixSum.run(m_prefixSum.get_mem(), m_prefixSum.get_count(), nThreads, PairGeneratorBeamspot::events);
 	uint nFoundPairs;
 	transfer::downloadScalar(m_prefixSum, nFoundPairs, ctx, true, m_prefixSum.get_count()-1, 1, &evt);
 
@@ -124,7 +126,7 @@ Pairing * PairGeneratorSector::run(HitCollection & hits, const GeometrySupplemen
 			//thread config
 			range(nThreads, nLayerTriplets, grid.config.nEvents),
 			range(nThreads, 1,1));
-	PairGeneratorSector::events.push_back(evt);
+	PairGeneratorBeamspot::events.push_back(evt);
 	LOG << "done" << std::endl;
 
 	if(PROLIX){

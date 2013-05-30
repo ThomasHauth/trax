@@ -80,13 +80,14 @@ uint TripletConfigurations::loadTripletConfigurationFromFile(std::string filenam
 		float dPhiCut = v.second.get_child("dPhiCut").get_value<float>();
 		float dPhiWindow = v.second.get_child("dPhiWindow").get_value<float>();
 		uint pairSpreadZ = v.second.get_child("pairSpreadZ").get_value<uint>();
+		float z0 = v.second.get_child("z0").get_value<uint>();
 		uint pairSpreadPhi = v.second.get_child("pairSpreadPhi").get_value<uint>();
 		float tipCut = v.second.get_child("tipCut").get_value<float>();
 		uint nCandidates = v.second.get_child("nCandidates").get_value<uint>();
 
 		if( (n == -1) || (added < n) ){
 			//Layer1, Layer2, Layer3, dThetaCut, dThetaWindow, dPhiCut, dPhiWindow, tipCut, pairSpreadZ, pairSpreadPhi
-			addWithValue(layer1, layer2, layer3, dThetaCut, dThetaWindow, dPhiCut, dPhiWindow, tipCut, pairSpreadZ, pairSpreadPhi, nCandidates);
+			addWithValue(layer1, layer2, layer3, dThetaCut, dThetaWindow, dPhiCut, dPhiWindow, tipCut, pairSpreadZ, z0, pairSpreadPhi, nCandidates);
 			++added;
 
 			if(layer3 > maxLayer)

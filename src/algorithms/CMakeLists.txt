@@ -5,6 +5,7 @@ add_library(algorithms
 	PrefixSum.cpp
 	GridBuilder.cpp
 	PairGeneratorSector.cpp
+	PairGeneratorBeamspot.cpp
 	TripletThetaPhiPredictor.cpp
 	TripletThetaPhiConstrainedPredictor.cpp
 	TripletThetaPhiFilter.cpp
