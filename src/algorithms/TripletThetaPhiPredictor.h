@@ -472,7 +472,7 @@ public:
 			if(gid < nPairs-1){ //not the last hit pair
 				uint nextHit = pairs[gid+1].x;
 				uint nextEvent = hitEvent[nextHit]; // must be the same as hitEvent[secondHit] --> ensured during pair building
-				uint nextLayerTriplet = hitLayer[nextHit]; //the layerTriplet is defined by its innermost layer --> TODO modify storage of layer triplets
+				uint nextLayerTriplet = hitLayer[nextHit]-1; //the layerTriplet is defined by its innermost layer --> TODO modify storage of layer triplets
 
 				if(layerTriplet != nextLayerTriplet || event != nextEvent){ //this thread is the last one processing an element of this particular event and layer triplet
 					tripletOffsets[event * nLayerTriplets + layerTriplet + 1] = nextThread;

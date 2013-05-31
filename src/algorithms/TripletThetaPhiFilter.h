@@ -33,7 +33,9 @@ public:
 	TripletThetaPhiFilter(clever::context & ctext) :
 		KernelWrapper(ctext),
 		filterCount(ctext),
-		filterStore(ctext)
+		filterPopCount(ctext),
+		filterStore(ctext),
+		filterOffsetStore(ctext)
 {
 		// create the buffers this algorithm will need to run
 		PLOG << "FilterKernel WorkGroupSize: " << filterCount.getWorkGroupSize() << std::endl;
@@ -46,60 +48,52 @@ public:
 
 	KERNEL12_CLASSP( filterCount, cl_mem, cl_mem, cl_mem,
 			cl_mem,
-			cl_mem,  cl_mem,
+			cl_mem,  cl_uint,
 			cl_mem, cl_mem, cl_mem,
-			cl_mem, cl_mem, cl_mem,
+			cl_mem, cl_mem,
+			cl_mem,
 			oclDEFINES,
 			__kernel void filterCount(
 					//configuration
 					__global const float * thetaCut, __global const float * phiCut, __global const float * maxTIP,
 					// hit input
 					__global const uint2 * pairs,
-					__global const uint2 * triplets, __global const uint * hitTripletOffsets,
+					__global const uint2 * triplets, const uint nTriplets,
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
+					__global const uint * hitEvent, __global const uint * hitLayer,
 					// intermeditate data: oracle for hit pair + candidate combination, prefix sum for found tracklets
-					__global uint * oracle, __global const uint * oracleOffset, __global uint * prefixSum )
+					__global uint * oracle )
 	{
-		size_t thread = get_global_id(0); // thread
-		size_t layerTriplet = get_global_id(1); //layer
-		size_t event = get_global_id(2); //event
+		size_t gid = get_global_id(0); // thread
 
-		size_t threads = get_local_size(0); //threads per layer
-		size_t nLayerTriplets = get_global_size(1); //total number of processed layer pairings
+		if(gid < nTriplets){
+			//PRINTF(("%lu-%lu-%lu: from triplet candidate %u to %u\n", event, layerTriplet, thread, i, end));
 
-		uint offset = event*nLayerTriplets + layerTriplet;
-		uint tripletOffset = hitTripletOffsets[offset]; //offset of hit pairs
-		uint i = tripletOffset + thread;
-		uint end = hitTripletOffsets[offset + 1]; //last hit pair
+			uint firstHit = pairs[triplets[gid].x].x;
+			uint secondHit = pairs[triplets[gid].x].y;
+			uint thirdHit = triplets[gid].y;
 
-		PRINTF(("%lu-%lu-%lu: from triplet candidate %u to %u\n", event, layerTriplet, thread, i, end));
+			uint event = hitEvent[firstHit]; // must be the same as hitEvent[secondHit] --> ensured during pair building
+			uint layerTriplet = hitLayer[firstHit] - 1; //the layerTriplet is defined by its innermost layer --> TODO modify storage of layer triplets
 
-		uint oOffset = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
-		uint nValid = 0;
+			float dThetaCut = thetaCut[layerTriplet];
+			float dPhiCut = phiCut[layerTriplet];
+			float tipCut = maxTIP[layerTriplet];
 
-		float dThetaCut = thetaCut[layerTriplet];
-		float dPhiCut = phiCut[layerTriplet];
-		float tipCut = maxTIP[layerTriplet];
+			//PRINTF(("%lu-%lu-%lu: oracle from %u\n", event, layerTriplet, thread, oOffset));
 
-		PRINTF(("%lu-%lu-%lu: oracle from %u\n", event, layerTriplet, thread, oOffset));
+			//PRINTF("id %lu threads %lu workload %i start %i end %i maxEnd %i \n", id, threads, workload, i, end, nTriplets);
 
-		//PRINTF("id %lu threads %lu workload %i start %i end %i maxEnd %i \n", id, threads, workload, i, end, nTriplets);
-
-		for(; i < end; i += threads){
-
-			uint firstHit = pairs[triplets[i].x].x;
-			uint secondHit = pairs[triplets[i].x].y;
-			uint thirdHit = triplets[i].y;
 			bool valid = true;
 
 			//tanTheta1
 			float angle1 = atan2(sqrt((hitGlobalX[secondHit] - hitGlobalX[firstHit])*(hitGlobalX[secondHit] - hitGlobalX[firstHit])
 					+ (hitGlobalY[secondHit] - hitGlobalY[firstHit])*(hitGlobalY[secondHit] - hitGlobalY[firstHit]))
-																		, ( hitGlobalZ[secondHit] - hitGlobalZ[firstHit] ));
+					, ( hitGlobalZ[secondHit] - hitGlobalZ[firstHit] ));
 			//tanTheta2
 			float angle2 = atan2(sqrt((hitGlobalX[thirdHit] - hitGlobalX[secondHit])*(hitGlobalX[thirdHit] - hitGlobalX[secondHit])
 					+ (hitGlobalY[thirdHit] - hitGlobalY[secondHit])*(hitGlobalY[thirdHit] - hitGlobalY[secondHit]))
-																								, ( hitGlobalZ[thirdHit] - hitGlobalZ[secondHit] ));
+					, ( hitGlobalZ[thirdHit] - hitGlobalZ[secondHit] ));
 			float delta = fabs(angle2/angle1);
 			valid = valid * (1-dThetaCut <= delta && delta <= 1+dThetaCut);
 
@@ -153,71 +147,73 @@ public:
 			valid = valid * (tip <= tipCut);
 
 			//found good triplet?
-			nValid += valid;
+			//nValid += valid;
 
-			uint index = (i - tripletOffset);
+			//uint index = (i - tripletOffset);
 
-			PRINTF((valid ? "%lu-%lu-%lu: setting bit for %u -> %u\n" : "", event, layerTriplet, thread, i,  index));
+			//PRINTF((valid ? "%lu-%lu-%lu: setting bit for %u -> %u\n" : "", event, layerTriplet, thread, i,  index));
 
-			atomic_or(&oracle[(oOffset + index) / 32], (valid << (index % 32)));
+			atomic_or(&oracle[(gid) / 32], (valid << (gid % 32)));
 			//oracle[i / 32] |= (valid << (i % 32));
 
-		} // end triplet candidate loop
 
-		prefixSum[event*nLayerTriplets*threads + layerTriplet*threads + thread] = nValid;
+			//prefixSum[event*nLayerTriplets*threads + layerTriplet*threads + thread] = nValid;
+		}
 	});
 
-	KERNEL10_CLASSP( filterStore, cl_mem,
-			cl_mem, cl_mem,
-			cl_mem, cl_mem, cl_mem,
+	KERNEL3_CLASSP(filterPopCount, cl_mem, cl_mem, cl_uint, oclDEFINES,
+
+			__kernel void filterPopCount(__global const uint * oracle, __global uint * prefixSum, const uint n)
+	{
+
+		size_t gid = get_global_id(0);
+		if(gid < n){
+			prefixSum[gid] = popcount(oracle[gid]);
+		}
+
+	});
+
+	KERNEL11_CLASSP( filterStore, cl_mem, cl_uint,
+			cl_mem, cl_uint,
+			cl_mem, cl_uint, cl_mem,
 			cl_mem, cl_mem, cl_mem,
 			cl_mem,
 			oclDEFINES,
 				__kernel void filterStore(
 						// hit input
-						__global const uint2 * pairs,
-						__global const uint2 * triplets, __global const uint * hitTripletOffsets,
+						__global const uint2 * pairs, const uint nLayerTriplets,
+						__global const uint2 * triplets, const uint nTriplets,
 						// input for oracle and prefix sum
-						__global const uint * oracle, __global const uint * oracleOffset,__global const uint * prefixSum,
+						__global const uint * oracle, const uint nOracleBytes,__global const uint * prefixSum,
 						// output of tracklet data
 						__global uint * trackletHitId1, __global uint * trackletHitId2, __global uint * trackletHitId3,
 						__global uint * trackletOffsets )
 		{
-		size_t thread = get_global_id(0); // thread
-		size_t layerTriplet = get_global_id(1); //layer
-		size_t event = get_global_id(2); //event
+		size_t gid = get_global_id(0); // thread
 
-		size_t threads = get_local_size(0); //threads per layer
-		size_t nLayerTriplets = get_global_size(1); //total number of processed layer pairings
+		if(gid < nOracleBytes){
+			//PRINTF(("%lu-%lu-%lu: from triplet candidate %u to %u\n", event, layerTriplet, thread, i, end));
 
-		uint offset = event*nLayerTriplets + layerTriplet;
-		uint tripletOffset = hitTripletOffsets[offset]; //offset of hit pairs
-		uint i = tripletOffset + thread;
-		uint end = hitTripletOffsets[offset + 1]; //last hit pair
+			uint pos = prefixSum[gid]; //first position to write
+			uint nextThread = prefixSum[gid+1]; //first position of next thread
 
-		PRINTF(("%lu-%lu-%lu: from triplet candidate %u to %u\n", event, layerTriplet, thread, i, end));
+			//PRINTF(("%lu-%lu-%lu: second layer from %u\n", event, layerTriplet, thread, offset));
 
-		uint pos = prefixSum[event*nLayerTriplets*threads + layerTriplet*threads + thread]; //first position to write
-		uint nextThread = prefixSum[event*nLayerTriplets*threads + layerTriplet*threads + thread+1]; //first position of next thread
+			//configure oracle
+			uint lOracle = oracle[gid]; //load oracle byte
+			//uint bit = (byte + i*nHits2) % 32;
+			//byte += (i*nHits2); byte /= 32;
+			//uint sOracle = oracle[byte];
 
-		PRINTF(("%lu-%lu-%lu: second layer from %u\n", event, layerTriplet, thread, offset));
+			//PRINTF(("%lu-%lu-%lu: from hit1 %u to %u using memory %u to %u\n", event, layerTriplet, thread, i, end, pos, nextThread));
 
-		//configure oracle
-		uint byte = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
-		//uint bit = (byte + i*nHits2) % 32;
-		//byte += (i*nHits2); byte /= 32;
-		//uint sOracle = oracle[byte];
-
-		PRINTF(("%lu-%lu-%lu: from hit1 %u to %u using memory %u to %u\n", event, layerTriplet, thread, i, end, pos, nextThread));
-
-
-			for(; i < end && pos < nextThread; i += threads){ // pos < prefixSum[id+1] can lead to thread divergence
+			//loop over bits of oracle byte
+			for(uint i = 0; i < 32 /*&& pos < nextThread*/; ++i){ // pos < prefixSum[id+1] can lead to thread divergence
 
 				//is this a valid triplet?
-				uint index = i-tripletOffset;
-				bool valid = oracle[(byte + index) / 32] & (1 << (index % 32));
+				bool valid = lOracle & (1 << i);
 
-				PRINTF((valid ? "%lu-%lu-%lu: valid bit for %u -> %u written at %u\n" : "", event, layerTriplet, thread, i,  index, pos));
+				//PRINTF((valid ? "%lu-%lu-%lu: valid bit for %u -> %u written at %u\n" : "", event, layerTriplet, thread, i,  index, pos));
 
 
 				//performance gain?
@@ -230,10 +226,10 @@ public:
 				}*/
 
 				//last triplet written on [pos] is valid one
-				if(valid){
-					trackletHitId1[pos] = pairs[triplets[i].x].x;
-					trackletHitId2[pos] = pairs[triplets[i].x].y;
-					trackletHitId3[pos] = triplets[i].y;
+				if(valid){ //TODO need boundary condiation for nTriplets?
+					trackletHitId1[pos] = pairs[triplets[gid*32 + i].x].x;
+					trackletHitId2[pos] = pairs[triplets[gid*32 + i].x].y;
+					trackletHitId3[pos] = triplets[gid*32 + i].y;
 				}
 
 				//if(valid)
@@ -242,10 +238,51 @@ public:
 				//advance pos if valid
 				pos += valid;
 			}
-
-		if(thread == threads-1){ //store pos in pairOffset array
-				trackletOffsets[event * nLayerTriplets + layerTriplet + 1] = nextThread;
 		}
 		});
+
+	KERNEL8_CLASSP( filterOffsetStore,
+			cl_mem, cl_mem, cl_mem,
+			cl_uint, cl_uint,
+			cl_mem, cl_mem,
+			cl_mem,
+			oclDEFINES,
+
+			__kernel void filterOffsetStore(
+					//tracklets
+					__global const uint * trackletHitId1, __global const uint * trackletHitId2, __global const uint * trackletHitId3,
+					const uint nTracklets, const uint nLayerTriplets,
+					//hit data
+					__global const uint * hitEvent, __global const uint * hitLayer,
+					//output tracklet offst
+					__global uint * trackletOffsets)
+	{
+
+		size_t gid = get_global_id(0);
+
+		//printf("thread %lu\n", gid);
+		if(gid < nTracklets){
+			// data for this tracklet
+			uint event = trackletHitId1[gid]; //temp store for hit id
+			uint layerTriplet = hitLayer[event]-1;
+			event = hitEvent[event];
+
+			//printf("thread %lu event %u layerTriplet %u\n", gid, event, layerTriplet);
+
+			if(gid < nTracklets-1){
+				// data for next tracklet
+				uint nextEvent = trackletHitId1[gid+1]; //temp store for hit id
+				uint nextLayerTriplet = hitLayer[nextEvent]-1;
+				nextEvent = hitEvent[nextEvent];
+
+				if(layerTriplet != nextLayerTriplet || event != nextEvent){ //this thread is the last one processing an element of this particular event and layer triplet
+					trackletOffsets[event * nLayerTriplets + layerTriplet + 1] = gid+1;
+				}
+			} else {
+				//printf("end thread %lu: writting %u at %u\n", gid, gid+1, event * nLayerTriplets + layerTriplet + 1);
+				trackletOffsets[event * nLayerTriplets + layerTriplet + 1] = gid+1;
+			}
+		}
+	});
 
 };
