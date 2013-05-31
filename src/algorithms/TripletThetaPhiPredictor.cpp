@@ -10,9 +10,13 @@
 Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeometry & geom, const GeometrySupplement & geomSupplement, const Dictionary & dict,
 			int nThreads, const TripletConfigurations & layerTriplets, const Grid & grid, const Pairing & pairs){
 
+	uint nPairs = pairs.pairing.get_count();
+
 		LOG << "Initializing prefix sum for prediction...";
-		clever::vector<uint, 1> m_prefixSum(0, grid.config.nEvents*layerTriplets.size()*nThreads+1, ctx);
+		clever::vector<uint, 1> m_prefixSum(0, nPairs+1, ctx);
 		LOG << "done[" << m_prefixSum.get_count()  << "]" << std::endl;
+
+		uint nGroups = (uint) std::max(1.0f, ceil(((float) nPairs)/nThreads));
 
 		LOG << "Running predict kernel...";
 		cl_event evt = predictCount.run(
@@ -24,15 +28,15 @@ Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeom
 				//configuration
 				layerTriplets.transfer.buffer(dThetaWindow()), layerTriplets.transfer.buffer(dPhiWindow()),
 				// input
-				pairs.pairing.get_mem(), pairs.pairingOffsets.get_mem(),
+				pairs.pairing.get_mem(), nPairs,
 				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
+				hits.transfer.buffer(EventNumber()), hits.transfer.buffer(DetectorLayer()),
 				hits.transfer.buffer(DetectorId()), hits.transfer.buffer(HitId()),
 				// output
 				m_prefixSum.get_mem(),
-				local_param(sizeof(cl_uint), (grid.config.nSectorsZ+1)*(grid.config.nSectorsPhi+1)),
 				//thread config
-				range(nThreads, layerTriplets.size(), grid.config.nEvents),
-				range(nThreads, 1,1));
+				range(nGroups * nThreads),
+				range(nThreads));
 		TripletThetaPhiPredictor::events.push_back(evt);
 		LOG << "done" << std::endl;
 
@@ -78,20 +82,19 @@ Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeom
 				grid.config.MIN_Z, grid.config.sectorSizeZ(), grid.config.nSectorsZ,
 				grid.config.MIN_PHI, grid.config.sectorSizePhi(), grid.config.nSectorsPhi,
 				//configuration
-				layerTriplets.transfer.buffer(dThetaWindow()), layerTriplets.transfer.buffer(dPhiWindow()),
+				layerTriplets.transfer.buffer(dThetaWindow()), layerTriplets.transfer.buffer(dPhiWindow()), layerTriplets.size(),
 				//input
-				pairs.pairing.get_mem(), pairs.pairingOffsets.get_mem(),
+				pairs.pairing.get_mem(), pairs.pairing.get_count(),
 				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
+				hits.transfer.buffer(EventNumber()), hits.transfer.buffer(DetectorLayer()),
 				hits.transfer.buffer(DetectorId()),
 				//oracle
 				m_prefixSum.get_mem(),
 				// output
 				m_triplets->pairing.get_mem(), m_triplets->pairingOffsets.get_mem(),
-				//local
-				local_param(sizeof(cl_uint), (grid.config.nSectorsZ+1)*(grid.config.nSectorsPhi+1)),
 				//thread config
-				range(nThreads, layerTriplets.size(), grid.config.nEvents),
-				range(nThreads, 1,1));
+				range(nGroups * nThreads),
+				range(nThreads));
 		TripletThetaPhiPredictor::events.push_back(evt);
 		LOG << "done" << std::endl;
 

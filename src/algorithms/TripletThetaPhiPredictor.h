@@ -42,17 +42,17 @@ public:
 	Pairing * run(HitCollection & hits, const DetectorGeometry & geom, const GeometrySupplement & geomSupplement, const Dictionary & dict,
 			int nThreads, const TripletConfigurations & layerTriplets, const Grid & grid, const Pairing & pairs);
 
-	KERNEL24_CLASSP( predictCount, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL25_CLASSP( predictCount, cl_mem, cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem, uint,
 			cl_float, cl_float, uint,
 			cl_float, cl_float, uint,
 			cl_mem, cl_mem,
-			cl_mem, cl_mem,
+			cl_mem, cl_uint,
 			cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem,
+			cl_mem, cl_mem,
 			cl_mem,
-			local_param,
-			oclDEFINES,
+			oclDEFINES,// "#define PRINTF(a) printf a",
 
 	__kernel void predictCount(
 					//detector geometry
@@ -64,65 +64,53 @@ public:
 					//configuration
 					__global const float * thetaWindow, __global const float * phiWindow,
 					// hit input
-					__global const uint2 * pairs, __global const uint * hitPairOffsets,
+					__global const uint2 * pairs, const uint nPairs,
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
+					__global const uint * hitEvent, __global const uint * hitLayer,
 					__global const uint * detId, __global const int * hitId,
 					// intermeditate data: oracle for hit pair + candidate combination, prefix sum for found tracklets
-					__global uint * prefixSum,
-					//local buffers
-					__local uint * lGrid3)
+					__global uint * prefixSum)
 	{
 
-		size_t thread = get_global_id(0); // thread
-		size_t layerTriplet = get_global_id(1); //layer
-		size_t event = get_global_id(2); //event
+		size_t gid = get_global_id(0); // thread
 
-		size_t threads = get_local_size(0); //threads per layer
-		size_t nLayerTriplets = get_global_size(1); //total number of processed layer pairings
+		PRINTF(("%lu:\n", gid));
 
-		uint offset = event*nLayerTriplets + layerTriplet;
-		uint pairOffset = hitPairOffsets[offset]; //offset of hit pairs
-		uint i = pairOffset + thread;
-		uint end = hitPairOffsets[offset + 1]; //last hit pair
+		if(gid < nPairs){ //divergence only in last work group
+			//get hit pair
+			uint firstHit = pairs[gid].x;
+			uint secondHit = pairs[gid].y;
 
-		PRINTF(("%lu-%lu-%lu: from hit1 %u to %u\n", event, layerTriplet, thread, i, end));
+			PRINTF(("%lu: pair %u-%u\n", gid, firstHit, secondHit));
 
-		uint layer = layer3[layerTriplet]-1; //outer layer
-		uint nHits3 = (nSectorsZ+1)*(nSectorsPhi+1); //temp: number of grid cells
-		offset = event*nLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1); //offset in grid data structure for outer layer
-		//load grid for second layer to local mem
-		for(uint i = thread; i < nHits3; i += threads){
-			lGrid3[i] = grid[offset + i];
-		}
-		barrier(CLK_LOCAL_MEM_FENCE);
-		nHits3 = lGrid3[nHits3-1] - lGrid3[0]; //number of hits in outer layer
-		offset = lGrid3[0]; //beginning of outer layer
+			uint event = hitEvent[firstHit]; // must be the same as hitEvent[secondHit] --> ensured during pair building
+			uint layerTriplet = hitLayer[firstHit] - 1; //the layerTriplet is defined by its innermost layer --> TODO modify storage of layer triplets
 
-		PRINTF(("%lu-%lu-%lu: second layer from %u with %u hits\n", event, layerTriplet, thread, offset, nHits3));
+			uint layer = layer3[layerTriplet]-1; //outer layer
+			__global const uint * lGrid3 = &grid[event*nLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1)]; //offset into grid for easier access
 
-		//ulong oOffset = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
-		uint nFound = 0;
+			PRINTF(("%lu: pair %u-%u of event %u, layerTriplet %u\n", gid, firstHit, secondHit, event, layerTriplet));
 
-		float dThetaWindow = thetaWindow[layerTriplet];
-		float dPhiWindow = phiWindow[layerTriplet];
-		float minLayerRadius = gMinLayerRadius[layer];
-		float maxLayerRadius = gMaxLayerRadius[layer];
+			//PRINTF(("%lu-%lu-%lu: second layer from %u with %u hits\n", event, layerTriplet, thread, offset, nHits3));
 
-		PRINTF(("%lu-%lu-%lu: oracle from %u\n", event, layerTriplet, thread, 0));
+			//ulong oOffset = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
+			uint nFound = 0;
+
+			float dThetaWindow = thetaWindow[layerTriplet];
+			float dPhiWindow = phiWindow[layerTriplet];
+			float minLayerRadius = gMinLayerRadius[layer];
+			float maxLayerRadius = gMaxLayerRadius[layer];
+
+			//PRINTF(("%lu-%lu-%lu: oracle from %u\n", event, layerTriplet, thread, 0));
 
 
-		//PRINTF("id %lu threads %lu workload %i start %i end %i maxEnd %i \n", id, threads, workload, i, end, nPairs);
-
-		for(; i < end; i += threads){ //workload loop
-
-			uint firstHit = pairs[i].x;
-			uint secondHit = pairs[i].y;
+			//PRINTF("id %lu threads %lu workload %i start %i end %i maxEnd %i \n", id, threads, workload, i, end, nPairs);
 
 			//theta
 			float signRadius = sign(hitGlobalY[secondHit]);
 			float theta = atan2( signRadius * sqrt((hitGlobalX[secondHit] - hitGlobalX[firstHit])*(hitGlobalX[secondHit] - hitGlobalX[firstHit])
 					+ (hitGlobalY[secondHit] - hitGlobalY[firstHit])*(hitGlobalY[secondHit] - hitGlobalY[firstHit]))
-																		, ( hitGlobalZ[secondHit] - hitGlobalZ[firstHit] ));
+			, ( hitGlobalZ[secondHit] - hitGlobalZ[firstHit] ));
 
 			float tmp = (1-dThetaWindow) * theta;
 			int overflow = 1 - (fabs(tmp) > M_PI_F)*2;
@@ -170,7 +158,7 @@ public:
 			uint zLowSector = max((int) floor((zLow - minZ) / sectorSizeZ), 0); // signed int because zLow could be lower than minZ
 			uint zHighSector = min((uint) floor((zHigh - minZ) / sectorSizeZ)+1, nSectorsZ);
 
-			PRINTF(("%lu-%lu-%lu: hit pair %u -> prediction %f-%f [%u,%u]\n", event, layerTriplet, thread, i, zLow, zHigh, zLowSector, zHighSector));
+			//PRINTF(("%lu-%lu-%lu: hit pair %u -> prediction %f-%f [%u,%u]\n", event, layerTriplet, thread, i, zLow, zHigh, zLowSector, zHighSector));
 
 			//phi
 			float phi = atan2((hitGlobalY[secondHit] - hitGlobalY[firstHit]) , ( hitGlobalX[secondHit] - hitGlobalX[firstHit] ));
@@ -192,7 +180,7 @@ public:
 			uint phiLowSector= max((uint) floor((phiLow - minPhi) / sectorSizePhi), 0u);
 			uint phiHighSector = min((uint) floor((phiHigh - minPhi) / sectorSizePhi)+1, nSectorsPhi);
 
-			PRINTF(("%lu-%lu-%lu: hit pair %u:  phi = %f - %f -> [%u,%u] %s\n", event, layerTriplet, thread, i, phiLow, phiHigh, phiLowSector, phiHighSector, wrapAround ? " wrapAround" : ""));
+			//PRINTF(("%lu-%lu-%lu: hit pair %u:  phi = %f - %f -> [%u,%u] %s\n", event, layerTriplet, thread, i, phiLow, phiHigh, phiLowSector, phiHighSector, wrapAround ? " wrapAround" : ""));
 
 			for(uint zSector = zLowSector; zSector < zHighSector; ++ zSector){
 
@@ -203,14 +191,14 @@ public:
 				uint j = lGrid3[zSector*(nSectorsPhi+1)+phiLowSector];
 				uint end2 = wrapAround * zSectorEnd + //add end of layer
 						lGrid3[zSector*(nSectorsPhi+1)+phiHighSector] //actual end of sector
-						                 - wrapAround * (zSectorStart); //substract start of zSector
+						       - wrapAround * (zSectorStart); //substract start of zSector
 
 				for(; j < end2; ++j){
 					// check z range
 					ulong index = j - (j >= zSectorEnd) * zSectorLength;
 					bool valid = zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh;
 
-/*
+					/*
 					if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[index]){
 						PRINTF("%i-%i-%i [%i]: z exp[%f]: %f - %f; z act: %f\n", firstHit, secondHit, index, hitId[firstHit], hitGlobalZ[secondHit], zLow, zHigh, hitGlobalZ[index]);
 						float thetaAct = atan2(sign(hitGlobalY[index])*sqrt((hitGlobalX[index] - hitGlobalX[secondHit])*(hitGlobalX[index] - hitGlobalX[secondHit])
@@ -225,55 +213,54 @@ public:
 						PRINTF("\tdr exp: %f - %f; dr act: %f\n", dRmin, dRmax, r3-r2);
 						//}
 					}
-*/
+					 */
 
 					// check phi range
 					float actPhi = atan2(hitGlobalY[index],hitGlobalX[index]);
 					valid = valid * ((!wrapAround && (phiLow <= actPhi && actPhi <= phiHigh))
 							|| (wrapAround && ((phiLow <= actPhi && actPhi <= M_PI_F) || (-M_PI_F <= actPhi && actPhi <= phiHigh))));
 
-/*
+					/*
 					if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[index]){
 						PRINTF("%i-%i-%i [%i]: phi exp: %f - %f; phi act: %f\n", firstHit, secondHit, index, hitId[firstHit], phiLow, phiHigh, actPhi);
 						//}
 					}
-*/
+					 */
 
 					//if valid update nFound
 					nFound = nFound + valid;
 
 					//update oracle
-					index = (i - pairOffset)*nHits3 + j - (j >= zSectorEnd) * zSectorLength - offset;
+					//index = (i - pairOffset)*nHits3 + j - (j >= zSectorEnd) * zSectorLength - offset;
 
-					PRINTF((valid ? "%lu-%lu-%lu: setting bit for %u and %u (%u)\n" : "", event, layerTriplet, thread, i-pairOffset, j - (j >= zSectorEnd) * zSectorLength, j));
+					//PRINTF((valid ? "%lu-%lu-%lu: setting bit for %u and %u (%u)\n" : "", event, layerTriplet, thread, i-pairOffset, j - (j >= zSectorEnd) * zSectorLength, j));
 
 					//if(valid && ((oOffset + index) / 32) > 89766864)
-						//printf("%lu-%lu-%lu: setting bit for %u and %u (%u) -> %u: %u-%u\n", event, layerTriplet, thread, i-pairOffset, j - (j >= zSectorEnd) * zSectorLength, j,  index, ((oOffset + index) / 32), (valid << (index % 32)));
+					//printf("%lu-%lu-%lu: setting bit for %u and %u (%u) -> %u: %u-%u\n", event, layerTriplet, thread, i-pairOffset, j - (j >= zSectorEnd) * zSectorLength, j,  index, ((oOffset + index) / 32), (valid << (index % 32)));
 
 					//atomic_or(&oracle[(oOffset + index) / 32], (valid << (index % 32)));
 
 				} // end hit loop
 			} // end sector loop
 
-		} //end workload loop
+			prefixSum[gid] = nFound; //TODO update length of prefixSum
 
-		prefixSum[event*nLayerTriplets*threads + layerTriplet*threads + thread] = nFound;
-
-		//PRINTF("[%lu] rejZ: %u, rejP: %u, rejB: %u\n", gid, rejZ, rejP, rejB);
+			//PRINTF("[%lu] rejZ: %u, rejP: %u, rejB: %u\n", gid, rejZ, rejP, rejB);
+		}
 	});
 
-	KERNEL25_CLASSP(predictStore, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL27_CLASSP(predictStore, cl_mem, cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem, uint,
 			cl_float, cl_float, uint,
 			cl_float, cl_float, uint,
-			cl_mem, cl_mem,
-			cl_mem, cl_mem,
+			cl_mem, cl_mem, cl_uint,
+			cl_mem, cl_uint,
 			cl_mem, cl_mem, cl_mem,
+			cl_mem, cl_mem,
 			cl_mem,
 			cl_mem,
 			cl_mem, cl_mem,
-			local_param,
-			oclDEFINES,
+			oclDEFINES,//"#define PRINTF(a) printf a",
 
 	__kernel void predictStore(
 					//detector geometry
@@ -283,70 +270,58 @@ public:
 					const float minZ, const float sectorSizeZ, const uint nSectorsZ,
 					const float minPhi, const float sectorSizePhi, const uint nSectorsPhi,
 					// configuration
-					__global const float * thetaWindow, __global const float * phiWindow,
+					__global const float * thetaWindow, __global const float * phiWindow, const uint nLayerTriplets,
 					// hit input
-					__global const uint2 * pairs, __global const uint * hitPairOffsets,
+					__global const uint2 * pairs, const uint nPairs,
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
+					__global const uint * hitEvent, __global const uint * hitLayer,
 					__global const uint * detId,
 					// input for oracle and prefix sum
 					__global const uint * prefixSum,
 					// output triplet candidates
-					__global uint2 * triplets, __global uint * tripletOffsets,
-					//local buffers
-					__local uint * lGrid3)
+					__global uint2 * triplets, __global uint * tripletOffsets)
 	{
-		size_t thread = get_global_id(0); // thread
-		size_t layerTriplet = get_global_id(1); //layer
-		size_t event = get_global_id(2); //event
+		size_t gid = get_global_id(0); // thread
 
-		size_t threads = get_local_size(0); //threads per layer
-		size_t nLayerTriplets = get_global_size(1); //total number of processed layer pairings
+		PRINTF(("%lu:\n", gid));
 
-		uint offset = event*nLayerTriplets + layerTriplet;
-		uint pairOffset = hitPairOffsets[offset]; //offset of hit pairs
-		uint i = pairOffset + thread;
-		uint end = hitPairOffsets[offset + 1]; //last hit pair
+		if(gid < nPairs){
+			//get hit pair
+			uint firstHit = pairs[gid].x;
+			uint secondHit = pairs[gid].y;
 
-		PRINTF(("%lu-%lu-%lu: from hit1 %u to %u\n", event, layerTriplet, thread, i, end));
+			PRINTF(("%lu: pair %u-%u\n", gid, firstHit, secondHit));
 
-		uint layer = layer3[layerTriplet]-1; //outer layer
-		uint nHits3 = (nSectorsZ+1)*(nSectorsPhi+1); //temp: number of grid cells
-		offset = event*nLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1); //offset in grid data structure for outer layer
-		//load grid for second layer to local mem
-		for(uint i = thread; i < nHits3; i += threads){
-			lGrid3[i] = grid[offset + i];
-		}
-		barrier(CLK_LOCAL_MEM_FENCE);
-		nHits3 = lGrid3[nHits3-1] - lGrid3[0]; //number of hits in outer layer
-		offset = lGrid3[0]; //beginning of outer layer
+			uint event = hitEvent[firstHit]; // must be the same as hitEvent[secondHit] --> ensured during pair building
+			uint layerTriplet = hitLayer[firstHit]-1; //the layerTriplet is defined by its innermost layer --> TODO modify storage of layer triplets
 
-		uint pos = prefixSum[event*nLayerTriplets*threads + layerTriplet*threads + thread]; //first position to write
-		uint nextThread = prefixSum[event*nLayerTriplets*threads + layerTriplet*threads + thread+1]; //first position of next thread
+			uint layer = layer3[layerTriplet]-1; //outer layer
+			__global const uint * lGrid3 = &grid[event*nLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1)]; //offset into grid for easier access
 
-		float dThetaWindow = thetaWindow[layerTriplet];
-		float dPhiWindow = phiWindow[layerTriplet];
-		float minLayerRadius = gMinLayerRadius[layer];
-		float maxLayerRadius = gMaxLayerRadius[layer];
+			uint pos = prefixSum[gid]; //first position to write
+			uint nextThread = prefixSum[gid+1]; //first position of next thread
 
-		PRINTF(("%lu-%lu-%lu: second layer from %u with %u hits\n", event, layerTriplet, thread, offset, nHits3));
+			float dThetaWindow = thetaWindow[layerTriplet];
+			float dPhiWindow = phiWindow[layerTriplet];
+			float minLayerRadius = gMinLayerRadius[layer];
+			float maxLayerRadius = gMaxLayerRadius[layer];
 
-		//configure oracle
-		//ulong byte = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
-		//uint bit = (byte + i*nHits2) % 32;
-		//byte += (i*nHits2); byte /= 32;
-		//uint sOracle = oracle[byte];
+			PRINTF(("%lu: pair %u-%u of event %u, layerTriplet %u\n", gid, firstHit, secondHit, event, layerTriplet));
 
-		PRINTF(("%lu-%lu-%lu: from hit1 %u to %u with hits2 %u using memory %u to %u\n", event, layerTriplet, thread, i, end, nHits3, pos, nextThread));
-		for(; i < end; i += threads){
+			//configure oracle
+			//ulong byte = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
+			//uint bit = (byte + i*nHits2) % 32;
+			//byte += (i*nHits2); byte /= 32;
+			//uint sOracle = oracle[byte];
 
-			uint firstHit = pairs[i].x;
-			uint secondHit = pairs[i].y;
+			//(("%lu-%lu-%lu: from hit1 %u to %u with hits2 %u using memory %u to %u\n", event, layerTriplet, thread, i, end, nHits3, pos, nextThread));
+			//for(; i < end; i += threads){
 
 			//theta
 			float signRadius = sign(hitGlobalY[secondHit]);
 			float theta = atan2( signRadius * sqrt((hitGlobalX[secondHit] - hitGlobalX[firstHit])*(hitGlobalX[secondHit] - hitGlobalX[firstHit])
 					+ (hitGlobalY[secondHit] - hitGlobalY[firstHit])*(hitGlobalY[secondHit] - hitGlobalY[firstHit]))
-					, ( hitGlobalZ[secondHit] - hitGlobalZ[firstHit] ));
+			, ( hitGlobalZ[secondHit] - hitGlobalZ[firstHit] ));
 
 			float tmp = (1-dThetaWindow) * theta;
 			int overflow = 1 - (fabs(tmp) > M_PI_F)*2;
@@ -394,7 +369,7 @@ public:
 			uint zLowSector = max((int) floor((zLow - minZ) / sectorSizeZ), 0); // signed int because zLow could be lower than minZ
 			uint zHighSector = min((uint) floor((zHigh - minZ) / sectorSizeZ)+1, nSectorsZ);
 
-			PRINTF(("%lu-%lu-%lu: hit pair %u -> prediction %f-%f [%u,%u]\n", event, layerTriplet, thread, i, zLow, zHigh, zLowSector, zHighSector));
+			//PRINTF(("%lu-%lu-%lu: hit pair %u -> prediction %f-%f [%u,%u]\n", event, layerTriplet, thread, i, zLow, zHigh, zLowSector, zHighSector));
 
 			//phi
 			float phi = atan2((hitGlobalY[secondHit] - hitGlobalY[firstHit]) , ( hitGlobalX[secondHit] - hitGlobalX[firstHit] ));
@@ -416,7 +391,7 @@ public:
 			uint phiLowSector= max((uint) floor((phiLow - minPhi) / sectorSizePhi), 0u);
 			uint phiHighSector = min((uint) floor((phiHigh - minPhi) / sectorSizePhi)+1, nSectorsPhi);
 
-			PRINTF(("%lu-%lu-%lu: hit pair %u:  phi = %f - %f -> [%u,%u] %s\n", event, layerTriplet, thread, i, phiLow, phiHigh, phiLowSector, phiHighSector, wrapAround ? " wrapAround" : ""));
+			//PRINTF(("%lu-%lu-%lu: hit pair %u:  phi = %f - %f -> [%u,%u] %s\n", event, layerTriplet, thread, i, phiLow, phiHigh, phiLowSector, phiHighSector, wrapAround ? " wrapAround" : ""));
 
 			for(uint zSector = zLowSector; zSector < zHighSector; ++ zSector){
 
@@ -480,7 +455,7 @@ public:
 
 					//last triplet written on [pos] is valid one
 					if(valid){
-						triplets[pos].x = i;
+						triplets[pos].x = gid;
 						triplets[pos].y = index;
 					}
 
@@ -491,10 +466,20 @@ public:
 					pos += valid;
 				}
 			}
-		}
+			//}
 
-		if(thread == threads-1){ //store pos in pairOffset array
-			tripletOffsets[event * nLayerTriplets + layerTriplet + 1] = nextThread;
+			//determine triplet offsets
+			if(gid < nPairs-1){ //not the last hit pair
+				uint nextHit = pairs[gid+1].x;
+				uint nextEvent = hitEvent[nextHit]; // must be the same as hitEvent[secondHit] --> ensured during pair building
+				uint nextLayerTriplet = hitLayer[nextHit]; //the layerTriplet is defined by its innermost layer --> TODO modify storage of layer triplets
+
+				if(layerTriplet != nextLayerTriplet || event != nextEvent){ //this thread is the last one processing an element of this particular event and layer triplet
+					tripletOffsets[event * nLayerTriplets + layerTriplet + 1] = nextThread;
+				}
+			} else {
+				tripletOffsets[event * nLayerTriplets + layerTriplet + 1] = nextThread; // this is the last pair, just store it
+			}
 		}
 	});
 
