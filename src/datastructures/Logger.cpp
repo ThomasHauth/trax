@@ -16,7 +16,7 @@ Logger& Logger::getInstance()
 
 std::ostream & Logger::addLogEntry(uint level) {
 
-	if(logLevel == Logger::cLIVE)
+	if(logLevel <= Logger::cLIVE)
 		return std::cout;
 
 	if(logLevel == Logger::cSILENT)

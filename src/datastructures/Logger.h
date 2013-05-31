@@ -14,7 +14,7 @@ class Logger : private boost::noncopyable {
 #define PLOG Logger::getInstance().addLogEntry(Logger::cPROLIX)
 
 #define VERBOSE Logger::getInstance().getLogLevel() >= Logger::cVERBOSE
-#define PROLIX  Logger::getInstance().getLogLevel() >= Logger::cPROLIX
+#define PROLIX  (Logger::getInstance().getLogLevel() >= Logger::cPROLIX) || (Logger::getInstance().getLogLevel() <= Logger::cLIVEPROLIX)
 
 public:
 
@@ -43,6 +43,7 @@ private:
 	 boost::iostreams::stream< boost::iostreams::null_sink > nullStream;
 
 public:
+	static constexpr int cLIVEPROLIX = -3;
 	static constexpr int cLIVE = -2;
 	static constexpr int cSILENT = -1;
 	static constexpr int cNORMAL = 0;

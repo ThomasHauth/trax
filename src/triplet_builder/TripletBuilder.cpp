@@ -54,9 +54,12 @@ clever::context * createContext(ExecutionParameters exec){
 	//
 	LOG << "Creating context for " << (exec.useCPU ? "CPU" : "GPGPU") << "...";
 
-//#ifndef CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL
-//#define CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL 0
-//#endif
+//#define DEBUG
+#if defined(DEBUG) && defined(CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL)
+	#define DEBUG_OCL CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL
+#else
+	#define DEBUG_OCL 0
+#endif
 
 	clever::context *contx;
 	if(!exec.useCPU){
@@ -71,7 +74,7 @@ clever::context * createContext(ExecutionParameters exec){
 			//if not use cpu
 			clever::context_settings settings = clever::context_settings::default_cpu();
 			settings.m_profile = true;
-			settings.m_cmd_queue_properties |= CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL;
+			settings.m_cmd_queue_properties |= DEBUG_OCL;
 
 			contx = new clever::context(settings);
 			LOG << "error: fallback on CPU" << std::endl;
@@ -79,7 +82,7 @@ clever::context * createContext(ExecutionParameters exec){
 	} else {
 		clever::context_settings settings = clever::context_settings::default_cpu();
 		settings.m_profile = true;
-		settings.m_cmd_queue_properties |= CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL;
+		settings.m_cmd_queue_properties |= DEBUG_OCL;
 
 		contx = new clever::context(settings);
 		LOG << "success" << std::endl;
@@ -390,13 +393,15 @@ int main(int argc, char *argv[]) {
 	//define verbosity level
 	exec.verbosity = Logger::cNORMAL;
 	if(vm.count("silent"))
-			exec.verbosity = Logger::cSILENT;
+		exec.verbosity = Logger::cSILENT;
 	if(vm.count("verbose"))
-			exec.verbosity = Logger::cVERBOSE;
+		exec.verbosity = Logger::cVERBOSE;
 	if(vm.count("prolix"))
-				exec.verbosity = Logger::cPROLIX;
+		exec.verbosity = Logger::cPROLIX;
 	if(vm.count("live"))
-					exec.verbosity = Logger::cLIVE;
+		exec.verbosity = Logger::cLIVE;
+	if(vm.count("live") && vm.count("prolix"))
+		exec.verbosity = Logger::cLIVEPROLIX;
 
 
 	typedef std::pair<ExecutionParameters, EventDataLoadingParameters> tExecution;

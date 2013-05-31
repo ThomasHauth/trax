@@ -55,10 +55,10 @@ public:
 			clever::Collection<GRID_ITEMS>(cfg.nEvents *cfg.nLayers*(cfg.nSectorsZ+1)*(cfg.nSectorsPhi+1)),
 			config(cfg)
 	{
-		size_t items = size();
+		/*size_t items = size();
 		for(uint i = 0; i < items; ++i){
 			addWithValue(0);
-		}
+		}*/
 	}
 
 public:

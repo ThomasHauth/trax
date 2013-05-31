@@ -28,12 +28,16 @@ cl_ulong GridBuilder::run(HitCollection & hits, uint nThreads, const EventSupple
 			range(nThreads,1, 1));
 	GridBuilder::events.push_back(evt);
 
+	ctx.finish_default_queue();
+
 	//run prefix sum on grid boundaries
 	LOG << "Grid prefix kernel" << std::endl;
 	PrefixSum prefixSum(ctx);
 
 	evt = prefixSum.run(grid.transfer.buffer(Boundary()), grid.size(),  nThreads, GridBuilder::events);
 	GridBuilder::events.push_back(evt);
+
+	ctx.finish_default_queue();
 
 	//download updated grid
 	grid.transfer.fromDevice(ctx,grid, &GridBuilder::events);
@@ -43,6 +47,8 @@ cl_ulong GridBuilder::run(HitCollection & hits, uint nThreads, const EventSupple
 
 	//allocate new buffers for ouput
 	hits.transfer.initBuffers(ctx, hits);
+
+	ctx.finish_default_queue();
 
 	LOG << "Grid store kernel" << std::endl;
 	evt = gridStore.run(
@@ -66,6 +72,8 @@ cl_ulong GridBuilder::run(HitCollection & hits, uint nThreads, const EventSupple
 			range(nThreads,1, 1));
 
 	GridBuilder::events.push_back(evt);
+
+	ctx.finish_default_queue();
 
 	//download updated hit data and grid
 	//grid.transfer.fromDevice(ctx,grid, &events);
