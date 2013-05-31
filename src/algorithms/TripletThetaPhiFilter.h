@@ -168,7 +168,11 @@ public:
 
 		size_t gid = get_global_id(0);
 		if(gid < n){
-			prefixSum[gid] = popcount(oracle[gid]);
+			// only present in OCL 1.2 prefixSum[gid] = popcount(oracle[gid]);
+			uint i = oracle[gid];
+			i = i - ((i >> 1) & 0x55555555);
+			i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
+			prefixSum[gid] = (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
 		}
 
 	});
