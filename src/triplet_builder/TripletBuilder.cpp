@@ -244,7 +244,7 @@ std::pair<RuntimeRecords, PhysicsRecords> buildTriplets(ExecutionParameters exec
 			runtime.buildGrid.stopWalltime();
 
 			//run it
-			PairGeneratorBeamspot pairGen(*contx);
+			PairGeneratorSector pairGen(*contx);
 
 			runtime.pairGen.startWalltime();
 			Pairing  * pairs = pairGen.run(hits, geomSupplement, exec.threads, layerConfig, grid);
