@@ -109,10 +109,10 @@ std::string tIOInfo::csvDump(const tIOInfo & var) const{
 
 void fillInfo(tKernelEvent t, tRuntimeInfo & info){
 	if(t.kernelName.find("Count") != std::string::npos){
-		info.count = t.time;
+		info.count += t.time;
 	}
 	if(t.kernelName.find("Store") != std::string::npos){
-		info.store = t.time;
+		info.store += t.time;
 	}
 	if(t.kernelName.find("prefixSum") != std::string::npos){
 		info.scan += t.time;

@@ -295,7 +295,7 @@ std::string PhysicsRecords::csvDump(std::string outputDir) const {
 	s << std::endl;
 
 	PhysicsRecord total(records[0]);
-	total.layerTriplet = 99;
+	total.layerTriplet = records.size()+1;
 	for(uint i = 0; i < records.size(); ++i){
 		s << records[i].csvDump(outputDir) << std::endl;
 
