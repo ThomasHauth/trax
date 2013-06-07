@@ -376,37 +376,7 @@ void calculateMeanVar(tIOInfo & mean, tIOInfo & var, const tIOInfo & x, uint n){
 
 }
 
-//void mergeMeanVar(tRuntimeInfo & mean, tRuntimeInfo & var, const tRuntimeInfo & meanX, const tRuntimeInfo & varX, uint n, uint nX){
-//
-//	mean.count = (mean.count * n + meanX.count * nX) / (n + nX);
-//	long double M2 = var.count * clamp(n-1) + varX.count * clamp(nX-1);
-//	var.count = M2 / clamp(n + nX -1);
-//
-//	mean.scan = (mean.scan * n + meanX.scan * nX) / (n + nX);
-//	M2 = var.scan * clamp(n-1) + varX.scan * clamp(nX-1);
-//	var.scan = M2 / clamp(n + nX -1);
-//
-//	mean.store = (mean.store * n + meanX.store * nX) / (n + nX);
-//	M2 = var.store * clamp(n-1) + varX.store * clamp(nX-1);
-//	var.store = M2 / clamp(n + nX -1);
-//
-//	mean.walltime = (mean.walltime * n + meanX.walltime * nX) / (n + nX);
-//	M2 = var.walltime * clamp(n-1) + varX.walltime * clamp(nX-1);
-//	var.walltime = M2 / clamp(n + nX -1);
-//
-//}
-//
-//void mergeMeanVar(tIOInfo & mean, tIOInfo & var, const tIOInfo & meanX, const tIOInfo & varX, uint n, uint nX){
-//
-//	mean.time = (mean.time * n + meanX.time * nX) / (n + nX);
-//	long double M2 = var.time * clamp(n-1) + varX.time * clamp(nX-1);
-//	var.time = M2 / clamp(n + nX -1);
-//
-//	mean.bytes = (mean.bytes * n + meanX.bytes * nX) / (n + nX);
-//	M2 = var.bytes * clamp(n-1) + varX.bytes * clamp(nX-1);
-//	var.bytes = M2 / clamp(n + nX -1);
-//
-//}
+
 
 void RuntimeRecordClass::addRecord(const RuntimeRecord & r){
 
@@ -427,15 +397,6 @@ void RuntimeRecordClass::addRecord(const RuntimeRecord & r){
 }
 
 void RuntimeRecordClass::merge(const RuntimeRecordClass & c){
-
-	//merge  averages and variances
-//	mergeMeanVar(buildGridMean, buildGridVar, c.buildGridMean, c.buildGridVar, records.size(), c.records.size());
-//	mergeMeanVar(pairGenMean, pairGenVar, c.pairGenMean, c.pairGenVar, records.size(), c.records.size());
-//	mergeMeanVar(tripletPredictMean, tripletPredictVar, c.tripletPredictMean, c.tripletPredictVar, records.size(), c.records.size());
-//	mergeMeanVar(tripletFilterMean, tripletFilterVar, c.tripletFilterMean, c.tripletFilterVar, records.size(), c.records.size());
-//
-//	mergeMeanVar(readMean, readVar, c.readMean, c.readVar, records.size(), c.records.size());
-//	mergeMeanVar(writeMean, writeVar, c.writeMean, c.writeVar, records.size(), c.records.size());
 
 	//transfer all values
 	for(uint i = 0; i < c.records.size(); ++i){

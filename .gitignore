@@ -11,3 +11,4 @@ src/.settings/
 .project
 *~
 log
+*.pdf

@@ -201,16 +201,16 @@ void PhysicsRecord::merge(const PhysicsRecord& c) {
 	n += c.n;
 
 	long double delta = c.efficiencyMean - efficiencyMean;
-	efficiencyMean += delta / Utils::clamp(n);
-	efficiencyVar +=  delta*(c.efficiencyMean - efficiencyMean) + c.efficiencyVar;
+	efficiencyMean += c.n*delta / Utils::clamp(n);
+	efficiencyVar +=  c.n*delta*(c.efficiencyMean - efficiencyMean) + c.efficiencyVar;
 
 	delta = c.fakeRateMean - fakeRateMean;
-	fakeRateMean += delta / Utils::clamp(n);
-	fakeRateVar +=  delta*(c.fakeRateMean - fakeRateMean) + c.fakeRateVar;
+	fakeRateMean += c.n*delta / Utils::clamp(n);
+	fakeRateVar +=  c.n*delta*(c.fakeRateMean - fakeRateMean) + c.fakeRateVar;
 
 	delta = c.cloneRateMean - cloneRateMean;
-	cloneRateMean += delta / Utils::clamp(n);
-	cloneRateVar +=  delta*(c.cloneRateMean - cloneRateMean) + c.cloneRateVar;
+	cloneRateMean += c.n*delta / Utils::clamp(n);
+	cloneRateVar +=  c.n*delta*(c.cloneRateMean - cloneRateMean) + c.cloneRateVar;
 
 }
 
