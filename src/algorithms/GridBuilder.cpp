@@ -10,22 +10,43 @@ cl_ulong GridBuilder::run(HitCollection & hits, uint nThreads, const EventSupple
 	cl_mem x = hits.transfer.buffer(GlobalX()); cl_mem y =  hits.transfer.buffer(GlobalY()); cl_mem z =  hits.transfer.buffer(GlobalZ());
 	cl_mem layer= hits.transfer.buffer(DetectorLayer()); cl_mem detId = hits.transfer.buffer(DetectorId()); cl_mem hitId = hits.transfer.buffer(HitId()); cl_mem evtId = hits.transfer.buffer(EventNumber());
 
-	LOG << "Grid count kernel" << std::endl;
-	cl_event evt = gridCount.run(
-			//configuration
-			eventSupplement.transfer.buffer(Offset()), layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()), layerSupplement.nLayers,
-			//grid data
-			grid.transfer.buffer(Boundary()),
-			//grid configuration
-			grid.config.MIN_Z, grid.config.sectorSizeZ(), grid.config.nSectorsZ,
-			grid.config.MIN_PHI, grid.config.sectorSizePhi(),grid.config.nSectorsPhi,
-			// hit input
-			x, y, z,
-			//local memory
-			local_param(sizeof(cl_uint), (grid.config.nSectorsZ+1)*(grid.config.nSectorsPhi+1)),
-			//work item config
-			range(nThreads,layerSupplement.nLayers, eventSupplement.nEvents),
-			range(nThreads,1, 1));
+	cl_event evt;
+
+	local_param localMem(sizeof(cl_uint), (grid.config.nSectorsZ+1)*(grid.config.nSectorsPhi+1));
+
+	if(localMem < ctx.getLocalMemSize()){
+		LOG << "Grid count kernel with local memory" << std::endl;
+		evt = gridCount.run(
+				//configuration
+				eventSupplement.transfer.buffer(Offset()), layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()), layerSupplement.nLayers,
+				//grid data
+				grid.transfer.buffer(Boundary()),
+				//grid configuration
+				grid.config.MIN_Z, grid.config.sectorSizeZ(), grid.config.nSectorsZ,
+				grid.config.MIN_PHI, grid.config.sectorSizePhi(),grid.config.nSectorsPhi,
+				// hit input
+				x, y, z,
+				//local memory
+				localMem,
+				//work item config
+				range(nThreads,layerSupplement.nLayers, eventSupplement.nEvents),
+				range(nThreads,1, 1));
+	} else {
+		LOG << "Grid count kernel WITHOUT local memory" << std::endl;
+		evt = gridNoLocalCount.run(
+				//configuration
+				eventSupplement.transfer.buffer(Offset()), layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()), layerSupplement.nLayers,
+				//grid data
+				grid.transfer.buffer(Boundary()),
+				//grid configuration
+				grid.config.MIN_Z, grid.config.sectorSizeZ(), grid.config.nSectorsZ,
+				grid.config.MIN_PHI, grid.config.sectorSizePhi(),grid.config.nSectorsPhi,
+				// hit input
+				x, y, z,
+				//work item config
+				range(nThreads,layerSupplement.nLayers, eventSupplement.nEvents),
+				range(nThreads,1, 1));
+	}
 	GridBuilder::events.push_back(evt);
 
 	ctx.finish_default_queue();
@@ -50,26 +71,75 @@ cl_ulong GridBuilder::run(HitCollection & hits, uint nThreads, const EventSupple
 
 	ctx.finish_default_queue();
 
-	LOG << "Grid store kernel" << std::endl;
-	evt = gridStore.run(
-			//configuration
-			eventSupplement.transfer.buffer(Offset()), layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()), grid.config.nLayers,
-			//grid data
-			grid.transfer.buffer(Boundary()),
-			//grid configuration
-			grid.config.MIN_Z, grid.config.sectorSizeZ(), grid.config.nSectorsZ,
-			grid.config.MIN_PHI, grid.config.sectorSizePhi(),grid.config.nSectorsPhi,
-			// hit input
-			x,y,z,
-			layer,detId, hitId, evtId,
-			// hit output
-			hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
-			hits.transfer.buffer(DetectorLayer()), hits.transfer.buffer(DetectorId()), hits.transfer.buffer(HitId()), hits.transfer.buffer(EventNumber()),
-			//local params
-			local_param(sizeof(cl_uint), (grid.config.nSectorsZ+1)*(grid.config.nSectorsPhi+1)), local_param(sizeof(cl_uint), (grid.config.nSectorsZ+1)*(grid.config.nSectorsPhi+1)),
-			//work item config
-			range(nThreads,layerSupplement.nLayers, eventSupplement.nEvents),
-			range(nThreads,1, 1));
+	if(localMem*2 < ctx.getLocalMemSize()){
+		LOG << "Grid store kernel with local memory" << std::endl;
+		evt = gridStore.run(
+				//configuration
+				eventSupplement.transfer.buffer(Offset()), layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()), grid.config.nLayers,
+				//grid data
+				grid.transfer.buffer(Boundary()),
+				//grid configuration
+				grid.config.MIN_Z, grid.config.sectorSizeZ(), grid.config.nSectorsZ,
+				grid.config.MIN_PHI, grid.config.sectorSizePhi(),grid.config.nSectorsPhi,
+				// hit input
+				x,y,z,
+				layer,detId, hitId, evtId,
+				// hit output
+				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
+				hits.transfer.buffer(DetectorLayer()), hits.transfer.buffer(DetectorId()), hits.transfer.buffer(HitId()), hits.transfer.buffer(EventNumber()),
+				//local params
+				localMem, localMem,
+				//work item config
+				range(nThreads,layerSupplement.nLayers, eventSupplement.nEvents),
+				range(nThreads,1, 1));
+	} else if(localMem < ctx.getLocalMemSize()){
+		LOG << "Grid store kernel with only local WRITTEN memory" << std::endl;
+		evt = gridWrittenLocalStore.run(
+				//configuration
+				eventSupplement.transfer.buffer(Offset()), layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()), grid.config.nLayers,
+				//grid data
+				grid.transfer.buffer(Boundary()),
+				//grid configuration
+				grid.config.MIN_Z, grid.config.sectorSizeZ(), grid.config.nSectorsZ,
+				grid.config.MIN_PHI, grid.config.sectorSizePhi(),grid.config.nSectorsPhi,
+				// hit input
+				x,y,z,
+				layer,detId, hitId, evtId,
+				// hit output
+				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
+				hits.transfer.buffer(DetectorLayer()), hits.transfer.buffer(DetectorId()), hits.transfer.buffer(HitId()), hits.transfer.buffer(EventNumber()),
+				//local params
+				localMem,
+				//work item config
+				range(nThreads,layerSupplement.nLayers, eventSupplement.nEvents),
+				range(nThreads,1, 1));
+	} else {
+		LOG << "Grid store kernel WITHOUT local memory" << std::endl;
+
+		LOG << "\tInitializing written buffer...";
+		clever::vector<uint, 1> m_written(0, grid.size(), ctx);
+		LOG << "done[" << m_written.get_count()  << "]" << std::endl;
+
+		evt = gridNoLocalStore.run(
+				//configuration
+				eventSupplement.transfer.buffer(Offset()), layerSupplement.transfer.buffer(NHits()), layerSupplement.transfer.buffer(Offset()), grid.config.nLayers,
+				//grid data
+				grid.transfer.buffer(Boundary()),
+				//grid configuration
+				grid.config.MIN_Z, grid.config.sectorSizeZ(), grid.config.nSectorsZ,
+				grid.config.MIN_PHI, grid.config.sectorSizePhi(),grid.config.nSectorsPhi,
+				// hit input
+				x,y,z,
+				layer,detId, hitId, evtId,
+				// hit output
+				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
+				hits.transfer.buffer(DetectorLayer()), hits.transfer.buffer(DetectorId()), hits.transfer.buffer(HitId()), hits.transfer.buffer(EventNumber()),
+				//global written
+				m_written.get_mem(),
+				//work item config
+				range(nThreads,layerSupplement.nLayers, eventSupplement.nEvents),
+				range(nThreads,1, 1));
+	}
 
 	GridBuilder::events.push_back(evt);
 

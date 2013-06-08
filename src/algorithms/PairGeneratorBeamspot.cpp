@@ -39,27 +39,50 @@ Pairing * PairGeneratorBeamspot::run(HitCollection & hits, const GeometrySupplem
 	LOG << "done[" << m_prefixSum.get_count()  << "]" << std::endl;
 
 	//ctx.select_profile_event(KERNEL_COMPUTE_EVT());
+	local_param localMem(sizeof(cl_uint), (grid.config.nSectorsZ+1)*(grid.config.nSectorsPhi+1));
+	cl_event evt;
 
-	LOG << "Running pair gen kernel...";
-	cl_event evt = pairCount.run(
-			//geometry
-			geomSupplement.transfer.buffer(MinRadius()), geomSupplement.transfer.buffer(MaxRadius()),
-			//grid
-			layerTriplets.transfer.buffer(Layer1()), layerTriplets.transfer.buffer(Layer2()), grid.config.nLayers,
-			grid.transfer.buffer(Boundary()),
-			grid.config.MIN_Z, grid.config.sectorSizeZ(),	grid.config.nSectorsZ,
-			grid.config.MIN_PHI, grid.config.sectorSizePhi(), grid.config.nSectorsPhi,
-			layerTriplets.transfer.buffer(z0()), layerTriplets.transfer.buffer(pairSpreadPhi()), layerTriplets.transfer.buffer(dThetaWindow()),
-			layerTriplets.transfer.buffer(tipCut()), layerTriplets.minRadiusCurvature(),
-			// hit input
-			hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
-			// intermeditate data: oracle for hit pairs, prefix sum for found pairs
-			m_oracle.get_mem(), m_oracleOffset.get_mem(), m_prefixSum.get_mem(),
-			//local
-			local_param(sizeof(cl_uint), (grid.config.nSectorsZ+1)*(grid.config.nSectorsPhi+1)),
-			//thread config
-			range(nThreads, nLayerTriplets, grid.config.nEvents),
-			range(nThreads, 1,1));
+	if(localMem < ctx.getLocalMemSize()){
+		LOG << "Running pair gen kernel...";
+		evt = pairCount.run(
+				//geometry
+				geomSupplement.transfer.buffer(MinRadius()), geomSupplement.transfer.buffer(MaxRadius()),
+				//grid
+				layerTriplets.transfer.buffer(Layer1()), layerTriplets.transfer.buffer(Layer2()), grid.config.nLayers,
+				grid.transfer.buffer(Boundary()),
+				grid.config.MIN_Z, grid.config.sectorSizeZ(),	grid.config.nSectorsZ,
+				grid.config.MIN_PHI, grid.config.sectorSizePhi(), grid.config.nSectorsPhi,
+				layerTriplets.transfer.buffer(z0()), layerTriplets.transfer.buffer(pairSpreadPhi()), layerTriplets.transfer.buffer(dThetaWindow()),
+				layerTriplets.transfer.buffer(tipCut()), layerTriplets.minRadiusCurvature(),
+				// hit input
+				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
+				// intermeditate data: oracle for hit pairs, prefix sum for found pairs
+				m_oracle.get_mem(), m_oracleOffset.get_mem(), m_prefixSum.get_mem(),
+				//local
+				localMem,
+				//thread config
+				range(nThreads, nLayerTriplets, grid.config.nEvents),
+				range(nThreads, 1,1));
+	} else {
+		LOG << "Running pair gen kernel WITHOUT local memory...";
+		evt = pairNoLocalCount.run(
+				//geometry
+				geomSupplement.transfer.buffer(MinRadius()), geomSupplement.transfer.buffer(MaxRadius()),
+				//grid
+				layerTriplets.transfer.buffer(Layer1()), layerTriplets.transfer.buffer(Layer2()), grid.config.nLayers,
+				grid.transfer.buffer(Boundary()),
+				grid.config.MIN_Z, grid.config.sectorSizeZ(),	grid.config.nSectorsZ,
+				grid.config.MIN_PHI, grid.config.sectorSizePhi(), grid.config.nSectorsPhi,
+				layerTriplets.transfer.buffer(z0()), layerTriplets.transfer.buffer(pairSpreadPhi()), layerTriplets.transfer.buffer(dThetaWindow()),
+				layerTriplets.transfer.buffer(tipCut()), layerTriplets.minRadiusCurvature(),
+				// hit input
+				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
+				// intermeditate data: oracle for hit pairs, prefix sum for found pairs
+				m_oracle.get_mem(), m_oracleOffset.get_mem(), m_prefixSum.get_mem(),
+				//thread config
+				range(nThreads, nLayerTriplets, grid.config.nEvents),
+				range(nThreads, 1,1));
+	}
 	PairGeneratorBeamspot::events.push_back(evt);
 	LOG << "done" << std::endl;
 

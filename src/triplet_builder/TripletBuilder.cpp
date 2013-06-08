@@ -270,13 +270,6 @@ std::pair<RuntimeRecords, PhysicsRecords> buildTriplets(ExecutionParameters exec
 			runtime.logPrint();
 			runtimeRecords.addRecord(runtime);
 
-			for(uint e = 0; e < grid.config.nEvents; ++e){
-				for(uint p = 0; p < layerConfig.size(); ++ p){
-					LOG << e << ":" << p << " - " << tracklets->getTrackletOffsets()[e*layerConfig.size() + p] << "   ";
-				}
-			}
-			LOG << std::endl;
-
 			//physics
 			for(uint e = 0; e < grid.config.nEvents; ++e){
 				for(uint p = 0; p < layerConfig.size(); ++ p){

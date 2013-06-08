@@ -165,10 +165,8 @@ public:
 			//phi
 			float phi = atan2((hitGlobalY[secondHit] - hitGlobalY[firstHit]) , ( hitGlobalX[secondHit] - hitGlobalX[firstHit] ));
 
-			tmp = (1-dPhiWindow) * phi; //phi low may be smaller than -PI
-			float phiHigh = (1+dPhiWindow) * phi; // phi high may be greater than PI
-			float phiLow = (tmp < phiHigh) * tmp + (tmp > phiHigh) * phiHigh; //we sort before handling wrap around
-			phiHigh = (tmp < phiHigh) * phiHigh + (tmp > phiHigh) * tmp; // if wrap around occurs, phiLow will be second quadrant and phiHigh will be third quadrant
+			float phiHigh = phi + dPhiWindow; // phi high may be greater than PI
+			float phiLow = phi - dPhiWindow;
 
 			//deal with wrap around
 			bool wrapAround = phiLow < -M_PI_F || phiHigh > M_PI_F || phiLow > M_PI_F || phiHigh < -M_PI_F;
@@ -245,7 +243,7 @@ public:
 				} // end hit loop
 			} // end sector loop
 
-			prefixSum[gid] = nFound; //TODO update length of prefixSum
+			prefixSum[gid] = nFound;
 
 			//PRINTF("[%lu] rejZ: %u, rejP: %u, rejB: %u\n", gid, rejZ, rejP, rejB);
 		}
@@ -377,10 +375,8 @@ public:
 			//phi
 			float phi = atan2((hitGlobalY[secondHit] - hitGlobalY[firstHit]) , ( hitGlobalX[secondHit] - hitGlobalX[firstHit] ));
 
-			tmp = (1-dPhiWindow) * phi; //phi low may be smaller than -PI
-			float phiHigh = (1+dPhiWindow) * phi; // phi high may be greater than PI
-			float phiLow = (tmp < phiHigh) * tmp + (tmp > phiHigh) * phiHigh; //we sort before handling wrap around
-			phiHigh = (tmp < phiHigh) * phiHigh + (tmp > phiHigh) * tmp; // if wrap around occurs, phiLow will be second quadrant and phiHigh will be third quadrant
+			float phiHigh = phi + dPhiWindow; // phi high may be greater than PI
+			float phiLow = phi - dPhiWindow;
 
 			//deal with wrap around
 			bool wrapAround = phiLow < -M_PI_F || phiHigh > M_PI_F || phiLow > M_PI_F || phiHigh < -M_PI_F;
