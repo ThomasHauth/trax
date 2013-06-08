@@ -1,5 +1,22 @@
 import csv
 import numpy as np
+
+import matplotlib as mpl
+
+mpl.use('pgf')
+latexConf = {
+    "pgf.texsystem": "pdflatex",
+    "font.family": "serif", # use serif/main font for text elements
+    "text.usetex": True,    # use inline math for ticks
+    "pgf.rcfonts": False,   # don't setup fonts from rc parameters
+    "pgf.preamble": [
+        r"\usepackage[utf8x]{inputenc}",
+        r"\usepackage[T1]{fontenc}",
+        r"\usepackage{lmodern}",
+        r"\usepackage{siunitx}",         # load additional packages
+    ]}
+mpl.rcParams.update(latexConf)
+
 import matplotlib.pyplot as plt
 
 import xkcdify as xkcd
@@ -22,6 +39,9 @@ cmssw_org.sort(order='tracks')
 cmssw_kd = np.genfromtxt("cmsswTiming.kd.csv", delimiter = " ", names=True)
 cmssw_kd.sort(order='tracks')
 
+cmssw_6 = np.genfromtxt("cmsswTiming.6.csv", delimiter = " ", names=True)
+cmssw_6.sort(order='tracks')
+
 ###################################################
 # time for n concurrent events
 plt.figure()
@@ -36,6 +56,8 @@ plt.ylabel('time [ms]')
 plt.xlim(np.min(events_gpu['events']), np.max(events_gpu['events']))
 
 plt.legend(ncol=2, loc=2)
+
+plt.savefig('runtime_concurrent_events.pdf')
 
 
 ###################################################
@@ -54,9 +76,12 @@ plt.ylim(0,50)
 
 plt.legend(ncol=2)
 
+plt.savefig('runtime_per_event.pdf')
+
 ###################################################
 # runtime contributions (events)
-plt.figure()
+fig = plt.figure(figsize=(11,6))
+ax = fig.add_subplot(111, position=(0.075, 0.1, 0.65, 0.8))
 total = events_gpu['totalKernel'] + events_gpu['readTime'] + events_gpu['writeTime']
 
 colors = ['#003300', '#006600', 
@@ -74,7 +99,7 @@ legendHandles = []
 for c in colors:
     legendHandles.append(plt.Rectangle((0, 0), 1, 1, fc=c))
 
-plt.stackplot(events_gpu['events'], 
+ax.stackplot(events_gpu['events'], 
               events_gpu['readTime'] / total, events_gpu['writeTime'] / total,
               events_gpu['buildGridKernel'] / total, 
               events_gpu['pairGenKernel'] / total, 
@@ -82,17 +107,20 @@ plt.stackplot(events_gpu['events'],
               events_gpu['tripletFilterKernel'] / total,
               colors = colors)
 
-plt.xlabel('events')
-plt.ylabel('runtime share [%]')
-plt.title('Composition of event processing runtime')
-plt.figlegend(legendHandles[::-1], labels[::-1], 7)
-plt.xlim(np.min(events_gpu['events']), np.max(events_gpu['events']))
-plt.ylim(0,1)
+ax.set_xlabel('events')
+ax.set_ylabel('runtime share [%]')
+ax.set_title('Composition of event processing runtime')
+ax.legend(legendHandles[::-1], labels[::-1], bbox_transform=plt.gcf().transFigure, bbox_to_anchor=(0, 0, 1,1), loc=5)
+ax.set_xlim(np.min(events_gpu['events']), np.max(events_gpu['events']))
+ax.set_ylim(0,1)
+
+plt.savefig('runtime_contrib_events.pdf')
 
 ###################################################
 # runtime contributions (tracks)
 
-plt.figure()
+fig = plt.figure(figsize=(11,6))
+ax = fig.add_subplot(111, position=(0.075, 0.1, 0.65, 0.8))
 total = tracks_gpu['totalKernel'] + tracks_gpu['readTime'] + tracks_gpu['writeTime']
 
 colors = ['#003300', '#006600', 
@@ -110,7 +138,7 @@ legendHandles = []
 for c in colors:
     legendHandles.append(plt.Rectangle((0, 0), 1, 1, fc=c))
 
-plt.stackplot(tracks_gpu['tracks'], 
+ax.stackplot(tracks_gpu['tracks'], 
               tracks_gpu['readTime'] / total, tracks_gpu['writeTime'] / total,
               tracks_gpu['buildGridKernel'] / total, 
               tracks_gpu['pairGenKernel'] / total, 
@@ -118,12 +146,14 @@ plt.stackplot(tracks_gpu['tracks'],
               tracks_gpu['tripletFilterKernel'] / total,
               colors = colors)
 
-plt.xlabel('tracks')
-plt.ylabel('runtime share [%]')
-plt.title('Composition of event processing runtime')
-plt.figlegend(legendHandles[::-1], labels[::-1], 7)
-plt.xlim(np.min(tracks_gpu['tracks']), np.max(tracks_gpu['tracks']))
-plt.ylim(0,1)
+ax.set_xlabel('tracks')
+ax.set_ylabel('runtime share [%]')
+ax.set_title('Composition of event processing runtime')
+ax.legend(legendHandles[::-1], labels[::-1], bbox_transform=plt.gcf().transFigure, bbox_to_anchor=(0, 0, 1,1), loc=5)
+ax.set_xlim(np.min(tracks_gpu['tracks']), np.max(tracks_gpu['tracks']))
+ax.set_ylim(0,1)
+
+plt.savefig('runtime_contrib_tracks.pdf')
 
 ###################################################
 # time for varying work-group sizes
@@ -138,6 +168,8 @@ plt.xlim(np.min(threads_gpu['threads']), np.max(threads_gpu['threads']))
 plt.yscale("log")
 
 plt.legend()
+
+plt.savefig('runtime_wg_size.pdf')
 
 ###################################################
 # speedup for varying work-group sizes
@@ -157,6 +189,8 @@ plt.xlim(np.min(threads_gpu['threads']), np.max(threads_gpu['threads']))
 #plt.xscale('log')
 
 plt.legend()
+
+plt.savefig('runtime_speedup.pdf')
 
 ###################################################
 # efficiency for varying work-group sizes
@@ -178,6 +212,8 @@ plt.xlim(np.min(threads_gpu['threads']), np.max(threads_gpu['threads']))
 
 plt.legend()
 
+plt.savefig('runtime_eff.pdf')
+
 ###################################################
 # processing time with tracks per event
 plt.figure()
@@ -187,14 +223,18 @@ plt.errorbar(tracks_gpu['tracks'], tracks_gpu['totalKernel'], yerr=tracks_gpu['t
 
 plt.errorbar(cmssw_org['validTracks'], cmssw_org['time'], yerr=cmssw_org['timeVar'] ,fmt='ro--', label='CMSSW original')
 plt.errorbar(cmssw_kd['validTracks'], cmssw_kd['time'], yerr=cmssw_kd['timeVar'] ,fmt='ro-', label=r'CMSSW $k$-d tree')
+plt.errorbar(cmssw_kd['validTracks'], cmssw_6['time'], yerr=cmssw_6['timeVar'] ,fmt='bo-', label=r'CMSSW 6.0')
 
 plt.title(r'Processing time for $n$ tracks per event')
 plt.xlabel('tracks')
 plt.ylabel(r'time [ms]')
 #plt.xlim(np.min(threads_gpu['threads']), np.max(threads_gpu['threads']))
 #plt.xscale('log')
+plt.ylim(ymin=0)
 
 plt.legend(loc=2)
+
+plt.savefig('runtime_tracks_cmssw.pdf')
 
 ###################################################
 # grid building time with hits per event
@@ -211,6 +251,8 @@ plt.ylabel(r'time [ms]')
 
 plt.legend()
 
+plt.savefig('runtime_grid.pdf')
+
 ###################################################
 # data transferred (tracks)
 fig = plt.figure()
@@ -226,9 +268,10 @@ ax2 = ax1.twinx()
 ax2.set_ylabel('bandwith [GB/s]')
 b = ax2.plot(tracks_gpu['tracks'], tracks_gpu['writeBytes'] / (10**6 * tracks_gpu['writeTime']), 'bo--', label='bandwith')
 
-lns = t+b
-labs = [l.get_label() for l in lns]
-ax1.legend(lns, labs, loc=2)
+ax1.legend(loc=2)
+ax2.legend(loc=1)
+
+plt.savefig('runtime_transfer_tracks.pdf')
 
 ###################################################
 # data transferred (events)
@@ -245,42 +288,9 @@ ax2 = ax1.twinx()
 ax2.set_ylabel('bandwith [GB/s]')
 b = ax2.plot(events_gpu['events'], events_gpu['writeBytes'] / (10**6 * events_gpu['writeTime']), 'bo--', label='bandwith')
 
-lns = t+b
-labs = [l.get_label() for l in lns]
-ax1.legend(lns, labs, loc=2)
+ax1.legend(loc=2)
+ax2.legend(loc=1)
 
-####################################################
-## xkcd
-#plt.figure()
-#
-#f = plt.axes()
-#
-#f.plot(tracks_gpu['tracks'], tracks_gpu['totalWalltime'], 'g-', label='yours')
-#
-#f.plot(cmssw_org['validTracks'], cmssw_org['time'], 'r--', label='original')
-#f.plot(cmssw_kd['validTracks'], cmssw_kd['time'], 'r-', label=r'improved original')
-#
-#f.text(3800, 2000, "original")
-#f.plot([3812, 3671], [1855, 1395], '-k', lw=0.5)
-#
-#f.text(1500, -1500, "improved original")
-#f.plot([3430, 3500], [-1300, 520], '-k', lw=0.5)
-#
-#f.text(3350, 18500, "yours")
-#f.plot([3146, 3345], [18604, 18620], '-k', lw=0.5)
-#
-#f.text(500, 18500, "after 1 year of work")
-#
-#f.set_title('processing time')
-#f.set_xlabel('n')
-#f.set_ylabel('time [ms]')
-##plt.xlim(np.min(threads_gpu['threads']), np.max(threads_gpu['threads']))
-##plt.xscale('log')
-#
-##f.legend(loc=2)
-#
-#xkcd.XKCDify(f, xaxis_loc=0.0)
-#
-#plt.savefig("xkcd.png")
+plt.savefig('runtime_transfer_events.pdf')
 
 plt.show()
