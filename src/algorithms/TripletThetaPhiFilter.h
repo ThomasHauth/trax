@@ -35,7 +35,8 @@ public:
 		filterCount(ctext),
 		filterPopCount(ctext),
 		filterStore(ctext),
-		filterOffsetStore(ctext)
+		filterOffsetStore(ctext),
+		filterOffsetMonotonizeStore(ctext)
 {
 		// create the buffers this algorithm will need to run
 		PLOG << "FilterKernel WorkGroupSize: " << filterCount.getWorkGroupSize() << std::endl;
@@ -281,12 +282,33 @@ public:
 
 				if(layerTriplet != nextLayerTriplet || event != nextEvent){ //this thread is the last one processing an element of this particular event and layer triplet
 					trackletOffsets[event * nLayerTriplets + layerTriplet + 1] = gid+1;
+					//printf("event %u layerTriplet %u: %lu\n", event, layerTriplet, gid+1);
 				}
 			} else {
 				//printf("end thread %lu: writting %u at %u\n", gid, gid+1, event * nLayerTriplets + layerTriplet + 1);
 				trackletOffsets[event * nLayerTriplets + layerTriplet + 1] = gid+1;
+				//printf("event %u layerTriplet %u: %lu\n", event, layerTriplet, gid+1);
 			}
 		}
 	});
+
+	KERNEL2_CLASSP( filterOffsetMonotonizeStore,
+			cl_mem, cl_uint,
+			oclDEFINES,
+
+			__kernel void filterOffsetMonotonizeStore(
+					__global uint * trackletOffsets, const uint nOffsets)
+	{
+
+		size_t gid = get_global_id(0);
+
+		//printf("thread %lu\n", gid);
+		if(0 < gid && gid <= nOffsets){
+			if(trackletOffsets[gid] == 0)
+				trackletOffsets[gid] = trackletOffsets[gid-1];
+		}
+	});
+
+
 
 };

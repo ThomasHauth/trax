@@ -18,7 +18,7 @@ public:
 
 	EventLoader(EventDataLoadingParameters config ){
 		params = config;
-		read = 0;
+		read = config.skipEvents;
 
 		std::stringstream f;
 		f << getenv("TRAX_DIR") << "/data/" << config.eventDataFile;
@@ -92,7 +92,7 @@ public:
 		fStream.~FileInputStream();
 		close(fd);
 
-		event = pContainer.events(0);
+		event = pContainer.events(config.skipEvents);
 
 	}
 
@@ -123,6 +123,9 @@ public:
 		esIn = new EventStoreInput(f.str());
 
 		LOG << "Opened file " << config.eventDataFile << " with " << nEvents() << " events" << std::endl;
+
+		for(uint i = 0; i < config.skipEvents; ++i)
+			esIn->readNextElement();
 
 	}
 

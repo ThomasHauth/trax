@@ -20,6 +20,7 @@ class EventDataLoadingParameters{
 
 public:
 	std::string eventDataFile;
+	uint skipEvents;
 	int maxEvents;
 	uint maxLayer;
 	int maxTracks;

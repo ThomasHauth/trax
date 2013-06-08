@@ -41,21 +41,34 @@ class TripletConfigurations: public TripletConfigurationItems
 public:
 	typedef TripletConfigurations dataitems_type;
 
-	TripletConfigurations() {}
+	TripletConfigurations(float minPt) : minPt_(minPt) {}
 
-	TripletConfigurations(int items) :
-		clever::Collection<TRIPLET_CONFIGURATION_COLLECTION_ITEMS>(items) {	}
+	TripletConfigurations(int items, float minPt) :
+		clever::Collection<TRIPLET_CONFIGURATION_COLLECTION_ITEMS>(items),
+		minPt_(minPt) {	}
 
 	TripletConfiguration operator[](uint i);
 	const TripletConfiguration operator[](uint i) const;
 
-	uint calculatePairSpreadZ(uint layer1, uint layer2, const Grid & grid, const GeometrySupplement & geom);
-	uint calculatePairSpreadPhi(uint layer1, uint layer2, float minPt, float d0, float Bz, const Grid & grid, const GeometrySupplement & geom);
+	uint calculatePairSpreadZ(uint layer1, uint layer2, const Grid & grid, const GeometrySupplement & geom) const;
+	uint calculatePairSpreadPhi(uint layer1, uint layer2, float minPt, float d0, float Bz, const Grid & grid, const GeometrySupplement & geom) const;
+
+	float minRadiusCurvature() const {
+		return minRadiusCurvature(minPt_);
+	}
+
+	float minRadiusCurvature(float minPt) const {
+		return minRadiusCurvature(minPt, IDEAL_BZ);
+	}
+
+	float minRadiusCurvature(float minPt, float Bz) const ;
 
 	uint loadTripletConfigurationFromFile(std::string filename, int n = -1);
 
 public:
 	clever::OpenCLTransfer<TRIPLET_CONFIGURATION_COLLECTION_ITEMS> transfer;
+	const double IDEAL_BZ = 3.8112;
+	float minPt_;
 };
 
 class TripletConfiguration: public clever::CollectionView<TripletConfigurations>

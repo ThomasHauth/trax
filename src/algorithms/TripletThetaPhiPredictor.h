@@ -32,7 +32,8 @@ public:
 	TripletThetaPhiPredictor(clever::context & ctext) :
 		KernelWrapper(ctext),
 		predictCount(ctext),
-		predictStore(ctext)
+		predictStore(ctext),
+		predictOffsetMonotonizeStore(ctext)
 {
 		// create the buffers this algorithm will need to run
 		PLOG << "PredictKernel WorkGroupSize: " << predictCount.getWorkGroupSize() << std::endl;
@@ -89,7 +90,7 @@ public:
 			uint layer = layer3[layerTriplet]-1; //outer layer
 			__global const uint * lGrid3 = &grid[event*nLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1)]; //offset into grid for easier access
 
-			PRINTF(("%lu: pair %u-%u of event %u, layerTriplet %u\n", gid, firstHit, secondHit, event, layerTriplet));
+			PRINTF(("%lu: pair %u-%u of event %u, layerTriplet %u outer layer: %u\n", gid, firstHit, secondHit, event, layerTriplet, layer));
 
 			//PRINTF(("%lu-%lu-%lu: second layer from %u with %u hits\n", event, layerTriplet, thread, offset, nHits3));
 
@@ -101,10 +102,8 @@ public:
 			float minLayerRadius = gMinLayerRadius[layer];
 			float maxLayerRadius = gMaxLayerRadius[layer];
 
-			//PRINTF(("%lu-%lu-%lu: oracle from %u\n", event, layerTriplet, thread, 0));
 
-
-			//PRINTF("id %lu threads %lu workload %i start %i end %i maxEnd %i \n", id, threads, workload, i, end, nPairs);
+			PRINTF(("id %lu loaded configuration\n", gid));
 
 			//theta
 			float signRadius = sign(hitGlobalY[secondHit]);
@@ -131,9 +130,12 @@ public:
 			//thetaHigh = (fabs(thetaHigh) <= M_PI_2_F) * thetaHigh + (fabs(thetaHigh) > M_PI_2_F) * (sign(thetaHigh)*M_PI_F - thetaHigh);
 
 			//radius
-			float r = signRadius * radiusDict[detRadius[detId[secondHit]]];
+			PRINTF(("%lu: before loading radius\n", gid));
+			//float r = signRadius * radiusDict[detRadius[detId[secondHit]]];
+			float r = signRadius * sqrt(hitGlobalX[secondHit]*hitGlobalX[secondHit] + hitGlobalY[secondHit]*hitGlobalY[secondHit]);
 			float dRmax = signRadius * maxLayerRadius - r;
 			float dRmin = signRadius * minLayerRadius - r;
+			PRINTF(("%lu: after loading radius\n", gid));
 
 			//z_3 = z_2 + dr * cot(theta) => cot(theta) = tan(pi/2 - theta)
 
@@ -158,7 +160,7 @@ public:
 			uint zLowSector = max((int) floor((zLow - minZ) / sectorSizeZ), 0); // signed int because zLow could be lower than minZ
 			uint zHighSector = min((uint) floor((zHigh - minZ) / sectorSizeZ)+1, nSectorsZ);
 
-			//PRINTF(("%lu-%lu-%lu: hit pair %u -> prediction %f-%f [%u,%u]\n", event, layerTriplet, thread, i, zLow, zHigh, zLowSector, zHighSector));
+			PRINTF(("%u-%u-%lu: hit2 %u -> prediction %f-%f [%u,%u]\n", event, layerTriplet, gid, secondHit, zLow, zHigh, zLowSector, zHighSector));
 
 			//phi
 			float phi = atan2((hitGlobalY[secondHit] - hitGlobalY[firstHit]) , ( hitGlobalX[secondHit] - hitGlobalX[firstHit] ));
@@ -180,7 +182,7 @@ public:
 			uint phiLowSector= max((uint) floor((phiLow - minPhi) / sectorSizePhi), 0u);
 			uint phiHighSector = min((uint) floor((phiHigh - minPhi) / sectorSizePhi)+1, nSectorsPhi);
 
-			//PRINTF(("%lu-%lu-%lu: hit pair %u:  phi = %f - %f -> [%u,%u] %s\n", event, layerTriplet, thread, i, phiLow, phiHigh, phiLowSector, phiHighSector, wrapAround ? " wrapAround" : ""));
+			PRINTF(("%u-%u-%lu: hit2 %u:  phi = %f - %f -> [%u,%u] %s\n", event, layerTriplet, gid, secondHit, phiLow, phiHigh, phiLowSector, phiHighSector, wrapAround ? " wrapAround" : ""));
 
 			for(uint zSector = zLowSector; zSector < zHighSector; ++ zSector){
 
@@ -342,7 +344,8 @@ public:
 			//thetaHigh = (fabs(thetaHigh) <= M_PI_2_F) * thetaHigh + (fabs(thetaHigh) > M_PI_2_F) * (sign(thetaHigh)*M_PI_F - thetaHigh);
 
 			//radius
-			float r = signRadius * radiusDict[detRadius[detId[secondHit]]];
+			//float r = signRadius * radiusDict[detRadius[detId[secondHit]]];
+			float r = signRadius * sqrt(hitGlobalX[secondHit]*hitGlobalX[secondHit] + hitGlobalY[secondHit]*hitGlobalY[secondHit]);
 			float dRmax = signRadius * maxLayerRadius - r;
 			float dRmin = signRadius * minLayerRadius - r;
 
@@ -480,6 +483,23 @@ public:
 			} else {
 				tripletOffsets[event * nLayerTriplets + layerTriplet + 1] = nextThread; // this is the last pair, just store it
 			}
+		}
+	});
+
+	KERNEL2_CLASSP( predictOffsetMonotonizeStore,
+			cl_mem, cl_uint,
+			oclDEFINES,
+
+			__kernel void predictOffsetMonotonizeStore(
+					__global uint * tripletOffsets, const uint nOffsets)
+	{
+
+		size_t gid = get_global_id(0);
+
+		//printf("thread %lu\n", gid);
+		if(0 < gid && gid <= nOffsets){
+			if(tripletOffsets[gid] == 0)
+				tripletOffsets[gid] = tripletOffsets[gid-1];
 		}
 	});
 

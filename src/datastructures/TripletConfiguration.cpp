@@ -19,7 +19,7 @@ const TripletConfiguration TripletConfigurations::operator[](uint i) const {
 	return TripletConfiguration(*this, i);
 }
 
-uint TripletConfigurations::calculatePairSpreadZ(uint layer1, uint layer2, const Grid & grid, const GeometrySupplement & geom){
+uint TripletConfigurations::calculatePairSpreadZ(uint layer1, uint layer2, const Grid & grid, const GeometrySupplement & geom) const {
 
 //	  \abs{\Delta_z} \leq (r_2-r_1) \cot\(\num{0.05}\pi) for \abs{eta} < 2.5
 
@@ -33,8 +33,16 @@ uint TripletConfigurations::calculatePairSpreadZ(uint layer1, uint layer2, const
 
 }
 
+float TripletConfigurations::minRadiusCurvature(float minPt, float Bz) const {
+	// e = 1.602177×10^-19 C  (coulombs)
+	const double Q = 1.602177E-19;
+	// 1 GeV/c = 5.344286×10^-19 J s/m  (joule seconds per meter)
+	const double GEV_C = 5.344286E-19;
 
-uint TripletConfigurations::calculatePairSpreadPhi(uint layer1, uint layer2, float minPt, float d0, float Bz, const Grid & grid, const GeometrySupplement & geom){
+	return minPt * GEV_C / (Bz * Q) * 1E2;
+}
+
+uint TripletConfigurations::calculatePairSpreadPhi(uint layer1, uint layer2, float minPt, float d0, float Bz, const Grid & grid, const GeometrySupplement & geom) const {
 
 //	minimum radius \frac{1}{r_\mathrm{min}} = \kappa_\mathrm{max} = \frac{q B_z}{p_{T, \mathrm{min}}}.
 //	maximum dPhi
@@ -46,7 +54,7 @@ uint TripletConfigurations::calculatePairSpreadPhi(uint layer1, uint layer2, flo
 		// 1 GeV/c = 5.344286×10^-19 J s/m  (joule seconds per meter)
 		const double GEV_C = 5.344286E-19;
 
-	float rMin = minPt * GEV_C / (Bz * Q);
+	float rMin = minPt * GEV_C / (Bz * Q) * 1E2;
 
 	LayerGeometry gLayer1(geom, layer1);
 	LayerGeometry gLayer2(geom, layer2);

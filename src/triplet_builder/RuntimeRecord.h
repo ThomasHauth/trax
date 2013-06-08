@@ -9,7 +9,8 @@
 #include <datastructures/Logger.h>
 
 #include <algorithms/GridBuilder.h>
-#include <algorithms/PairGeneratorSector.h>
+//#include <algorithms/PairGeneratorSector.h>
+#include <algorithms/PairGeneratorBeamspot.h>
 #include <algorithms/TripletThetaPhiPredictor.h>
 #include <algorithms/TripletThetaPhiFilter.h>
 #include <algorithms/PrefixSum.h>

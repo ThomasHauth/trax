@@ -128,6 +128,15 @@ TrackletCollection * TripletThetaPhiFilter::run(HitCollection & hits, const Grid
 	TripletThetaPhiFilter::events.push_back(evt);
 	LOG << "done" << std::endl;
 
+	LOG << "Running filter offset monotonize kernel...";
+	nGroups = (uint) std::max(1.0f, ceil(((float) tracklets->trackletOffsets.get_count())/nThreads));
+	evt = filterOffsetMonotonizeStore.run(
+			tracklets->trackletOffsets.get_mem(), tracklets->trackletOffsets.get_count(),
+			range(nGroups * nThreads),
+			range(nThreads));
+	TripletThetaPhiFilter::events.push_back(evt);
+	LOG << "done" << std::endl;
+
 	LOG << "Fetching triplets...";
 	tracklets->transfer.fromDevice(ctx, *tracklets);
 	LOG <<"done[" << tracklets->size() << "]" << std::endl;

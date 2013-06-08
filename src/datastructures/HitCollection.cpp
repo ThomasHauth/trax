@@ -121,7 +121,7 @@ HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event,
 						 	 	   hit.simtrackid(), evtInGroup);
 
 
-			PLOG << "\t [" << id << "] Track: " << hit.simtrackid();
+			PLOG << "\t [" << id << "] Track: " << hit.simtrackid() << " DetId: " << detId;
 			PLOG << "\t\t [" << hit.position().x()<< ", " <<  hit.position().y()<< ", " <<  hit.position().z() << "]";
 			PLOG << std::endl;
 

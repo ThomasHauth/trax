@@ -140,7 +140,7 @@ void RuntimeRecord::fillRuntimes(const clever::context & ctx) {
 	}
 
 	//pair gen
-	for(cl_event e : PairGeneratorSector::events){
+	for(cl_event e : PairGeneratorBeamspot::events){
 		tKernelEvent t = ctx.getKernelPerf(e);
 		fillInfo(t, pairGen);
 	}

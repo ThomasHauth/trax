@@ -29,7 +29,7 @@
 
 #include <datastructures/serialize/Event.pb.h>
 
-#include <algorithms/PairGeneratorSector.h>
+//#include <algorithms/PairGeneratorSector.h>
 #include <algorithms/PairGeneratorBeamspot.h>
 #include <algorithms/TripletThetaPhiPredictor.h>
 #include <algorithms/TripletThetaPhiFilter.h>
@@ -54,7 +54,7 @@ clever::context * createContext(ExecutionParameters exec){
 	//
 	LOG << "Creating context for " << (exec.useCPU ? "CPU" : "GPGPU") << "...";
 
-//#define DEBUG
+#define DEBUG
 #if defined(DEBUG) && defined(CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL)
 	#define DEBUG_OCL CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL
 #else
@@ -157,9 +157,9 @@ std::pair<RuntimeRecords, PhysicsRecords> buildTriplets(ExecutionParameters exec
 		if(loader.maxEvents == -1)
 			lastEvent =edLoader->nEvents();
 		else
-			lastEvent = min(loader.maxEvents, edLoader->nEvents());
+			lastEvent = min((int) (loader.skipEvents + loader.maxEvents), edLoader->nEvents());
 
-		TripletConfigurations layerConfig;
+		TripletConfigurations layerConfig(loader.minPt);
 		loader.maxLayer = layerConfig.loadTripletConfigurationFromFile(traxDir + "/configs/" + exec.layerTripletConfigFile, exec.layerTriplets);
 
 		layerConfig.transfer.initBuffers(*contx, layerConfig);
@@ -180,9 +180,9 @@ std::pair<RuntimeRecords, PhysicsRecords> buildTriplets(ExecutionParameters exec
 
 		//configure hit loading
 
-		const uint evtGroups = (uint) max(1.0f, ceil(((float) lastEvent )/ exec.eventGrouping)); //number of groups
+		const uint evtGroups = (uint) max(1.0f, ceil(((float) lastEvent - loader.skipEvents )/ exec.eventGrouping)); //number of groups
 
-		uint event = 0;
+		uint event = loader.skipEvents;
 		for(uint eventGroup = 0; eventGroup < evtGroups; ++eventGroup){
 
 			uint evtGroupSize = std::min(exec.eventGrouping, lastEvent-event); //if last group is not a full group
@@ -199,8 +199,8 @@ std::pair<RuntimeRecords, PhysicsRecords> buildTriplets(ExecutionParameters exec
 			std::map<uint, HitCollection::tTrackList> validTracks; //first: uint = evt in group second: tracklist
 			uint totalValidTracks = 0;
 
+			uint iEvt = 0;
 			do{
-				uint iEvt = event % evtGroupSize;
 				PB_Event::PEvent pEvent = edLoader->getEvent();
 
 				LOG << "Started processing Event " << pEvent.eventnumber() << " LumiSection " << pEvent.lumisection() << " Run " << pEvent.runnumber() << std::endl;
@@ -216,7 +216,8 @@ std::pair<RuntimeRecords, PhysicsRecords> buildTriplets(ExecutionParameters exec
 				}
 
 				++event;
-			} while (event % evtGroupSize != 0 && event < lastEvent);
+				++iEvt;
+			} while (iEvt < evtGroupSize && event < lastEvent);
 
 			LOG << "Loaded " << hits.size() << " hits in " << evtGroupSize << " events" << std::endl;
 
@@ -244,7 +245,7 @@ std::pair<RuntimeRecords, PhysicsRecords> buildTriplets(ExecutionParameters exec
 			runtime.buildGrid.stopWalltime();
 
 			//run it
-			PairGeneratorSector pairGen(*contx);
+			PairGeneratorBeamspot pairGen(*contx);
 
 			runtime.pairGen.startWalltime();
 			Pairing  * pairs = pairGen.run(hits, geomSupplement, exec.threads, layerConfig, grid);
@@ -269,6 +270,13 @@ std::pair<RuntimeRecords, PhysicsRecords> buildTriplets(ExecutionParameters exec
 			runtime.logPrint();
 			runtimeRecords.addRecord(runtime);
 
+			for(uint e = 0; e < grid.config.nEvents; ++e){
+				for(uint p = 0; p < layerConfig.size(); ++ p){
+					LOG << e << ":" << p << " - " << tracklets->getTrackletOffsets()[e*layerConfig.size() + p] << "   ";
+				}
+			}
+			LOG << std::endl;
+
 			//physics
 			for(uint e = 0; e < grid.config.nEvents; ++e){
 				for(uint p = 0; p < layerConfig.size(); ++ p){
@@ -285,7 +293,7 @@ std::pair<RuntimeRecords, PhysicsRecords> buildTriplets(ExecutionParameters exec
 
 			//reset kernels event counts
 			GridBuilder::clearEvents();
-			PairGeneratorSector::clearEvents();
+			PairGeneratorBeamspot::clearEvents();
 			TripletThetaPhiPredictor::clearEvents();
 			TripletThetaPhiFilter::clearEvents();
 			PrefixSum::clearEvents();
@@ -324,6 +332,7 @@ int main(int argc, char *argv[]) {
 	po::options_description cLoader("Config File: Event Data Loading Options");
 	cLoader.add_options()
 		("data.edSrc", po::value<std::string>(&loader.eventDataFile), "event database")
+		("data.skipEvents", po::value<uint>(&loader.skipEvents)->default_value(0), "events to skip, default: 0")
 		("data.maxEvents", po::value<int>(&loader.maxEvents)->default_value(1), "number of events to process, all events: -1")
 		("data.minPt", po::value<float>(&loader.minPt)->default_value(1.0), "MC data only: minimum track Pt")
 		("data.tracks", po::value<int>(&loader.maxTracks)->default_value(-1), "MC data only: number of valid tracks to load, all tracks: -1")

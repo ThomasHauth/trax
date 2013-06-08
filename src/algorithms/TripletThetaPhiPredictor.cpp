@@ -98,6 +98,15 @@ Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeom
 		TripletThetaPhiPredictor::events.push_back(evt);
 		LOG << "done" << std::endl;
 
+		LOG << "Running filter offset monotonize kernel...";
+		nGroups = (uint) std::max(1.0f, ceil(((float) m_triplets->pairingOffsets.get_count())/nThreads));
+		evt = predictOffsetMonotonizeStore.run(
+				m_triplets->pairingOffsets.get_mem(), m_triplets->pairingOffsets.get_count(),
+				range(nGroups * nThreads),
+				range(nThreads));
+		TripletThetaPhiPredictor::events.push_back(evt);
+		LOG << "done" << std::endl;
+
 		if(PROLIX){
 			PLOG << "Fetching triplet candidates...";
 			std::vector<uint2> cands = m_triplets->getPairings();
