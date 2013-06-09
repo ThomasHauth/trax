@@ -480,7 +480,7 @@ int main(int argc, char *argv[]) {
 	RuntimeRecords runtimeRecords;
 	PhysicsRecords physicsRecords;
 	for(uint e = 0; e < executions.size();++e){ //standard case: only 1
-		LLOG << "Experiment " << e << ": " << std::endl;
+		LLOG << "Experiment " << e << "/" << executions.size() << ": " << std::endl;
 		LLOG << executions[e].first << " " << executions[e].second << std::endl;
 		for(uint i = 0; i < exec.iterations; ++i){
 			LLOG << i+1 << "  " << std::flush;
