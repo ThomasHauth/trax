@@ -23,3 +23,16 @@ ADD_CUSTOM_COMMAND(TARGET tripletBuilder
           POST_BUILD
           COMMAND ${CMAKE_COMMAND} -E make_directory $ENV{TRAX_DIR}/bin
           COMMAND ${CMAKE_COMMAND} -E copy ${TRIPLET_BUILDER_BIN} $ENV{TRAX_DIR}/bin/)
+          
+add_executable(evtStoreToContainer
+	evtStoreToContainer.cpp
+)
+target_link_libraries(evtStoreToContainer "boost_program_options")
+target_link_libraries(evtStoreToContainer "boost_system")
+target_link_libraries(evtStoreToContainer datastructures)
+
+GET_TARGET_PROPERTY(EVT_STORE_BIN evtStoreToContainer LOCATION)
+ADD_CUSTOM_COMMAND(TARGET evtStoreToContainer
+          POST_BUILD
+          COMMAND ${CMAKE_COMMAND} -E make_directory $ENV{TRAX_DIR}/bin
+          COMMAND ${CMAKE_COMMAND} -E copy ${EVT_STORE_BIN} $ENV{TRAX_DIR}/bin/)
