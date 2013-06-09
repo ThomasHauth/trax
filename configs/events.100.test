@@ -1,0 +1,13 @@
+tracks = 100
+eventGrouping = 1 
+eventGrouping = 2 
+eventGrouping = 4
+eventGrouping = 8
+eventGrouping = 16
+eventGrouping = 32
+eventGrouping = 64
+eventGrouping = 128
+eventGrouping = 256
+eventGrouping = 512
+eventGrouping = 1024
+eventGrouping = 2048
