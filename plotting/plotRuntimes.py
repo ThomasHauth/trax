@@ -43,6 +43,54 @@ cmssw_6 = np.genfromtxt("cmsswTiming.6.csv", delimiter = " ", names=True)
 cmssw_6.sort(order='tracks')
 
 ###################################################
+# hardware plots - time and throughput
+
+prefixSum_gpu = np.genfromtxt("data/runtime/runtime.prefixSum.gpu.csv", delimiter = " ", names=True)
+prefixSum_cpu = np.genfromtxt("data/runtime/runtime.prefixSum.cpu.csv", delimiter = " ", names=True)
+
+#prefixSum_gpu2 = np.genfromtxt("data/runtime/runtime.prefixSum.gpu2.csv", delimiter = " ", names=True)
+#prefixSum_cpu2 = np.genfromtxt("data/runtime/runtime.prefixSum.cpu2.csv", delimiter = " ", names=True)
+
+fig = plt.figure()
+
+plt.title(r'Prefix Sum - Execution Time')
+
+ax1 = fig.add_subplot(111)
+#ax1.plot(prefixSum_cpu2['wgSize'], prefixSum_cpu2['time'], 'bx--', label='Core i3')
+ax1.plot(prefixSum_cpu['wgSize'], prefixSum_cpu['time'], 'bo-', label='Core i7')
+#ax1.plot(prefixSum_gpu2['wgSize'], prefixSum_gpu2['time'], 'gx--', label='GTX 560')
+ax1.plot(prefixSum_gpu['wgSize'], prefixSum_gpu['time'], 'go-', label='GTX 660')
+ax1.set_xlabel('work-group size')
+ax1.set_ylabel(r'time [ms]')
+ax1.set_xscale('log', basex=2)
+
+ax1.legend(loc=1)
+
+plt.savefig('output/runtime/runtime_prefixSum.pdf')
+
+###################################################
+# hardware plots - speedup
+
+fig = plt.figure()
+
+plt.title(r'Prefix Sum - Speedup')
+
+ax1 = fig.add_subplot(111)
+#ax1.plot(prefixSum_cpu2['wgSize'], prefixSum_cpu2[prefixSum_cpu2['wgSize'] == 1]['time'] / prefixSum_cpu2['time'], 'bx--', label='Core i3')
+#ax1.plot(prefixSum_gpu2['wgSize'], prefixSum_gpu2[prefixSum_gpu2['wgSize'] == 1]['time'] / prefixSum_gpu2['time'], 'gx--', label='GTX 560')
+ax1.plot(prefixSum_gpu['wgSize'], prefixSum_gpu[prefixSum_gpu['wgSize'] == 1]['time'] / prefixSum_gpu['time'], 'go-', label='GTX 660 - relative')
+ax1.plot(prefixSum_gpu['wgSize'], prefixSum_cpu[prefixSum_cpu['wgSize'] == 1]['time'] / prefixSum_gpu['time'], 'gx--', label='GTX 660 - absolute')
+ax1.plot(prefixSum_gpu['wgSize'], prefixSum_cpu['time'] / prefixSum_gpu['time'], 'kD:', label='GTX 660 over Core i7')
+ax1.plot(prefixSum_cpu['wgSize'], prefixSum_cpu[prefixSum_cpu['wgSize'] == 1]['time'] / prefixSum_cpu['time'], 'bo-', label='Core i7')
+ax1.set_xlabel('work-group size')
+ax1.set_ylabel(r'time [ms]')
+ax1.set_xscale('log', basex=2)
+
+ax1.legend(loc=2)
+
+plt.savefig('output/runtime/speedup_prefixSum.pdf')
+
+###################################################
 # time for n concurrent events
 plt.figure()
 plt.errorbar(events_cpu['events'], events_cpu['totalWalltime'], yerr=events_cpu['totalWalltimeVar'], fmt='bo-', label='wall time CPU')
@@ -218,18 +266,19 @@ plt.savefig('runtime_eff.pdf')
 # processing time with tracks per event
 plt.figure()
 
-plt.errorbar(tracks_gpu['tracks'], tracks_gpu['totalWalltime'], yerr=tracks_gpu['totalWalltimeVar'] ,fmt='go-', label='wall time GPU')
-plt.errorbar(tracks_gpu['tracks'], tracks_gpu['totalKernel'], yerr=tracks_gpu['totalKernelVar'],fmt='go--', label='kernel time GPU')
+plt.errorbar(tracks_gpu['tracks'] / tracks_gpu['events'], tracks_gpu['totalWalltime'] / tracks_gpu['events'], yerr=tracks_gpu['totalWalltimeVar'] / tracks_gpu['events'],fmt='go-', label='wall time GPU')
+plt.errorbar(tracks_gpu['tracks'] / tracks_gpu['events'], tracks_gpu['totalKernel'] / tracks_gpu['events'], yerr=tracks_gpu['totalKernelVar'] / tracks_gpu['events'],fmt='gx--', label='kernel time GPU')
 
-plt.errorbar(cmssw_org['validTracks'], cmssw_org['time'], yerr=cmssw_org['timeVar'] ,fmt='ro--', label='CMSSW original')
-plt.errorbar(cmssw_kd['validTracks'], cmssw_kd['time'], yerr=cmssw_kd['timeVar'] ,fmt='ro-', label=r'CMSSW $k$-d tree')
-plt.errorbar(cmssw_kd['validTracks'], cmssw_6['time'], yerr=cmssw_6['timeVar'] ,fmt='bo-', label=r'CMSSW 6.0')
+plt.errorbar(cmssw_org['validTracks'], cmssw_org['time'], yerr=cmssw_org['timeVar'] ,fmt='yo-', label='CMSSW 5.2.4')
+#plt.errorbar(cmssw_kd['validTracks'], cmssw_kd['time'], yerr=cmssw_kd['timeVar'] ,fmt='ro-', label=r'CMSSW $k$-d tree')
+plt.errorbar(cmssw_kd['validTracks'], cmssw_6['time'], yerr=cmssw_6['timeVar'] ,fmt='ro-', label=r'CMSSW 6.0.0')
 
 plt.title(r'Processing time for $n$ tracks per event')
 plt.xlabel('tracks')
-plt.ylabel(r'time [ms]')
-#plt.xlim(np.min(threads_gpu['threads']), np.max(threads_gpu['threads']))
-#plt.xscale('log')
+plt.ylabel(r'time / event [ms]')
+#plt.xlim(np.min(tracks_gpu['tracks']), np.max(tracks_gpu['tracks']))
+plt.xlim(xmin=1)
+plt.loglog()
 plt.ylim(ymin=0)
 
 plt.legend(loc=2)
@@ -240,14 +289,14 @@ plt.savefig('runtime_tracks_cmssw.pdf')
 # grid building time with hits per event
 plt.figure()
 
-plt.errorbar(tracks_gpu['hits'], tracks_gpu['buildGridWalltime'], yerr=tracks_gpu['buildGridWalltimeVar'] ,fmt='go-', label='wall time GPU')
-plt.errorbar(tracks_gpu['hits'], tracks_gpu['buildGridKernel'], yerr=tracks_gpu['buildGridKernelVar'],fmt='go--', label='kernel time GPU')
+#plt.errorbar(tracks_gpu['hits'], tracks_gpu['buildGridWalltime'], yerr=tracks_gpu['buildGridWalltimeVar'] / tracks_gpu['hits'] ,fmt='go-', label='wall time GPU')
+plt.errorbar(tracks_gpu['hits'], tracks_gpu['buildGridKernel'] / tracks_gpu['hits'], yerr=tracks_gpu['buildGridKernelVar'] / tracks_gpu['hits'] ,fmt='go--', label='kernel time GPU')
 
 plt.title(r'Grid building for $n$ hits')
 plt.xlabel('hits')
-plt.ylabel(r'time [ms]')
+plt.ylabel(r'time / hits [ms]')
 #plt.xlim(np.min(threads_gpu['threads']), np.max(threads_gpu['threads']))
-#plt.xscale('log')
+plt.yscale('log')
 
 plt.legend()
 
