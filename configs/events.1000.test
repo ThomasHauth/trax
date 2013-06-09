@@ -1,0 +1,9 @@
+tracks = 1000
+eventGrouping = 1 
+eventGrouping = 2 
+eventGrouping = 4
+eventGrouping = 8
+eventGrouping = 16
+eventGrouping = 32
+eventGrouping = 64
+eventGrouping = 128

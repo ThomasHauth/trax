@@ -1,0 +1,25 @@
+threads = 8
+threads = 16
+threads = 32
+threads = 64
+threads = 128
+threads = 256
+threads = 512
+
+eventGrouping = 1
+eventGrouping = 30
+
+tracks = 1
+tracks = 2
+tracks = 4
+tracks = 8
+tracks = 16
+tracks = 32
+tracks = 64
+tracks = 128
+tracks = 256
+tracks = 512
+tracks = 1024
+tracks = 2048
+tracks = 4096
+
