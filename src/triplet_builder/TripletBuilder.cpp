@@ -52,7 +52,7 @@ std::string traxDir = getenv("TRAX_DIR");
 clever::context * createContext(ExecutionParameters exec){
 
 	//
-	LOG << "Creating context for " << (exec.useCPU ? "CPU" : "GPGPU") << "...";
+	LLOG << "Creating context for " << (exec.useCPU ? "CPU" : "GPGPU") << "...";
 
 //#define DEBUG
 #if defined(DEBUG) && defined(CL_QUEUE_THREAD_LOCAL_EXEC_ENABLE_INTEL)
@@ -69,7 +69,7 @@ clever::context * createContext(ExecutionParameters exec){
 			settings.m_profile = true;
 
 			contx = new clever::context(settings);
-			LOG << "success" << std::endl;
+			LLOG << "success" << std::endl;
 		} catch (const std::runtime_error & e){
 			//if not use cpu
 			clever::context_settings settings = clever::context_settings::default_cpu();
@@ -77,7 +77,7 @@ clever::context * createContext(ExecutionParameters exec){
 			settings.m_cmd_queue_properties |= DEBUG_OCL;
 
 			contx = new clever::context(settings);
-			LOG << "error: fallback on CPU" << std::endl;
+			LLOG << "error: fallback on CPU" << std::endl;
 		}
 	} else {
 		clever::context_settings settings = clever::context_settings::default_cpu();
@@ -85,7 +85,7 @@ clever::context * createContext(ExecutionParameters exec){
 		settings.m_cmd_queue_properties |= DEBUG_OCL;
 
 		contx = new clever::context(settings);
-		LOG << "success" << std::endl;
+		LLOG << "success" << std::endl;
 	}
 
 	return contx;
@@ -375,7 +375,7 @@ int main(int argc, char *argv[]) {
 		ifstream ifs(traxDir + "/configs/" + getFilename(exec.configFile));
 		if (!ifs)
 		{
-			cout << "can not open config file: " << exec.configFile << "\n";
+			cerr << "can not open config file: " << exec.configFile << "\n";
 			return 0;
 		}
 		else
@@ -389,7 +389,7 @@ int main(int argc, char *argv[]) {
 			ifs.close();
 		}
 	} else {
-		cout << "No config file specified!" <<std::endl;
+		cerr << "No config file specified!" <<std::endl;
 		return 1;
 	}
 
@@ -419,7 +419,7 @@ int main(int argc, char *argv[]) {
 		ifstream ifs(traxDir + "/configs/" + getFilename(testSuiteFile));
 		if (!ifs)
 		{
-			cout << "can not open testSuite file: " << testSuiteFile << "\n";
+			cerr << "can not open testSuite file: " << testSuiteFile << "\n";
 			return 0;
 		}
 		else
@@ -480,10 +480,10 @@ int main(int argc, char *argv[]) {
 	RuntimeRecords runtimeRecords;
 	PhysicsRecords physicsRecords;
 	for(uint e = 0; e < executions.size();++e){ //standard case: only 1
-		std::cout << "Experiment " << e << ": " << std::endl;
-		std::cout << executions[e].first << " " << executions[e].second << std::endl;
+		LLOG << "Experiment " << e << ": " << std::endl;
+		LLOG << executions[e].first << " " << executions[e].second << std::endl;
 		for(uint i = 0; i < exec.iterations; ++i){
-			std::cout << i+1 << "  " << std::flush;
+			LLOG << i+1 << "  " << std::flush;
 			auto res = buildTriplets(executions[e].first, executions[e].second, grid, contx);
 
 			contx->clearAllBuffers();
@@ -492,7 +492,7 @@ int main(int argc, char *argv[]) {
 			runtimeRecords.merge(res.first);
 			physicsRecords.merge(res.second);
 		}
-		std::cout << std::endl;
+		LLOG << std::endl;
 	}
 
 	delete contx;

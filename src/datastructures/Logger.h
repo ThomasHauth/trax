@@ -12,6 +12,7 @@ class Logger : private boost::noncopyable {
 #define LOG  Logger::getInstance().addLogEntry(Logger::cNORMAL)
 #define VLOG Logger::getInstance().addLogEntry(Logger::cVERBOSE)
 #define PLOG Logger::getInstance().addLogEntry(Logger::cPROLIX)
+#define LLOG std::cout
 
 #define VERBOSE Logger::getInstance().getLogLevel() >= Logger::cVERBOSE
 #define PROLIX  (Logger::getInstance().getLogLevel() >= Logger::cPROLIX) || (Logger::getInstance().getLogLevel() <= Logger::cLIVEPROLIX)
