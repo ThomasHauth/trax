@@ -435,8 +435,6 @@ int main(int argc, char **argv) {
 
 	unsigned long SIZE = 1024*1024;
 	SIZE = min(SIZE, maxAlloc/sizeof(uint));
-	clever::vector<uint, 1> input(1, SIZE, *contx);
-	std::cout << "Initializing vector with " << SIZE << " values" << std::endl;
 
 	ofstream output("runtime.prefixSum.csv", std::ios::trunc);
 	output << "wgSize time throughput" << std::endl;
@@ -444,6 +442,9 @@ int main(int argc, char **argv) {
 	for(uint wg = 1; wg <= maxWG; wg <<= 1){
 
 		printf("work-group size: %u\n", wg);
+
+		clever::vector<uint, 1> input(1, SIZE, *contx);
+		std::cout << "Initializing vector with " << SIZE << " values" << std::endl;
 
 		createPartialSums(SIZE,wg);
 		recursiveScan(input.get_mem(), SIZE, wg, 0);

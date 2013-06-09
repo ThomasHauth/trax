@@ -358,6 +358,7 @@ int main(int argc, char *argv[]) {
 		("verbose", "elaborate information")
 		("prolix", "prolix output -- degrades performance as data is transferred from device")
 		("live", "live output -- degrades performance")
+		("cpu", "force running on cpu")
 		("testSuite", po::value<std::string>(&testSuiteFile), "specify a file defining test cases to be run")
 	;
 
@@ -405,6 +406,9 @@ int main(int argc, char *argv[]) {
 	if(vm.count("live") && vm.count("prolix"))
 		exec.verbosity = Logger::cLIVEPROLIX;
 
+	//check for cpu
+	if(vm.count("cpu"))
+		exec.useCPU = true;
 
 	typedef std::pair<ExecutionParameters, EventDataLoadingParameters> tExecution;
 	std::vector<tExecution> executions;
@@ -497,7 +501,7 @@ int main(int argc, char *argv[]) {
 	runtimeRecords.logPrint();
 
 	std::stringstream outputFileRuntime;
-	outputFileRuntime << traxDir << "/runtime/" << "runtime" << (testSuiteFile != "" ? "." : "") << getFilename(testSuiteFile) << (exec.useCPU ? ".cpu" : ".gpu") << ".csv";
+	outputFileRuntime << traxDir << "/runtime/" << "runtime." <<  getFilename(exec.configFile) << (testSuiteFile != "" ? "." : "") << getFilename(testSuiteFile) << (exec.useCPU ? ".cpu" : ".gpu") << ".csv";
 
 	std::ofstream runtimeRecordsFile(outputFileRuntime.str(), std::ios::trunc);
 	runtimeRecordsFile << runtimeRecords.csvDump();
