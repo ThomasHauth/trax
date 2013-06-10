@@ -28,6 +28,7 @@ add_executable(evtStoreToContainer
 	evtStoreToContainer.cpp
 )
 target_link_libraries(evtStoreToContainer "boost_program_options")
+target_link_libraries(evtStoreToContainer "boost_filesystem")
 target_link_libraries(evtStoreToContainer "boost_system")
 target_link_libraries(evtStoreToContainer datastructures)
 
