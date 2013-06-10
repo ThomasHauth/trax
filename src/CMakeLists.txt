@@ -26,7 +26,9 @@ include_directories (/build/hauth/dev/protobuf-bin/include/)
 link_directories(/build/hauth/dev/protobuf-bin/lib/)
 
 #boost
-FIND_PACKAGE(Boost)
+# use custom (new) boost due to some compile bugs in the SLC6 version
+include_directories ( /build/hauth/dev/boost_1_53_0/ )
+link_directories(/build/hauth/dev/boost_1_53_0/stage/lib)
 
 include_directories (${trax_SOURCE_DIR}) 
 
