@@ -78,5 +78,5 @@ int main(int argc, char *argv[]) {
 	std::fstream out(outputFile, std::ios::out | std::ios::binary | std::ios::trunc);
 	container.SerializeToOstream( &out );
 	out.close();
-
+    return 0;
 }
