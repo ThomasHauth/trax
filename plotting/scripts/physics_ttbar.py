@@ -1,6 +1,6 @@
 import numpy as np
 
-import latexHeader
+#import latexHeader
 
 import matplotlib.pyplot as plt
 import math
@@ -10,6 +10,37 @@ def binomialError(data):
 
 def div(a,b):
     return [x / y if y > 0 else 0 for (x,y) in zip(a,b)]
+
+
+minPt = 1
+maxPt = 100
+
+def rebin(data):
+    rebinned = np.zeros(0, dtype=data.dtype)
+    print data
+    
+    pt = minPt    
+    while pt <= maxPt:
+        binWidth = pt / 10.0
+        print pt, "-", pt + binWidth
+        dat = data[(data['bin'] >= pt) & (data['bin'] < pt + binWidth)]
+        n = np.array([(pt + binWidth/2.0, dat['valid'].sum(), dat['fake'].sum(), dat['clones'].sum(), dat['missed'].sum())], dtype=data.dtype)
+        print n
+        rebinned = np.append(rebinned, n)
+        pt += binWidth
+    
+#    for i in range(minPt, maxPt+1):
+#        bins = math.ceil(10.0/i)
+#        for j in range (0, int(bins)):
+#            print (i + j / bins), "-", (i + (j+1)/bins)
+#            dat = data[(data['bin'] >= (i + j / bins)) & (data['bin'] < (i + (j+1)/bins))]
+#            #print dat
+#            n = np.array([(i + j / bins, dat['valid'].sum(), dat['fake'].sum(), dat['clones'].sum(), dat['missed'].sum())], dtype=data.dtype)
+#            print n
+#            rebinned = np.append(rebinned, n)
+            
+    print rebinned
+    return rebinned
 
 # tt bar physics
 ttbar = np.genfromtxt("../data/physics/physics.ttBar.csv", delimiter = " ", names=True)
@@ -58,19 +89,17 @@ for data, lt in zip(etas, ttbar['layerTriplet']):
     ax.set_xlim(-1.5,1.5)
     ax.set_ylim(0,1.1)
     if lt != overview:
-        ax.text(-1.5, 1.1, "layer triplet %s"%layerTriplets[int(lt)+1], va='bottom', ha='left')
+        fig.text(0.12, 0.9, "layers %s"%layerTriplets[int(lt)+1], va='bottom', ha='left')
     ax.legend(bbox_to_anchor=(0, 0, 1, 1), bbox_transform=fig.transFigure)
     plt.savefig('../output/physics/physics_ttbar_eta_%s.pdf'%str(int(lt)))
 
 #******************************
 # plot over pt
 
-maxPt = 50
-
 for dat, lt in zip(pts, ttbar['layerTriplet']):
     fig, ax = plt.subplots()
     
-    data = dat[dat['bin'] <= maxPt]
+    data = rebin(dat)
     
     ax.errorbar(data['bin'], div(data['valid'], (data['valid'] + data['missed'])), yerr=binomialError(data['valid']), fmt='go', label='efficiency')
     ax.errorbar(data['bin'], div(data['fake'], (data['valid'] + data['fake'] + data['clones'])), yerr=binomialError(data['fake']), fmt='ro', label='fake rate')
@@ -78,9 +107,12 @@ for dat, lt in zip(pts, ttbar['layerTriplet']):
     
     ax.set_title(r'$t\bar{t}$ Simulated Event Studies over $p_T$')
     ax.set_xlabel(r'$p_t$ in [$GeV/c$]')
-    ax.set_xlim(0,maxPt)
-    ax.set_ylim(0,1.1)
+    ax.set_xlim(minPt,maxPt)
+    #ax.set_xscale('symlog', linthreshx=10, subsx=[0,1,2, 3, 4, 5, 6, 7, 8, 9])
+    ax.set_xscale('log', nonposx='clip')
+    ax.set_ylim(-.1,1.1)
     if lt != overview:
-        ax.text(0, 1.1, "layer triplet %s"%layerTriplets[int(lt)+1], va='bottom', ha='left')
+        fig.text(0.12, 0.9, "layers %s"%layerTriplets[int(lt)+1], va='bottom', ha='left')
     ax.legend(bbox_to_anchor=(0, 0, 1, 1), bbox_transform=fig.transFigure)
     plt.savefig('../output/physics/physics_ttbar_pt_%s.pdf'%str(int(lt)))
+    

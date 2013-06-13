@@ -16,6 +16,9 @@ halfLocal_gpu.sort(order='tracks')
 noLocal_gpu = np.genfromtxt("../data/runtime/runtime.multipleMu.noLocal.conf.gpu.csv", delimiter = " ", names=True)
 noLocal_gpu.sort(order='tracks')
 
+superFine_gpu = np.genfromtxt("../data/runtime/runtime.multipleMu.superFine.conf.gpu.csv", delimiter = " ", names=True)
+superFine_gpu.sort(order='tracks')
+
 local_cpu = np.genfromtxt("../data/runtime/runtime.multipleMu.local.conf.cpu.csv", delimiter = " ", names=True)
 local_cpu.sort(order='tracks')
 
@@ -25,13 +28,16 @@ halfLocal_cpu.sort(order='tracks')
 noLocal_cpu = np.genfromtxt("../data/runtime/runtime.multipleMu.noLocal.conf.cpu.csv", delimiter = " ", names=True)
 noLocal_cpu.sort(order='tracks')
 
+superFine_cpu = np.genfromtxt("../data/runtime/runtime.multipleMu.superFine.conf.cpu.csv", delimiter = " ", names=True)
+superFine_cpu.sort(order='tracks')
+
 cmssw_5 = np.genfromtxt("../data/runtime/runtime.multipleMu.cmssw5.csv", delimiter = " ", names=True)
 cmssw_5.sort(order='tracks')
 
 cmssw_6 = np.genfromtxt("../data/runtime/runtime.multipleMu.cmssw6.csv", delimiter = " ", names=True)
 cmssw_6.sort(order='tracks')
 
-data = [(local_gpu, local_cpu, 'coarse grid'), (halfLocal_gpu, halfLocal_cpu, 'medium grid'), (noLocal_gpu, noLocal_cpu, 'fine grid')]
+data = [(local_gpu, local_cpu, 'coarse grid'), (halfLocal_gpu, halfLocal_cpu, 'medium grid'), (noLocal_gpu, noLocal_cpu, 'fine grid'), (superFine_gpu, superFine_cpu, 'super fine grid')]
 
 ###############################################
 ## individual comparison
@@ -91,9 +97,13 @@ g1 = top.errorbar(local_gpu['tracks'] / 30, local_gpu['totalKernel'] / local_gpu
 g2 = top.errorbar(halfLocal_gpu['tracks'] / 30, halfLocal_gpu['totalKernel'] / halfLocal_gpu['events'], yerr=local_gpu['totalKernelVar']  / local_gpu['events'], fmt='gx--', label=r'medium grid - GPU')
 g3 = top.errorbar(noLocal_gpu['tracks'] / 30, noLocal_gpu['totalKernel']  / noLocal_gpu['events'], yerr=noLocal_gpu['totalKernelVar']  / noLocal_gpu['events'], fmt='gD:', label=r'fine grid - GPU')
 
+#g4 = top.errorbar(superFine_gpu['tracks'] / 30, superFine_gpu['totalKernel']  / superFine_gpu['events'], yerr=superFine_gpu['totalKernelVar']  / superFine_gpu['events'], fmt='rD:', label=r'super fine grid - GPU')
+
 c1 = top.errorbar(local_cpu['tracks'] / 30, local_cpu['totalKernel'] / local_cpu['events'], yerr=local_cpu['totalKernelVar']  / local_cpu['events'], fmt='bo-', label=r'coarse grid - CPU')
 c2 = top.errorbar(halfLocal_cpu['tracks'] / 30, halfLocal_cpu['totalKernel'] / halfLocal_cpu['events'], yerr=local_cpu['totalKernelVar']  / local_cpu['events'], fmt='bx--', label=r'medium grid - CPU')
 c3 = top.errorbar(noLocal_cpu['tracks'] / 30, noLocal_cpu['totalKernel']  / noLocal_cpu['events'], yerr=noLocal_cpu['totalKernelVar']  / noLocal_cpu['events'], fmt='bD:', label=r'fine grid - CPU')
+
+#c4 = top.errorbar(superFine_cpu['tracks'] / 30, superFine_cpu['totalKernel']  / superFine_cpu['events'], yerr=superFine_cpu['totalKernelVar']  / superFine_cpu['events'], fmt='rD:', label=r'super fine grid - CPU')
 
 one = [1 for i in range(len(halfLocal_gpu['tracks']))]
 bottom.plot(halfLocal_gpu['tracks'] / 30, one, 'ko-')

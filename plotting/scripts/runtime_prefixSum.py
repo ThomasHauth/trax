@@ -45,7 +45,7 @@ ax1.plot(prefixSum_gpu['wgSize'], prefixSum_cpu[prefixSum_cpu['wgSize'] == 1]['t
 ax1.plot(prefixSum_gpu['wgSize'], prefixSum_cpu['time'] / prefixSum_gpu['time'], 'kD:', label='GTX 660 over Core i7')
 ax1.plot(prefixSum_cpu['wgSize'], prefixSum_cpu[prefixSum_cpu['wgSize'] == 1]['time'] / prefixSum_cpu['time'], 'bo-', label='Core i7')
 ax1.set_xlabel('work-group size')
-ax1.set_ylabel(r'time [ms]')
+ax1.set_ylabel(r'ratio')
 ax1.set_xscale('log', basex=2)
 ax1.set_yscale('log', basey=2)
 
