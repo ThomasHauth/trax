@@ -192,15 +192,42 @@ public:
 
 				for(; j < end2; ++j){
 
-					++nFound;
+					ulong index = j - (j >= zSectorEnd) * zSectorLength;
+					bool valid = zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh;
+
+					/*
+										if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[index]){
+											PRINTF("%i-%i-%i [%i]: z exp[%f]: %f - %f; z act: %f\n", firstHit, secondHit, index, hitId[firstHit], hitGlobalZ[secondHit], zLow, zHigh, hitGlobalZ[index]);
+											float thetaAct = atan2(sign(hitGlobalY[index])*sqrt((hitGlobalX[index] - hitGlobalX[secondHit])*(hitGlobalX[index] - hitGlobalX[secondHit])
+													+ (hitGlobalY[index] - hitGlobalY[secondHit])*(hitGlobalY[index] - hitGlobalY[secondHit]))
+													, ( hitGlobalZ[index] - hitGlobalZ[secondHit] ));
+											//if(!(thetaLow <= thetaAct && thetaAct <= thetaHigh))
+											PRINTF("\ttheta exp[%f]: %f - %f; theta act: %f\n", theta, atan(1/cotThetaLow), atan(1/cotThetaHigh), thetaAct);
+											//else {
+											float r2 = sqrt(hitGlobalX[secondHit]*hitGlobalX[secondHit] + hitGlobalY[secondHit]*hitGlobalY[secondHit]);
+											float r3 = sqrt(hitGlobalX[index]*hitGlobalX[index] + hitGlobalY[index]*hitGlobalY[index]);
+
+											PRINTF("\tdr exp: %f - %f; dr act: %f\n", dRmin, dRmax, r3-r2);
+											//}
+										}
+					 */
+
+					// check phi range
+					float actPhi = atan2(hitGlobalY[index],hitGlobalX[index]);
+					valid = valid * ((!wrapAround && (phiLow <= actPhi && actPhi <= phiHigh))
+							|| (wrapAround && ((phiLow <= actPhi && actPhi <= M_PI_F) || (-M_PI_F <= actPhi && actPhi <= phiHigh))));
+
+					nFound += valid;
 
 					//update oracle
 					//           skip to appropriate inner hit
 					//								treat phi overflow
 					//																beginning of second layer
-					uint index = (j - (j >= zSectorEnd) * zSectorLength - offset)*nHits2 + i - layer2Offset;
-					PRINTF(("%lu-%lu-%lu: setting bit for %u and %u -> %u\n", event, layerPair, thread, j - (j >= zSectorEnd) * zSectorLength - offset, i - layer2Offset, index));
-					atomic_or(&oracle[(oOffset + index) / 32], (1 << (index % 32)));
+					if(valid) {
+						index = (j - (j >= zSectorEnd) * zSectorLength - offset)*nHits2 + i - layer2Offset;
+						PRINTF(("%lu-%lu-%lu: setting bit for %u and %u -> %lu\n", event, layerPair, thread, j - (j >= zSectorEnd) * zSectorLength - offset, i - layer2Offset, index));
+						atomic_or(&oracle[(oOffset + index) / 32], (1 << (index % 32)));
+					}
 
 				}
 
@@ -360,15 +387,42 @@ public:
 
 				for(; j < end2; ++j){
 
-					++nFound;
+					ulong index = j - (j >= zSectorEnd) * zSectorLength;
+					bool valid = zLow <= hitGlobalZ[index] && hitGlobalZ[index] <= zHigh;
+
+					/*
+															if(!valid && hitId[firstHit] == hitId[secondHit] && hitId[secondHit] == hitId[index]){
+																PRINTF("%i-%i-%i [%i]: z exp[%f]: %f - %f; z act: %f\n", firstHit, secondHit, index, hitId[firstHit], hitGlobalZ[secondHit], zLow, zHigh, hitGlobalZ[index]);
+																float thetaAct = atan2(sign(hitGlobalY[index])*sqrt((hitGlobalX[index] - hitGlobalX[secondHit])*(hitGlobalX[index] - hitGlobalX[secondHit])
+																		+ (hitGlobalY[index] - hitGlobalY[secondHit])*(hitGlobalY[index] - hitGlobalY[secondHit]))
+																		, ( hitGlobalZ[index] - hitGlobalZ[secondHit] ));
+																//if(!(thetaLow <= thetaAct && thetaAct <= thetaHigh))
+																PRINTF("\ttheta exp[%f]: %f - %f; theta act: %f\n", theta, atan(1/cotThetaLow), atan(1/cotThetaHigh), thetaAct);
+																//else {
+																float r2 = sqrt(hitGlobalX[secondHit]*hitGlobalX[secondHit] + hitGlobalY[secondHit]*hitGlobalY[secondHit]);
+																float r3 = sqrt(hitGlobalX[index]*hitGlobalX[index] + hitGlobalY[index]*hitGlobalY[index]);
+
+																PRINTF("\tdr exp: %f - %f; dr act: %f\n", dRmin, dRmax, r3-r2);
+																//}
+															}
+					 */
+
+					// check phi range
+					float actPhi = atan2(hitGlobalY[index],hitGlobalX[index]);
+					valid = valid * ((!wrapAround && (phiLow <= actPhi && actPhi <= phiHigh))
+							|| (wrapAround && ((phiLow <= actPhi && actPhi <= M_PI_F) || (-M_PI_F <= actPhi && actPhi <= phiHigh))));
+
+					nFound += valid;
 
 					//update oracle
 					//           skip to appropriate inner hit
 					//								treat phi overflow
 					//																beginning of second layer
-					uint index = (j - (j >= zSectorEnd) * zSectorLength - offset)*nHits2 + i - layer2Offset;
-					PRINTF(("%lu-%lu-%lu: setting bit for %u and %u -> %u\n", event, layerPair, thread, j - (j >= zSectorEnd) * zSectorLength - offset, i - layer2Offset, index));
-					atomic_or(&oracle[(oOffset + index) / 32], (1 << (index % 32)));
+					if(valid) {
+						index = (j - (j >= zSectorEnd) * zSectorLength - offset)*nHits2 + i - layer2Offset;
+						PRINTF(("%lu-%lu-%lu: setting bit for %u and %u -> %lu\n", event, layerPair, thread, j - (j >= zSectorEnd) * zSectorLength - offset, i - layer2Offset, index));
+						atomic_or(&oracle[(oOffset + index) / 32], (1 << (index % 32)));
+					}
 
 				}
 
