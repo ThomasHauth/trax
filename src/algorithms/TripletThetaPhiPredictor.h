@@ -97,14 +97,15 @@ public:
 			//ulong oOffset = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
 			uint nFound = 0;
 
-			float dThetaWindow = thetaWindow[layerTriplet];
-			float dPhiWindow = phiWindow[layerTriplet];
+			//float dThetaWindow = thetaWindow[layerTriplet];
+			//float dPhiWindow = phiWindow[layerTriplet];
 			float minLayerRadius = gMinLayerRadius[layer];
 			float maxLayerRadius = gMaxLayerRadius[layer];
 
 
 			PRINTF(("id %lu loaded configuration\n", gid));
 
+			//theta
 			//load hit data
 			float3 p1 =  (float3) (hitGlobalX[firstHit], hitGlobalY[firstHit], hitGlobalZ[firstHit]);
 
@@ -140,27 +141,23 @@ public:
 			uint zLowSector = max((int) floor((zLow - minZ) / sectorSizeZ), 0); // signed int because zLow could be lower than minZ
 			uint zHighSector = min((uint) floor((zHigh - minZ) / sectorSizeZ)+1, nSectorsZ);
 
-			PRINTF(("%u-%u-%lu: hit2 %u -> prediction %f-%f [%u,%u]\n", event, layerTriplet, gid, secondHit, zLow, zHigh, zLowSector, zHighSector));
+			//PRINTF(("%lu-%lu-%lu: hit pair %u -> prediction %f-%f [%u,%u]\n", event, layerTriplet, thread, i, zLow, zHigh, zLowSector, zHighSector));
 
 			//phi
-			float phi = atan2(hitGlobalY[secondHit], hitGlobalX[secondHit]); //phi second hit
-			tmp = atan2(hitGlobalY[firstHit], hitGlobalX[firstHit]); //phi first hit
+			float phi = atan2(p2.y, p2.x); //phi second hit
+			tmp = atan2(p1.y, p1.x); //phi first hit
 
 			float dPhi = phi - tmp; //delta might be ]-pi,pi[
 			dPhi += (dPhi>M_PI_F) ? -2*M_PI_F : (dPhi<-M_PI_F) ? 2*M_PI_F : 0; //fix wrap around
 			dPhi = fabs(dPhi); //absolute value
 
-			//printf("D1: %f\n", dPhi);
-
-			float dHits = sqrt((hitGlobalX[secondHit] - hitGlobalX[firstHit]) * (hitGlobalX[secondHit] - hitGlobalX[firstHit])
-					+ (hitGlobalY[secondHit] - hitGlobalY[firstHit]) * (hitGlobalY[secondHit] - hitGlobalY[firstHit]));
+			float dHits = sqrt((p2.x - p1.x) * (p2.x - p1.x)
+					+ (p2.y - p1.y) * (p2.y - p1.y));
 
 			tmp = fabs(acos(dHits / (2 * minRadiusCurvature)) - acos(maxLayerRadius / (2 * minRadiusCurvature)));
 			//use phi low as tempory variable
 			float phiLow = fabs(acos(dHits / (2 * minRadiusCurvature)) - acos(minLayerRadius / (2 * minRadiusCurvature)));
 			dPhi = max(dPhi, max(tmp, phiLow));
-
-			//printf("D2: %f\n", dPhi);
 
 			float phiHigh = phi + dPhi; // phi high may be greater than PI
 			phiLow = phi - dPhi;
@@ -225,7 +222,7 @@ public:
 					 */
 
 					//if valid update nFound
-					nFound = nFound + valid;
+					nFound += valid;
 
 					//update oracle
 					//index = (i - pairOffset)*nHits3 + j - (j >= zSectorEnd) * zSectorLength - offset;
@@ -298,8 +295,8 @@ public:
 			uint pos = prefixSum[gid]; //first position to write
 			uint nextThread = prefixSum[gid+1]; //first position of next thread
 
-			float dThetaWindow = thetaWindow[layerTriplet];
-			float dPhiWindow = phiWindow[layerTriplet];
+			//float dThetaWindow = thetaWindow[layerTriplet];
+			//float dPhiWindow = phiWindow[layerTriplet];
 			float minLayerRadius = gMinLayerRadius[layer];
 			float maxLayerRadius = gMaxLayerRadius[layer];
 
@@ -353,15 +350,15 @@ public:
 			//PRINTF(("%lu-%lu-%lu: hit pair %u -> prediction %f-%f [%u,%u]\n", event, layerTriplet, thread, i, zLow, zHigh, zLowSector, zHighSector));
 
 			//phi
-			float phi = atan2(hitGlobalY[secondHit], hitGlobalX[secondHit]); //phi second hit
-			tmp = atan2(hitGlobalY[firstHit], hitGlobalX[firstHit]); //phi first hit
+			float phi = atan2(p2.y, p2.x); //phi second hit
+			tmp = atan2(p1.y, p1.x); //phi first hit
 
 			float dPhi = phi - tmp; //delta might be ]-pi,pi[
 			dPhi += (dPhi>M_PI_F) ? -2*M_PI_F : (dPhi<-M_PI_F) ? 2*M_PI_F : 0; //fix wrap around
 			dPhi = fabs(dPhi); //absolute value
 
-			float dHits = sqrt((hitGlobalX[secondHit] - hitGlobalX[firstHit]) * (hitGlobalX[secondHit] - hitGlobalX[firstHit])
-					+ (hitGlobalY[secondHit] - hitGlobalY[firstHit]) * (hitGlobalY[secondHit] - hitGlobalY[firstHit]));
+			float dHits = sqrt((p2.x - p1.x) * (p2.x - p1.x)
+					+ (p2.y - p1.y) * (p2.y - p1.y));
 
 			tmp = fabs(acos(dHits / (2 * minRadiusCurvature)) - acos(maxLayerRadius / (2 * minRadiusCurvature)));
 			//use phi low as tempory variable
@@ -421,6 +418,7 @@ public:
 
 					// check phi range
 					float actPhi = atan2(hitGlobalY[index],hitGlobalX[index]);
+
 					valid = valid * ((!wrapAround && (phiLow <= actPhi && actPhi <= phiHigh))
 							|| (wrapAround && ((phiLow <= actPhi && actPhi <= M_PI_F) || (-M_PI_F <= actPhi && actPhi <= phiHigh))));
 
@@ -459,7 +457,6 @@ public:
 				}
 			}
 			//}
-
 			//determine triplet offsets
 			if(gid < nPairs-1){ //not the last hit pair
 				uint nextHit = pairs[gid+1].x;
