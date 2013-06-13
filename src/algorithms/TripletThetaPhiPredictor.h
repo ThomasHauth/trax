@@ -43,11 +43,11 @@ public:
 	Pairing * run(HitCollection & hits, const DetectorGeometry & geom, const GeometrySupplement & geomSupplement, const Dictionary & dict,
 			int nThreads, const TripletConfigurations & layerTriplets, const Grid & grid, const Pairing & pairs);
 
-	KERNEL25_CLASSP( predictCount, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL26_CLASSP( predictCount, cl_mem, cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem, uint,
 			cl_float, cl_float, uint,
 			cl_float, cl_float, uint,
-			cl_mem, cl_mem,
+			cl_mem, cl_mem, cl_float,
 			cl_mem, cl_uint,
 			cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem,
@@ -63,7 +63,7 @@ public:
 					const float minZ, const float sectorSizeZ, const uint nSectorsZ,
 					const float minPhi, const float sectorSizePhi, const uint nSectorsPhi,
 					//configuration
-					__global const float * thetaWindow, __global const float * phiWindow,
+					__global const float * thetaWindow, __global const float * phiWindow, const float minRadiusCurvature,
 					// hit input
 					__global const uint2 * pairs, const uint nPairs,
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
@@ -111,8 +111,19 @@ public:
 					+ (hitGlobalY[secondHit] - hitGlobalY[firstHit])*(hitGlobalY[secondHit] - hitGlobalY[firstHit]))
 			, ( hitGlobalZ[secondHit] - hitGlobalZ[firstHit] ));
 
-			float tmp = (1-dThetaWindow) * theta;
+			float tmp = theta + dThetaWindow;
 			int overflow = 1 - (fabs(tmp) > M_PI_F)*2;
+			tmp -= (tmp > M_PI_F) * 2 * M_PI_F;
+			tmp += (tmp < -M_PI_F) * 2 * M_PI_F;
+			tmp *= overflow;
+			float cotThetaHigh = tan(M_PI_2_F -tmp);
+			//int thetaHighSgn = 1 - (fabs(thetaHigh) > M_PI_2_F) * 2;
+			//thetaHigh = (fabs(thetaHigh) <= M_PI_2_F) * thetaHigh + (fabs(thetaHigh) > M_PI_2_F) * (sign(thetaHigh)*M_PI_F - thetaHigh);
+
+			float dTheta = tmp;
+
+			tmp = theta - dThetaWindow;
+			overflow = 1 - (fabs(tmp) > M_PI_F)*2;
 			tmp -= (tmp > M_PI_F) * 2 * M_PI_F;
 			tmp += (tmp < -M_PI_F) * 2 * M_PI_F;
 			tmp *= overflow; //signRadius is set according to original theta --> it it overflows we must adjust angle to compensate for "wrongly" set signRadius
@@ -120,14 +131,11 @@ public:
 			//int thetaLowSgn = 1 - (fabs(thetaLow) > M_PI_2_F) * 2;
 			//thetaLow = (fabs(thetaLow) <= M_PI_2_F) * thetaLow + (fabs(thetaLow) > M_PI_2_F) * (sign(thetaLow)*M_PI_F - thetaLow);
 
-			tmp = (1+dThetaWindow) * theta;
-			overflow = 1 - (fabs(tmp) > M_PI_F)*2;
-			tmp -= (tmp > M_PI_F) * 2 * M_PI_F;
-			tmp += (tmp < -M_PI_F) * 2 * M_PI_F;
-			tmp *= overflow;
-			float cotThetaHigh = tan(M_PI_2_F -tmp);
-			//int thetaHighSgn = 1 - (fabs(thetaHigh) > M_PI_2_F) * 2;
-			//thetaHigh = (fabs(thetaHigh) <= M_PI_2_F) * thetaHigh + (fabs(thetaHigh) > M_PI_2_F) * (sign(thetaHigh)*M_PI_F - thetaHigh);
+			dTheta -= tmp; //delta might be ]-pi,pi[
+			dTheta += (dTheta>M_PI_F) ? -2*M_PI_F : (dTheta<-M_PI_F) ? 2*M_PI_F : 0; //fix wrap around
+			dTheta = fabs(dTheta); //absolute value
+
+			//printf("dTHETA: %f\n", dTheta);
 
 			//radius
 			PRINTF(("%lu: before loading radius\n", gid));
@@ -163,10 +171,25 @@ public:
 			PRINTF(("%u-%u-%lu: hit2 %u -> prediction %f-%f [%u,%u]\n", event, layerTriplet, gid, secondHit, zLow, zHigh, zLowSector, zHighSector));
 
 			//phi
-			float phi = atan2((hitGlobalY[secondHit] - hitGlobalY[firstHit]) , ( hitGlobalX[secondHit] - hitGlobalX[firstHit] ));
+			float phi = atan2(hitGlobalY[secondHit], hitGlobalX[secondHit]); //phi second hit
+			tmp = atan2(hitGlobalY[firstHit], hitGlobalX[firstHit]); //phi first hit
 
-			float phiHigh = phi + dPhiWindow; // phi high may be greater than PI
-			float phiLow = phi - dPhiWindow;
+			float dPhi = phi - tmp; //delta might be ]-pi,pi[
+			dPhi += (dPhi>M_PI_F) ? -2*M_PI_F : (dPhi<-M_PI_F) ? 2*M_PI_F : 0; //fix wrap around
+			dPhi = fabs(dPhi); //absolute value
+
+			float dHits = sqrt((hitGlobalX[secondHit] - hitGlobalX[firstHit]) * (hitGlobalX[secondHit] - hitGlobalX[firstHit])
+					+ (hitGlobalY[secondHit] - hitGlobalY[firstHit]) * (hitGlobalY[secondHit] - hitGlobalY[firstHit]));
+
+			tmp = fabs(acos(dHits / (2 * minRadiusCurvature)) - acos(maxLayerRadius / (2 * minRadiusCurvature)));
+			//use phi low as tempory variable
+			float phiLow = fabs(acos(dHits / (2 * minRadiusCurvature)) - acos(minLayerRadius / (2 * minRadiusCurvature)));
+			dPhi += tmp < phiLow ? phiLow : tmp;
+
+			//printf("dPHI: %f\n", dPhi);
+
+			float phiHigh = phi + dPhi; // phi high may be greater than PI
+			phiLow = phi - dPhi;
 
 			//deal with wrap around
 			bool wrapAround = phiLow < -M_PI_F || phiHigh > M_PI_F || phiLow > M_PI_F || phiHigh < -M_PI_F;
@@ -249,11 +272,11 @@ public:
 		}
 	});
 
-	KERNEL27_CLASSP(predictStore, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL28_CLASSP(predictStore, cl_mem, cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem, uint,
 			cl_float, cl_float, uint,
 			cl_float, cl_float, uint,
-			cl_mem, cl_mem, cl_uint,
+			cl_mem, cl_mem, cl_uint, cl_float,
 			cl_mem, cl_uint,
 			cl_mem, cl_mem, cl_mem,
 			cl_mem, cl_mem,
@@ -270,7 +293,7 @@ public:
 					const float minZ, const float sectorSizeZ, const uint nSectorsZ,
 					const float minPhi, const float sectorSizePhi, const uint nSectorsPhi,
 					// configuration
-					__global const float * thetaWindow, __global const float * phiWindow, const uint nLayerTriplets,
+					__global const float * thetaWindow, __global const float * phiWindow, const uint nLayerTriplets, const float minRadiusCurvature,
 					// hit input
 					__global const uint2 * pairs, const uint nPairs,
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
@@ -323,23 +346,23 @@ public:
 					+ (hitGlobalY[secondHit] - hitGlobalY[firstHit])*(hitGlobalY[secondHit] - hitGlobalY[firstHit]))
 			, ( hitGlobalZ[secondHit] - hitGlobalZ[firstHit] ));
 
-			float tmp = (1-dThetaWindow) * theta;
+			float tmp = theta + dThetaWindow;
 			int overflow = 1 - (fabs(tmp) > M_PI_F)*2;
-			tmp -= (tmp > M_PI_F) * 2 * M_PI_F;
-			tmp += (tmp < -M_PI_F) * 2 * M_PI_F;
-			tmp *= overflow; //signRadius is set according to original theta --> it it overflows we must adjust angle to compensate for "wrongly" set signRadius
-			float cotThetaLow = tan(M_PI_2_F - tmp);
-			//int thetaLowSgn = 1 - (fabs(thetaLow) > M_PI_2_F) * 2;
-			//thetaLow = (fabs(thetaLow) <= M_PI_2_F) * thetaLow + (fabs(thetaLow) > M_PI_2_F) * (sign(thetaLow)*M_PI_F - thetaLow);
-
-			tmp = (1+dThetaWindow) * theta;
-			overflow = 1 - (fabs(tmp) > M_PI_F)*2;
 			tmp -= (tmp > M_PI_F) * 2 * M_PI_F;
 			tmp += (tmp < -M_PI_F) * 2 * M_PI_F;
 			tmp *= overflow;
 			float cotThetaHigh = tan(M_PI_2_F -tmp);
 			//int thetaHighSgn = 1 - (fabs(thetaHigh) > M_PI_2_F) * 2;
 			//thetaHigh = (fabs(thetaHigh) <= M_PI_2_F) * thetaHigh + (fabs(thetaHigh) > M_PI_2_F) * (sign(thetaHigh)*M_PI_F - thetaHigh);
+
+			tmp = theta - dThetaWindow;
+			overflow = 1 - (fabs(tmp) > M_PI_F)*2;
+			tmp -= (tmp > M_PI_F) * 2 * M_PI_F;
+			tmp += (tmp < -M_PI_F) * 2 * M_PI_F;
+			tmp *= overflow; //signRadius is set according to original theta --> it it overflows we must adjust angle to compensate for "wrongly" set signRadius
+			float cotThetaLow = tan(M_PI_2_F - tmp);
+			//int thetaLowSgn = 1 - (fabs(thetaLow) > M_PI_2_F) * 2;
+			//thetaLow = (fabs(thetaLow) <= M_PI_2_F) * thetaLow + (fabs(thetaLow) > M_PI_2_F) * (sign(thetaLow)*M_PI_F - thetaLow);
 
 			//radius
 			//float r = signRadius * radiusDict[detRadius[detId[secondHit]]];
@@ -373,10 +396,23 @@ public:
 			//PRINTF(("%lu-%lu-%lu: hit pair %u -> prediction %f-%f [%u,%u]\n", event, layerTriplet, thread, i, zLow, zHigh, zLowSector, zHighSector));
 
 			//phi
-			float phi = atan2((hitGlobalY[secondHit] - hitGlobalY[firstHit]) , ( hitGlobalX[secondHit] - hitGlobalX[firstHit] ));
+			float phi = atan2(hitGlobalY[secondHit], hitGlobalX[secondHit]); //phi second hit
+			tmp = atan2(hitGlobalY[firstHit], hitGlobalX[firstHit]); //phi first hit
 
-			float phiHigh = phi + dPhiWindow; // phi high may be greater than PI
-			float phiLow = phi - dPhiWindow;
+			float dPhi = phi - tmp; //delta might be ]-pi,pi[
+			dPhi += (dPhi>M_PI_F) ? -2*M_PI_F : (dPhi<-M_PI_F) ? 2*M_PI_F : 0; //fix wrap around
+			dPhi = fabs(dPhi); //absolute value
+
+			float dHits = sqrt((hitGlobalX[secondHit] - hitGlobalX[firstHit]) * (hitGlobalX[secondHit] - hitGlobalX[firstHit])
+					+ (hitGlobalY[secondHit] - hitGlobalY[firstHit]) * (hitGlobalY[secondHit] - hitGlobalY[firstHit]));
+
+			tmp = fabs(acos(dHits / (2 * minRadiusCurvature)) - acos(maxLayerRadius / (2 * minRadiusCurvature)));
+			//use phi low as tempory variable
+			float phiLow = fabs(acos(dHits / (2 * minRadiusCurvature)) - acos(minLayerRadius / (2 * minRadiusCurvature)));
+			dPhi += tmp < phiLow ? phiLow : tmp;
+
+			float phiHigh = phi + dPhi; // phi high may be greater than PI
+			phiLow = phi - dPhi;
 
 			//deal with wrap around
 			bool wrapAround = phiLow < -M_PI_F || phiHigh > M_PI_F || phiLow > M_PI_F || phiHigh < -M_PI_F;

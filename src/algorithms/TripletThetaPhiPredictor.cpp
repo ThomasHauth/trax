@@ -26,7 +26,7 @@ Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeom
 				grid.config.MIN_Z, grid.config.sectorSizeZ(), grid.config.nSectorsZ,
 				grid.config.MIN_PHI, grid.config.sectorSizePhi(), grid.config.nSectorsPhi,
 				//configuration
-				layerTriplets.transfer.buffer(dThetaWindow()), layerTriplets.transfer.buffer(dPhiWindow()),
+				layerTriplets.transfer.buffer(dThetaWindow()), layerTriplets.transfer.buffer(dPhiWindow()), layerTriplets.minRadiusCurvature(),
 				// input
 				pairs.pairing.get_mem(), nPairs,
 				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
@@ -82,7 +82,7 @@ Pairing * TripletThetaPhiPredictor::run(HitCollection & hits, const DetectorGeom
 				grid.config.MIN_Z, grid.config.sectorSizeZ(), grid.config.nSectorsZ,
 				grid.config.MIN_PHI, grid.config.sectorSizePhi(), grid.config.nSectorsPhi,
 				//configuration
-				layerTriplets.transfer.buffer(dThetaWindow()), layerTriplets.transfer.buffer(dPhiWindow()), layerTriplets.size(),
+				layerTriplets.transfer.buffer(dThetaWindow()), layerTriplets.transfer.buffer(dPhiWindow()), layerTriplets.size(), layerTriplets.minRadiusCurvature(),
 				//input
 				pairs.pairing.get_mem(), pairs.pairing.get_count(),
 				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),

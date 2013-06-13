@@ -104,7 +104,7 @@ public:
 			angle2 = atan2((hitGlobalY[thirdHit] - hitGlobalY[secondHit]) , ( hitGlobalX[thirdHit] - hitGlobalX[secondHit] ));
 
 			delta = angle2 - angle1;
-			delta += (delta>M_PI_2_F) ? -M_PI_F : (delta<-M_PI_2_F) ? M_PI_F : 0; //fix wrap around
+			delta += (delta>M_PI_F) ? -2*M_PI_F : (delta<-M_PI_F) ? 2*M_PI_F : 0; //fix wrap around
 			valid = valid * (fabs(delta) <= dPhiCut);
 
 			//circle fit
