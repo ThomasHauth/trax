@@ -105,65 +105,37 @@ public:
 
 			PRINTF(("id %lu loaded configuration\n", gid));
 
-			//theta
-			float signRadius = sign(hitGlobalY[secondHit]);
-			float theta = atan2( signRadius * sqrt((hitGlobalX[secondHit] - hitGlobalX[firstHit])*(hitGlobalX[secondHit] - hitGlobalX[firstHit])
-					+ (hitGlobalY[secondHit] - hitGlobalY[firstHit])*(hitGlobalY[secondHit] - hitGlobalY[firstHit]))
-			, ( hitGlobalZ[secondHit] - hitGlobalZ[firstHit] ));
+			//load hit data
+			float3 p1 =  (float3) (hitGlobalX[firstHit], hitGlobalY[firstHit], hitGlobalZ[firstHit]);
 
-			float tmp = theta + dThetaWindow;
-			int overflow = 1 - (fabs(tmp) > M_PI_F)*2;
-			tmp -= (tmp > M_PI_F) * 2 * M_PI_F;
-			tmp += (tmp < -M_PI_F) * 2 * M_PI_F;
-			tmp *= overflow;
-			float cotThetaHigh = tan(M_PI_2_F -tmp);
-			//int thetaHighSgn = 1 - (fabs(thetaHigh) > M_PI_2_F) * 2;
-			//thetaHigh = (fabs(thetaHigh) <= M_PI_2_F) * thetaHigh + (fabs(thetaHigh) > M_PI_2_F) * (sign(thetaHigh)*M_PI_F - thetaHigh);
+			float3 p2 =  (float3) (hitGlobalX[secondHit], hitGlobalY[secondHit], hitGlobalZ[secondHit]);
 
-			float dTheta = tmp;
+			//calculate transverse impact parameter of straight line p1 -> p2
+			// tip2 = x2 + f(x)2
+			// with f(x) = m * x + n
+			// calculate m and n with p1 and p2
+			// diverentiate tip2 -> set zero -> obtain x0 -> plug it in and get minimal tip
 
-			tmp = theta - dThetaWindow;
-			overflow = 1 - (fabs(tmp) > M_PI_F)*2;
-			tmp -= (tmp > M_PI_F) * 2 * M_PI_F;
-			tmp += (tmp < -M_PI_F) * 2 * M_PI_F;
-			tmp *= overflow; //signRadius is set according to original theta --> it it overflows we must adjust angle to compensate for "wrongly" set signRadius
-			float cotThetaLow = tan(M_PI_2_F - tmp);
-			//int thetaLowSgn = 1 - (fabs(thetaLow) > M_PI_2_F) * 2;
-			//thetaLow = (fabs(thetaLow) <= M_PI_2_F) * thetaLow + (fabs(thetaLow) > M_PI_2_F) * (sign(thetaLow)*M_PI_F - thetaLow);
+			float tip2 = p1.y * (p2.x - p1.x) - p1.x * (p2.y - p1.y);
+			tip2 *= tip2;
+			tip2 /= ( (p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y) ); //short form to get r min
 
-			dTheta -= tmp; //delta might be ]-pi,pi[
-			dTheta += (dTheta>M_PI_F) ? -2*M_PI_F : (dTheta<-M_PI_F) ? 2*M_PI_F : 0; //fix wrap around
-			dTheta = fabs(dTheta); //absolute value
+			//the origin is p1
+			// the cotangent is defined by p1 and p2 minus tip
+			float rOrigin = sqrt(p1.x*p1.x + p1.y*p1.y);
+			rOrigin = sqrt(rOrigin*rOrigin - tip2);
+			float cotTheta = (p2.z - p1.z) / (sqrt(p2.x*p2.x + p2.y*p2.y - tip2) - rOrigin);
 
-			//printf("dTHETA: %f\n", dTheta);
 
-			//radius
-			PRINTF(("%lu: before loading radius\n", gid));
-			//float r = signRadius * radiusDict[detRadius[detId[secondHit]]];
-			float r = signRadius * sqrt(hitGlobalX[secondHit]*hitGlobalX[secondHit] + hitGlobalY[secondHit]*hitGlobalY[secondHit]);
-			float dRmax = signRadius * maxLayerRadius - r;
-			float dRmin = signRadius * minLayerRadius - r;
-			PRINTF(("%lu: after loading radius\n", gid));
+			//predict z with minimum and maximum layer radisu
+			float tmp = p1.z + (sqrt(maxLayerRadius*maxLayerRadius - tip2)-rOrigin)*cotTheta;
+			float zLow = p1.z + (sqrt(minLayerRadius*minLayerRadius - tip2)-rOrigin)*cotTheta;
 
-			//z_3 = z_2 + dr * cot(theta) => cot(theta) = tan(pi/2 - theta)
+			float zHigh = (tmp > zLow) * tmp + (tmp < zLow) * zLow;
+			zLow = (tmp > zLow) * zLow + (tmp < zLow)*tmp;
 
-			//first calculate for dRmax
-			tmp = hitGlobalZ[secondHit] + dRmax * cotThetaLow;
-			float zHigh = hitGlobalZ[secondHit] + dRmax * cotThetaHigh;
-
-			float zLow = (tmp < zHigh) * tmp + (tmp > zHigh) * zHigh;
-			zHigh = (tmp < zHigh) * zHigh + (tmp > zHigh) * tmp;
-
-			//now for dRmin
-			//thetaLow
-			tmp = hitGlobalZ[secondHit] + dRmin * cotThetaLow;
-			zLow = (tmp < zLow) * tmp + (tmp > zLow) * zLow;
-			zHigh = (tmp > zHigh) * tmp + (tmp < zHigh) * zHigh;
-			//thetaHigh
-			tmp = hitGlobalZ[secondHit] + dRmin * cotThetaHigh;
-			zLow = (tmp < zLow) * tmp + (tmp > zLow) * zLow;
-			zHigh = (tmp > zHigh) * tmp + (tmp < zHigh) * zHigh;
-			//now zLow - zHigh should be the maxiumum possible range
+			zLow -= 0.037;
+			zHigh += 0.037;
 
 			uint zLowSector = max((int) floor((zLow - minZ) / sectorSizeZ), 0); // signed int because zLow could be lower than minZ
 			uint zHighSector = min((uint) floor((zHigh - minZ) / sectorSizeZ)+1, nSectorsZ);
@@ -178,15 +150,17 @@ public:
 			dPhi += (dPhi>M_PI_F) ? -2*M_PI_F : (dPhi<-M_PI_F) ? 2*M_PI_F : 0; //fix wrap around
 			dPhi = fabs(dPhi); //absolute value
 
+			//printf("D1: %f\n", dPhi);
+
 			float dHits = sqrt((hitGlobalX[secondHit] - hitGlobalX[firstHit]) * (hitGlobalX[secondHit] - hitGlobalX[firstHit])
 					+ (hitGlobalY[secondHit] - hitGlobalY[firstHit]) * (hitGlobalY[secondHit] - hitGlobalY[firstHit]));
 
 			tmp = fabs(acos(dHits / (2 * minRadiusCurvature)) - acos(maxLayerRadius / (2 * minRadiusCurvature)));
 			//use phi low as tempory variable
 			float phiLow = fabs(acos(dHits / (2 * minRadiusCurvature)) - acos(minLayerRadius / (2 * minRadiusCurvature)));
-			dPhi += tmp < phiLow ? phiLow : tmp;
+			dPhi = max(dPhi, max(tmp, phiLow));
 
-			//printf("dPHI: %f\n", dPhi);
+			//printf("D2: %f\n", dPhi);
 
 			float phiHigh = phi + dPhi; // phi high may be greater than PI
 			phiLow = phi - dPhi;
@@ -341,54 +315,37 @@ public:
 			//for(; i < end; i += threads){
 
 			//theta
-			float signRadius = sign(hitGlobalY[secondHit]);
-			float theta = atan2( signRadius * sqrt((hitGlobalX[secondHit] - hitGlobalX[firstHit])*(hitGlobalX[secondHit] - hitGlobalX[firstHit])
-					+ (hitGlobalY[secondHit] - hitGlobalY[firstHit])*(hitGlobalY[secondHit] - hitGlobalY[firstHit]))
-			, ( hitGlobalZ[secondHit] - hitGlobalZ[firstHit] ));
+			//load hit data
+			float3 p1 =  (float3) (hitGlobalX[firstHit], hitGlobalY[firstHit], hitGlobalZ[firstHit]);
 
-			float tmp = theta + dThetaWindow;
-			int overflow = 1 - (fabs(tmp) > M_PI_F)*2;
-			tmp -= (tmp > M_PI_F) * 2 * M_PI_F;
-			tmp += (tmp < -M_PI_F) * 2 * M_PI_F;
-			tmp *= overflow;
-			float cotThetaHigh = tan(M_PI_2_F -tmp);
-			//int thetaHighSgn = 1 - (fabs(thetaHigh) > M_PI_2_F) * 2;
-			//thetaHigh = (fabs(thetaHigh) <= M_PI_2_F) * thetaHigh + (fabs(thetaHigh) > M_PI_2_F) * (sign(thetaHigh)*M_PI_F - thetaHigh);
+			float3 p2 =  (float3) (hitGlobalX[secondHit], hitGlobalY[secondHit], hitGlobalZ[secondHit]);
 
-			tmp = theta - dThetaWindow;
-			overflow = 1 - (fabs(tmp) > M_PI_F)*2;
-			tmp -= (tmp > M_PI_F) * 2 * M_PI_F;
-			tmp += (tmp < -M_PI_F) * 2 * M_PI_F;
-			tmp *= overflow; //signRadius is set according to original theta --> it it overflows we must adjust angle to compensate for "wrongly" set signRadius
-			float cotThetaLow = tan(M_PI_2_F - tmp);
-			//int thetaLowSgn = 1 - (fabs(thetaLow) > M_PI_2_F) * 2;
-			//thetaLow = (fabs(thetaLow) <= M_PI_2_F) * thetaLow + (fabs(thetaLow) > M_PI_2_F) * (sign(thetaLow)*M_PI_F - thetaLow);
+			//calculate transverse impact parameter of straight line p1 -> p2
+			// tip2 = x2 + f(x)2
+			// with f(x) = m * x + n
+			// calculate m and n with p1 and p2
+			// diverentiate tip2 -> set zero -> obtain x0 -> plug it in and get minimal tip
 
-			//radius
-			//float r = signRadius * radiusDict[detRadius[detId[secondHit]]];
-			float r = signRadius * sqrt(hitGlobalX[secondHit]*hitGlobalX[secondHit] + hitGlobalY[secondHit]*hitGlobalY[secondHit]);
-			float dRmax = signRadius * maxLayerRadius - r;
-			float dRmin = signRadius * minLayerRadius - r;
+			float tip2 = p1.y * (p2.x - p1.x) - p1.x * (p2.y - p1.y);
+			tip2 *= tip2;
+			tip2 /= ( (p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y) ); //short form to get r min
 
-			//z_3 = z_2 + dr * cot(theta) => cot(theta) = tan(pi/2 - theta)
+			//the origin is p1
+			// the cotangent is defined by p1 and p2 minus tip
+			float rOrigin = sqrt(p1.x*p1.x + p1.y*p1.y);
+			rOrigin = sqrt(rOrigin*rOrigin - tip2);
+			float cotTheta = (p2.z - p1.z) / (sqrt(p2.x*p2.x + p2.y*p2.y - tip2) - rOrigin);
 
-			//first calculate for dRmax
-			tmp = hitGlobalZ[secondHit] + dRmax * cotThetaLow;
-			float zHigh = hitGlobalZ[secondHit] + dRmax * cotThetaHigh;
 
-			float zLow = (tmp < zHigh) * tmp + (tmp > zHigh) * zHigh;
-			zHigh = (tmp < zHigh) * zHigh + (tmp > zHigh) * tmp;
+			//predict z with minimum and maximum layer radisu
+			float tmp = p1.z + (sqrt(maxLayerRadius*maxLayerRadius - tip2)-rOrigin)*cotTheta;
+			float zLow = p1.z + (sqrt(minLayerRadius*minLayerRadius - tip2)-rOrigin)*cotTheta;
 
-			//now for dRmin
-			//thetaLow
-			tmp = hitGlobalZ[secondHit] + dRmin * cotThetaLow;
-			zLow = (tmp < zLow) * tmp + (tmp > zLow) * zLow;
-			zHigh = (tmp > zHigh) * tmp + (tmp < zHigh) * zHigh;
-			//thetaHigh
-			tmp = hitGlobalZ[secondHit] + dRmin * cotThetaHigh;
-			zLow = (tmp < zLow) * tmp + (tmp > zLow) * zLow;
-			zHigh = (tmp > zHigh) * tmp + (tmp < zHigh) * zHigh;
-			//now zLow - zHigh should be the maxiumum possible range
+			float zHigh = (tmp > zLow) * tmp + (tmp < zLow) * zLow;
+			zLow = (tmp > zLow) * zLow + (tmp < zLow)*tmp;
+
+			zLow -= 0.037;
+			zHigh += 0.037;
 
 			uint zLowSector = max((int) floor((zLow - minZ) / sectorSizeZ), 0); // signed int because zLow could be lower than minZ
 			uint zHighSector = min((uint) floor((zHigh - minZ) / sectorSizeZ)+1, nSectorsZ);
@@ -409,7 +366,7 @@ public:
 			tmp = fabs(acos(dHits / (2 * minRadiusCurvature)) - acos(maxLayerRadius / (2 * minRadiusCurvature)));
 			//use phi low as tempory variable
 			float phiLow = fabs(acos(dHits / (2 * minRadiusCurvature)) - acos(minLayerRadius / (2 * minRadiusCurvature)));
-			dPhi += tmp < phiLow ? phiLow : tmp;
+			dPhi = max(dPhi, max(tmp, phiLow));
 
 			float phiHigh = phi + dPhi; // phi high may be greater than PI
 			phiLow = phi - dPhi;
