@@ -1,4 +1,3 @@
-import csv
 import numpy as np
 
 import matplotlib as mpl
@@ -19,7 +18,6 @@ mpl.rcParams.update(latexConf)
 
 import matplotlib.pyplot as plt
 
-import xkcdify as xkcd
 
  # multiple events concurrently
 events_cpu = np.genfromtxt("runtime.multipleEvents.test.cpu.csv", delimiter = " ", names=True)
@@ -41,54 +39,6 @@ cmssw_kd.sort(order='tracks')
 
 cmssw_6 = np.genfromtxt("cmsswTiming.6.csv", delimiter = " ", names=True)
 cmssw_6.sort(order='tracks')
-
-###################################################
-# hardware plots - time and throughput
-
-prefixSum_gpu = np.genfromtxt("data/runtime/runtime.prefixSum.gpu.csv", delimiter = " ", names=True)
-prefixSum_cpu = np.genfromtxt("data/runtime/runtime.prefixSum.cpu.csv", delimiter = " ", names=True)
-
-#prefixSum_gpu2 = np.genfromtxt("data/runtime/runtime.prefixSum.gpu2.csv", delimiter = " ", names=True)
-#prefixSum_cpu2 = np.genfromtxt("data/runtime/runtime.prefixSum.cpu2.csv", delimiter = " ", names=True)
-
-fig = plt.figure()
-
-plt.title(r'Prefix Sum - Execution Time')
-
-ax1 = fig.add_subplot(111)
-#ax1.plot(prefixSum_cpu2['wgSize'], prefixSum_cpu2['time'], 'bx--', label='Core i3')
-ax1.plot(prefixSum_cpu['wgSize'], prefixSum_cpu['time'], 'bo-', label='Core i7')
-#ax1.plot(prefixSum_gpu2['wgSize'], prefixSum_gpu2['time'], 'gx--', label='GTX 560')
-ax1.plot(prefixSum_gpu['wgSize'], prefixSum_gpu['time'], 'go-', label='GTX 660')
-ax1.set_xlabel('work-group size')
-ax1.set_ylabel(r'time [ms]')
-ax1.set_xscale('log', basex=2)
-
-ax1.legend(loc=1)
-
-plt.savefig('output/runtime/runtime_prefixSum.pdf')
-
-###################################################
-# hardware plots - speedup
-
-fig = plt.figure()
-
-plt.title(r'Prefix Sum - Speedup')
-
-ax1 = fig.add_subplot(111)
-#ax1.plot(prefixSum_cpu2['wgSize'], prefixSum_cpu2[prefixSum_cpu2['wgSize'] == 1]['time'] / prefixSum_cpu2['time'], 'bx--', label='Core i3')
-#ax1.plot(prefixSum_gpu2['wgSize'], prefixSum_gpu2[prefixSum_gpu2['wgSize'] == 1]['time'] / prefixSum_gpu2['time'], 'gx--', label='GTX 560')
-ax1.plot(prefixSum_gpu['wgSize'], prefixSum_gpu[prefixSum_gpu['wgSize'] == 1]['time'] / prefixSum_gpu['time'], 'go-', label='GTX 660 - relative')
-ax1.plot(prefixSum_gpu['wgSize'], prefixSum_cpu[prefixSum_cpu['wgSize'] == 1]['time'] / prefixSum_gpu['time'], 'gx--', label='GTX 660 - absolute')
-ax1.plot(prefixSum_gpu['wgSize'], prefixSum_cpu['time'] / prefixSum_gpu['time'], 'kD:', label='GTX 660 over Core i7')
-ax1.plot(prefixSum_cpu['wgSize'], prefixSum_cpu[prefixSum_cpu['wgSize'] == 1]['time'] / prefixSum_cpu['time'], 'bo-', label='Core i7')
-ax1.set_xlabel('work-group size')
-ax1.set_ylabel(r'time [ms]')
-ax1.set_xscale('log', basex=2)
-
-ax1.legend(loc=2)
-
-plt.savefig('output/runtime/speedup_prefixSum.pdf')
 
 ###################################################
 # time for n concurrent events
@@ -202,65 +152,6 @@ ax.set_xlim(np.min(tracks_gpu['tracks']), np.max(tracks_gpu['tracks']))
 ax.set_ylim(0,1)
 
 plt.savefig('runtime_contrib_tracks.pdf')
-
-###################################################
-# time for varying work-group sizes
-plt.figure()
-plt.errorbar(threads_gpu['threads'], threads_gpu['totalWalltime'], yerr=threads_gpu['totalWalltimeVar'], fmt='go-', label='wall time GPU')
-plt.errorbar(threads_gpu['threads'], threads_gpu['totalKernel'], yerr=threads_gpu['totalKernelVar'], fmt='go--', label='kernel time GPU')
-
-plt.title('Processing time with work-group size')
-plt.xlabel('threads')
-plt.ylabel(r'time [ms]')
-plt.xlim(np.min(threads_gpu['threads']), np.max(threads_gpu['threads']))
-plt.yscale("log")
-
-plt.legend()
-
-plt.savefig('runtime_wg_size.pdf')
-
-###################################################
-# speedup for varying work-group sizes
-plt.figure()
-
-walltimeGPU1 = threads_gpu[threads_gpu['threads'] == 1]['totalWalltime']
-kerneltimeGPU1 = threads_gpu[threads_gpu['threads'] == 1]['totalKernel']
-
-plt.plot(threads_gpu['threads'], threads_gpu['threads'], 'b:', label='ideal')
-plt.plot(threads_gpu['threads'], walltimeGPU1/ threads_gpu['totalWalltime'], 'go-', label='speedup wall time GPU')
-plt.plot(threads_gpu['threads'], kerneltimeGPU1 / threads_gpu['totalKernel'], 'go--', label='speedup kernel time GPU')
-
-plt.title('Speedup for varying work-group sizes')
-plt.xlabel('threads')
-plt.ylabel(r'speedup')
-plt.xlim(np.min(threads_gpu['threads']), np.max(threads_gpu['threads']))
-#plt.xscale('log')
-
-plt.legend()
-
-plt.savefig('runtime_speedup.pdf')
-
-###################################################
-# efficiency for varying work-group sizes
-plt.figure()
-
-walltimeGPU1 = threads_gpu[threads_gpu['threads'] == 1]['totalWalltime']
-kerneltimeGPU1 = threads_gpu[threads_gpu['threads'] == 1]['totalKernel']
-
-kernelScan1 = threads_gpu[threads_gpu['threads'] == 1]['buildGridScan']
-
-plt.plot(threads_gpu['threads'], (walltimeGPU1/ threads_gpu['totalWalltime']) / threads_gpu['threads'], 'go-', label='efficiency wall time GPU')
-plt.plot(threads_gpu['threads'], (kerneltimeGPU1 / threads_gpu['totalKernel'])/ threads_gpu['threads'], 'go--', label='efficiency kernel time GPU')
-
-plt.title('Efficiency for varying work-group sizes')
-plt.xlabel('threads')
-plt.ylabel(r'efficiency')
-plt.xlim(np.min(threads_gpu['threads']), np.max(threads_gpu['threads']))
-#plt.xscale('log')
-
-plt.legend()
-
-plt.savefig('runtime_eff.pdf')
 
 ###################################################
 # processing time with tracks per event

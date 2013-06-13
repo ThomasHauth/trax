@@ -73,15 +73,21 @@ void PhysicsRecord::fillData(const TrackletCollection& tracklets,
 	for(uint i = tracklets.getTrackletOffsets()[event * nLayerTriplets + layerTriplet]; i < tracklets.getTrackletOffsets()[event * nLayerTriplets + layerTriplet + 1]; ++i){
 		Tracklet tracklet(tracklets, i);
 
+		float tEta = getEta(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit3()));
+		float tPt = getPt(Hit(hits,tracklet.hit1()),  Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
+
 		if(tracklet.isValid(hits)){
 			//valid triplet
-			bool inserted = foundTracks.insert(tracklet.trackId(hits)).second;
 
-			if(inserted){
-				eta[getEtaBin(getEta(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit3())))].valid++;
-				pt[getPtBin(getPt(Hit(hits,tracklet.hit1()),  Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())))].valid++;
+			if(mcTruth.find(tracklet.trackId(hits)) != mcTruth.end()){ //  ensure that it is a "findable track" otherwise efficiency greater one possible
 
-				/*double calculatedPt = getPt(Hit(hits,tracklet.hit1()),  Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
+				bool inserted = foundTracks.insert(tracklet.trackId(hits)).second;
+
+				if(inserted){ //found for the first time
+					eta[getEtaBin(tEta)].valid++;
+					pt[getPtBin(tPt)].valid++;
+
+					/*double calculatedPt = getPt(Hit(hits,tracklet.hit1()),  Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
 				double mcPt = mcTruth.at(tracklet.trackId(hits))[0].simtrackpt();
 
 				histo << fabs(calculatedPt - mcPt) / mcPt << std::endl;
@@ -93,18 +99,18 @@ void PhysicsRecord::fillData(const TrackletCollection& tracklets,
 				else
 					rwPt++;*/
 
-				VLOG << zkr::cc::fore::green;
-				VLOG << "Track " << tracklet.trackId(hits) << " : " << tracklet.hit1() << "-" << tracklet.hit2() << "-" << tracklet.hit3();
-				VLOG << " TIP: " << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
-				VLOG << zkr::cc::console << std::endl;
-			} else {
-				//clone
-				++foundClones;
+					VLOG << zkr::cc::fore::green;
+					VLOG << "Track " << tracklet.trackId(hits) << " : " << tracklet.hit1() << "-" << tracklet.hit2() << "-" << tracklet.hit3();
+					VLOG << " TIP: " << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
+					VLOG << zkr::cc::console << std::endl;
+				} else {
+					//clone
+					++foundClones;
 
-				eta[getEtaBin(getEta(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit3())))].clones++;
-				pt[getPtBin(getPt(Hit(hits,tracklet.hit1()),  Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())))].clones++;
+					eta[getEtaBin(tEta)].clones++;
+					pt[getPtBin(tPt)].clones++;
 
-				/*double calculatedPt = getPt(Hit(hits,tracklet.hit1()),  Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
+					/*double calculatedPt = getPt(Hit(hits,tracklet.hit1()),  Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
 				double mcPt = mcTruth.at(tracklet.trackId(hits))[0].simtrackpt();
 
 				histo << fabs(calculatedPt - mcPt) / mcPt << std::endl;
@@ -116,19 +122,19 @@ void PhysicsRecord::fillData(const TrackletCollection& tracklets,
 				else
 					rwPt++;*/
 
-				VLOG << zkr::cc::fore::yellow;
-				VLOG << "Track " << tracklet.trackId(hits) << " : " << tracklet.hit1() << "-" << tracklet.hit2() << "-" << tracklet.hit3();
-				VLOG << " TIP: " << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
-				VLOG << zkr::cc::console << std::endl;
+					VLOG << zkr::cc::fore::yellow;
+					VLOG << "Track " << tracklet.trackId(hits) << " : " << tracklet.hit1() << "-" << tracklet.hit2() << "-" << tracklet.hit3();
+					VLOG << " TIP: " << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
+					VLOG << zkr::cc::console << std::endl;
+				}
 			}
-
 		}
 		else {
 			//fake triplet
 			++fakeTracks;
 
-			eta[getEtaBin(getEta(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit3())))].fake++;
-			pt[getPtBin(getPt(Hit(hits,tracklet.hit1()),  Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3())))].fake++;
+			eta[getEtaBin(tEta)].fake++;
+			pt[getPtBin(tPt)].fake++;
 
 			VLOG << zkr::cc::fore::red;
 			VLOG << "Fake: " << tracklet.hit1() << "[" << hits.getValue(HitId(),tracklet.hit1()) << "]";
