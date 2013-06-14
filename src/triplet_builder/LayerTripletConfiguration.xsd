@@ -11,9 +11,9 @@
               <xs:element type="xs:byte" name="layer2"/>
               <xs:element type="xs:byte" name="layer3"/>
               <xs:element type="xs:float" name="dThetaCut"/>
-              <xs:element type="xs:float" name="dThetaWindow"/>
+              <xs:element type="xs:float" name="sigmaZ"/>
               <xs:element type="xs:float" name="dPhiCut"/>
-              <xs:element type="xs:float" name="dPhiWindow"/>
+              <xs:element type="xs:float" name="sigmaPhi"/>
               <xs:element type="xs:float" name="tipCut"/>
               <xs:element type="xs:byte" name="pairSpreadZ"/>
               <xs:element type="xs:byte" name="pairSpreadPhi"/>

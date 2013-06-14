@@ -63,7 +63,7 @@ public:
 					const float minZ, const float sectorSizeZ, const uint nSectorsZ,
 					const float minPhi, const float sectorSizePhi, const uint nSectorsPhi,
 					//configuration
-					__global const float * thetaWindow, __global const float * phiWindow, const float minRadiusCurvature,
+					__global const float * gSigmaZ, __global const float * gSigmaPhi, const float minRadiusCurvature,
 					// hit input
 					__global const uint2 * pairs, const uint nPairs,
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
@@ -85,7 +85,7 @@ public:
 			PRINTF(("%lu: pair %u-%u\n", gid, firstHit, secondHit));
 
 			uint event = hitEvent[firstHit]; // must be the same as hitEvent[secondHit] --> ensured during pair building
-			uint layerTriplet = hitLayer[firstHit] - 1; //the layerTriplet is defined by its innermost layer --> TODO modify storage of layer triplets
+			uint layerTriplet = hitLayer[firstHit] - 1; //the layerTriplet is defined by its innermost layer
 
 			uint layer = layer3[layerTriplet]-1; //outer layer
 			__global const uint * lGrid3 = &grid[event*nLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1)]; //offset into grid for easier access
@@ -97,8 +97,8 @@ public:
 			//ulong oOffset = oracleOffset[event*nLayerTriplets+layerTriplet]; //offset in oracle array
 			uint nFound = 0;
 
-			//float dThetaWindow = thetaWindow[layerTriplet];
-			//float dPhiWindow = phiWindow[layerTriplet];
+			float sigmaZ = gSigmaZ[layerTriplet];
+			float sigmaPhi = gSigmaPhi[layerTriplet];
 			float minLayerRadius = gMinLayerRadius[layer];
 			float maxLayerRadius = gMaxLayerRadius[layer];
 
@@ -135,8 +135,8 @@ public:
 			float zHigh = (tmp > zLow) * tmp + (tmp < zLow) * zLow;
 			zLow = (tmp > zLow) * zLow + (tmp < zLow)*tmp;
 
-			zLow -= 0.037;
-			zHigh += 0.037;
+			zLow -= sigmaZ;
+			zHigh += sigmaPhi;
 
 			uint zLowSector = max((int) floor((zLow - minZ) / sectorSizeZ), 0); // signed int because zLow could be lower than minZ
 			uint zHighSector = min((uint) floor((zHigh - minZ) / sectorSizeZ)+1, nSectorsZ);
@@ -159,8 +159,8 @@ public:
 			float phiLow = fabs(acos(dHits / (2 * minRadiusCurvature)) - acos(minLayerRadius / (2 * minRadiusCurvature)));
 			dPhi = max(dPhi, max(tmp, phiLow));
 
-			float phiHigh = phi + dPhi; // phi high may be greater than PI
-			phiLow = phi - dPhi;
+			float phiHigh = phi + dPhi + sigmaPhi; // phi high may be greater than PI
+			phiLow = phi - dPhi - sigmaPhi;
 
 			//deal with wrap around
 			bool wrapAround = phiLow < -M_PI_F || phiHigh > M_PI_F || phiLow > M_PI_F || phiHigh < -M_PI_F;
@@ -264,7 +264,7 @@ public:
 					const float minZ, const float sectorSizeZ, const uint nSectorsZ,
 					const float minPhi, const float sectorSizePhi, const uint nSectorsPhi,
 					// configuration
-					__global const float * thetaWindow, __global const float * phiWindow, const uint nLayerTriplets, const float minRadiusCurvature,
+					__global const float * gSigmaZ, __global const float * gSigmaPhi, const uint nLayerTriplets, const float minRadiusCurvature,
 					// hit input
 					__global const uint2 * pairs, const uint nPairs,
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
@@ -287,7 +287,7 @@ public:
 			PRINTF(("%lu: pair %u-%u\n", gid, firstHit, secondHit));
 
 			uint event = hitEvent[firstHit]; // must be the same as hitEvent[secondHit] --> ensured during pair building
-			uint layerTriplet = hitLayer[firstHit]-1; //the layerTriplet is defined by its innermost layer --> TODO modify storage of layer triplets
+			uint layerTriplet = hitLayer[firstHit]-1; //the layerTriplet is defined by its innermost layer
 
 			uint layer = layer3[layerTriplet]-1; //outer layer
 			__global const uint * lGrid3 = &grid[event*nLayers*(nSectorsZ+1)*(nSectorsPhi+1)+layer*(nSectorsZ+1)*(nSectorsPhi+1)]; //offset into grid for easier access
@@ -295,8 +295,8 @@ public:
 			uint pos = prefixSum[gid]; //first position to write
 			uint nextThread = prefixSum[gid+1]; //first position of next thread
 
-			//float dThetaWindow = thetaWindow[layerTriplet];
-			//float dPhiWindow = phiWindow[layerTriplet];
+			float sigmaZ = gSigmaZ[layerTriplet];
+			float sigmaPhi = gSigmaPhi[layerTriplet];
 			float minLayerRadius = gMinLayerRadius[layer];
 			float maxLayerRadius = gMaxLayerRadius[layer];
 
@@ -341,8 +341,8 @@ public:
 			float zHigh = (tmp > zLow) * tmp + (tmp < zLow) * zLow;
 			zLow = (tmp > zLow) * zLow + (tmp < zLow)*tmp;
 
-			zLow -= 0.037;
-			zHigh += 0.037;
+			zLow -= sigmaZ;
+			zHigh += sigmaZ;
 
 			uint zLowSector = max((int) floor((zLow - minZ) / sectorSizeZ), 0); // signed int because zLow could be lower than minZ
 			uint zHighSector = min((uint) floor((zHigh - minZ) / sectorSizeZ)+1, nSectorsZ);
@@ -365,8 +365,8 @@ public:
 			float phiLow = fabs(acos(dHits / (2 * minRadiusCurvature)) - acos(minLayerRadius / (2 * minRadiusCurvature)));
 			dPhi = max(dPhi, max(tmp, phiLow));
 
-			float phiHigh = phi + dPhi; // phi high may be greater than PI
-			phiLow = phi - dPhi;
+			float phiHigh = phi + dPhi + sigmaPhi; // phi high may be greater than PI
+			phiLow = phi - dPhi - sigmaPhi;
 
 			//deal with wrap around
 			bool wrapAround = phiLow < -M_PI_F || phiHigh > M_PI_F || phiLow > M_PI_F || phiHigh < -M_PI_F;
@@ -461,7 +461,7 @@ public:
 			if(gid < nPairs-1){ //not the last hit pair
 				uint nextHit = pairs[gid+1].x;
 				uint nextEvent = hitEvent[nextHit]; // must be the same as hitEvent[secondHit] --> ensured during pair building
-				uint nextLayerTriplet = hitLayer[nextHit]-1; //the layerTriplet is defined by its innermost layer --> TODO modify storage of layer triplets
+				uint nextLayerTriplet = hitLayer[nextHit]-1; //the layerTriplet is defined by its innermost layer
 
 				if(layerTriplet != nextLayerTriplet || event != nextEvent){ //this thread is the last one processing an element of this particular event and layer triplet
 					tripletOffsets[event * nLayerTriplets + layerTriplet + 1] = nextThread;

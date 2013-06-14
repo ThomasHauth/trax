@@ -60,7 +60,7 @@ public:
 					const float minZ, const float sectorSizeZ , const uint nSectorsZ,
 					const float minPhi, const float sectorSizePhi , const uint nSectorsPhi,
 					//configuration
-					__global const float * gZ0, __global const float * phiWindow, __global const float * thetaWindow,
+					__global const float * gZ0, __global const float * gSigmaPhi, __global const float * gSigmaZ,
 					__global const float * gTip, const float minRadiusCurvature,
 					//hit data
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
@@ -99,13 +99,13 @@ public:
 		float z0 = gZ0[layerPair];
 		float tip = gTip[layerPair];
 
-		float dTheta = thetaWindow[layerPair];
-		float dPhi = phiWindow[layerPair];
+		float sigmaZ = gSigmaZ[layerPair];
+		float sigmaPhi = gSigmaPhi[layerPair];
 
 		float minLayerRadius1 = gMinLayerRadius[layer];
 		float maxLayerRadius1 = gMaxLayerRadius[layer];
 
-		PRINTF(("z0 %f, tip %f, dPhi %f, dTheta %f layer1 %f-%f\n", z0, tip, dPhi, dTheta, minLayerRadius1, maxLayerRadius1));
+		PRINTF(("z0 %f, tip %f, dPhi %f, dTheta %f layer1 %f-%f\n", z0, tip, sigmaPhi, sigmaZ, minLayerRadius1, maxLayerRadius1));
 
 		uint oOffset = oracleOffset[event*nLayerPairs+layerPair]; //offset in oracle array
 		uint nFound = 0;
@@ -121,11 +121,9 @@ public:
 			float r = signRadius * sqrt(hitGlobalX[i]*hitGlobalX[i] + hitGlobalY[i]*hitGlobalY[i]);
 
 			//calculate theta change due to LIP:  atan(radius / z +- z0) +- dTheta to account for effects -->
-			float cotThetaHigh = atan2(r , hitGlobalZ[i] - z0) - signRadius * dTheta;
-			cotThetaHigh = tan(M_PI_2_F - cotThetaHigh); //calculate cotangent
+			float cotThetaHigh = (hitGlobalZ[i] - z0)  / r;
 
-			float cotThetaLow = atan2( r, hitGlobalZ[i] + z0) + signRadius * dTheta;
-			cotThetaLow = tan(M_PI_2_F - cotThetaLow);
+			float cotThetaLow = (hitGlobalZ[i] + z0)  / r;
 
 			//first z high
 			float tmp = signRadius * maxLayerRadius1 * cotThetaHigh + z0;
@@ -136,6 +134,9 @@ public:
 			tmp = signRadius * maxLayerRadius1 * cotThetaLow - z0;
 			float zLow = signRadius * minLayerRadius1 * cotThetaLow - z0;
 			zLow = (tmp < zLow) * tmp + (tmp > zLow) * zLow;
+
+			zLow -= sigmaZ;
+			zHigh += sigmaZ;
 
 			//calculate sectors
 			uint zLowSector = max((int) floor((zLow - minZ) / sectorSizeZ), 0);
@@ -153,8 +154,8 @@ public:
 			float phiHigh = atan(tip * (r - maxLayerRadius1))/(r * maxLayerRadius1); //use phi high to store temporary value
 			dPhi += tmp > phiHigh ? tmp : phiHigh;
 
-			float phiLow = phi - dPhi; //phi low may be smaller than -PI
-			phiHigh = phi + dPhi; // phi high may be greater than PI
+			float phiLow = phi - dPhi - sigmaPhi; //phi low may be smaller than -PI
+			phiHigh = phi + dPhi + sigmaPhi; // phi high may be greater than PI
 
 			//deal with wrap around
 			bool wrapAround = phiLow < -M_PI_F || phiHigh > M_PI_F || phiLow > M_PI_F || phiHigh < -M_PI_F;
@@ -259,7 +260,7 @@ public:
 					const float minZ, const float sectorSizeZ , const uint nSectorsZ,
 					const float minPhi, const float sectorSizePhi , const uint nSectorsPhi,
 					//configuration
-					__global const float * gZ0, __global const float * phiWindow, __global const float * thetaWindow,
+					__global const float * gZ0, __global const float * gSigmaPhi, __global const float * gSigmaZ,
 					__global const float * gTip, const float minRadiusCurvature,
 					//hit data
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const float * hitGlobalZ,
@@ -294,13 +295,13 @@ public:
 		float z0 = gZ0[layerPair];
 		float tip = gTip[layerPair];
 
-		float dTheta = thetaWindow[layerPair];
-		float dPhi = phiWindow[layerPair];
+		float sigmaZ = gSigmaZ[layerPair];
+		float sigmaPhi = gSigmaPhi[layerPair];
 
 		float minLayerRadius1 = gMinLayerRadius[layer];
 		float maxLayerRadius1 = gMaxLayerRadius[layer];
 
-		PRINTF(("z0 %f, tip %f, dPhi %f, dTheta %f layer1 %f-%f\n", z0, tip, dPhi, dTheta, minLayerRadius1, maxLayerRadius1));
+		PRINTF(("z0 %f, tip %f, dPhi %f, dTheta %f layer1 %f-%f\n", z0, tip, sigmaPhi, sigmaZ, minLayerRadius1, maxLayerRadius1));
 
 		uint oOffset = oracleOffset[event*nLayerPairs+layerPair]; //offset in oracle array
 		uint nFound = 0;
@@ -316,11 +317,9 @@ public:
 			float r = signRadius * sqrt(hitGlobalX[i]*hitGlobalX[i] + hitGlobalY[i]*hitGlobalY[i]);
 
 			//calculate theta change due to LIP:  atan(radius / z +- z0) +- dTheta to account for effects -->
-			float cotThetaHigh = atan2(r , hitGlobalZ[i] - z0) - signRadius * dTheta;
-			cotThetaHigh = tan(M_PI_2_F - cotThetaHigh); //calculate cotangent
+			float cotThetaHigh = (hitGlobalZ[i] - z0)  / r;
 
-			float cotThetaLow = atan2( r, hitGlobalZ[i] + z0) + signRadius * dTheta;
-			cotThetaLow = tan(M_PI_2_F - cotThetaLow);
+			float cotThetaLow = (hitGlobalZ[i] + z0)  / r;
 
 			//first z high
 			float tmp = signRadius * maxLayerRadius1 * cotThetaHigh + z0;
@@ -331,6 +330,9 @@ public:
 			tmp = signRadius * maxLayerRadius1 * cotThetaLow - z0;
 			float zLow = signRadius * minLayerRadius1 * cotThetaLow - z0;
 			zLow = (tmp < zLow) * tmp + (tmp > zLow) * zLow;
+
+			zLow -= sigmaZ;
+			zHigh += sigmaZ;
 
 			//calculate sectors
 			uint zLowSector = max((int) floor((zLow - minZ) / sectorSizeZ), 0);
@@ -348,8 +350,8 @@ public:
 			float phiHigh = atan(tip * (r - maxLayerRadius1))/(r * maxLayerRadius1); //use phi high to store temporary value
 			dPhi += tmp > phiHigh ? tmp : phiHigh;
 
-			float phiLow = phi - dPhi; //phi low may be smaller than -PI
-			phiHigh = phi + dPhi; // phi high may be greater than PI
+			float phiLow = phi - dPhi - sigmaPhi; //phi low may be smaller than -PI
+			phiHigh = phi + dPhi + sigmaPhi; // phi high may be greater than PI
 
 			//deal with wrap around
 			bool wrapAround = phiLow < -M_PI_F || phiHigh > M_PI_F || phiLow > M_PI_F || phiHigh < -M_PI_F;

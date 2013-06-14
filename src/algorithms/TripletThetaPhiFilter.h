@@ -75,7 +75,7 @@ public:
 			uint thirdHit = triplets[gid].y;
 
 			uint event = hitEvent[firstHit]; // must be the same as hitEvent[secondHit] --> ensured during pair building
-			uint layerTriplet = hitLayer[firstHit] - 1; //the layerTriplet is defined by its innermost layer --> TODO modify storage of layer triplets
+			uint layerTriplet = hitLayer[firstHit] - 1; //the layerTriplet is defined by its innermost layer
 
 			float dThetaCut = thetaCut[layerTriplet];
 			float dPhiCut = phiCut[layerTriplet];
@@ -231,7 +231,7 @@ public:
 				}*/
 
 				//last triplet written on [pos] is valid one
-				if(valid){ //TODO need boundary condiation for nTriplets?
+				if(valid){
 					trackletHitId1[pos] = pairs[triplets[gid*32 + i].x].x;
 					trackletHitId2[pos] = pairs[triplets[gid*32 + i].x].y;
 					trackletHitId3[pos] = triplets[gid*32 + i].y;

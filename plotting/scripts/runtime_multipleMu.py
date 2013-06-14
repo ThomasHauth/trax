@@ -50,14 +50,14 @@ for item in data:
     top = fig.add_subplot(111, position=[0.11, 0.33, 0.86, 0.60])
     bottom = fig.add_subplot(111, position=[0.11, 0.10, 0.86, 0.22], sharex=top)
 
-    top.errorbar(data_gpu['tracks'] / data_gpu['events'], data_gpu['totalWalltime'] / data_gpu['events'], yerr=data_gpu['totalWalltimeVar'] / data_gpu['events'],fmt='gx--', label='wall time GPU')
-    top.errorbar(data_gpu['tracks'] / data_gpu['events'], data_gpu['totalKernel'] / data_gpu['events'], yerr=data_gpu['totalKernelVar'] / data_gpu['events'],fmt='go-', label='kernel time GPU')
+    #cms5 = top.errorbar(cmssw_5['validTracks'], cmssw_5['time'], yerr=cmssw_5['timeVar'] ,fmt='yo-', label='CMSSW 5.2.4')
+    cms = top.errorbar(cmssw_6['validTracks'], cmssw_6['time'], yerr=cmssw_6['timeVar'] ,fmt='ro-', label=r'CMSSW 6.0.0')
+
+    gw = top.errorbar(data_gpu['tracks'] / data_gpu['events'], data_gpu['totalWalltime'] / data_gpu['events'], yerr=data_gpu['totalWalltimeVar'] / data_gpu['events'],fmt='gx--', label='wall time GPU')
+    gk = top.errorbar(data_gpu['tracks'] / data_gpu['events'], data_gpu['totalKernel'] / data_gpu['events'], yerr=data_gpu['totalKernelVar'] / data_gpu['events'],fmt='go-', label='kernel time GPU')
     
-    top.errorbar(data_cpu['tracks'] / data_cpu['events'], data_cpu['totalWalltime'] / data_cpu['events'], yerr=data_cpu['totalWalltimeVar'] / data_cpu['events'],fmt='bx--', label='wall time CPU')
-    top.errorbar(data_cpu['tracks'] / data_cpu['events'], data_cpu['totalKernel'] / data_cpu['events'], yerr=data_cpu['totalKernelVar'] / data_cpu['events'],fmt='bo-', label='kernel time CPU')
-    
-    #top.errorbar(cmssw_5['validTracks'], cmssw_5['time'], yerr=cmssw_5['timeVar'] ,fmt='yo-', label='CMSSW 5.2.4')
-    top.errorbar(cmssw_6['validTracks'], cmssw_6['time'], yerr=cmssw_6['timeVar'] ,fmt='ro-', label=r'CMSSW 6.0.0')
+    cw = top.errorbar(data_cpu['tracks'] / data_cpu['events'], data_cpu['totalWalltime'] / data_cpu['events'], yerr=data_cpu['totalWalltimeVar'] / data_cpu['events'],fmt='bx--', label='wall time CPU')
+    ck = top.errorbar(data_cpu['tracks'] / data_cpu['events'], data_cpu['totalKernel'] / data_cpu['events'], yerr=data_cpu['totalKernelVar'] / data_cpu['events'],fmt='bo-', label='kernel time CPU')
     
     top.set_title(r'Processing Time over Tracks')
     
@@ -69,7 +69,9 @@ for item in data:
     top.set_yscale('log')
     top.set_ylim(0, 2*10**5)
     
-    a = top.legend(loc=2, ncol=3, mode='expand')
+    l = [gw,gk,cw,ck,cms]
+    
+    a = top.legend(l, [x.get_label() for x in l], loc=2, ncol=3, mode='expand')
     fig.text(0.11, 0.93, "%s"%item[2], va='bottom', ha='left')
     
     bottom.set_xlabel('tracks / event')
@@ -78,9 +80,10 @@ for item in data:
     bottom.set_ylabel('ratio')
     bottom.get_yaxis().get_major_formatter().base(2)
     
+    bottom.plot(cmssw_6['validTracks'],  cmssw_6['time'] / cmssw_6['time'], 'ro-')
+    
     bottom.plot(data_gpu['tracks'] / data_gpu['events'],  cmssw_6['time'] / (data_gpu['totalKernel'] / data_gpu['events']), 'go-')
     bottom.plot(data_cpu['tracks'] / data_cpu['events'],  cmssw_6['time'] / (data_cpu['totalKernel'] / data_cpu['events']), 'bo-')
-    bottom.plot(cmssw_6['validTracks'],  cmssw_6['time'] / cmssw_6['time'], 'ro-')
     #bottom.plot(cmssw_5['validTracks'],  cmssw_5['time'] / cmssw_5['time'], 'yo-')
     
     plt.setp([a.get_xticklabels() for a in fig.axes[:-1]], visible=False)

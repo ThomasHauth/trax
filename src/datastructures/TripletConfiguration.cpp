@@ -84,9 +84,9 @@ uint TripletConfigurations::loadTripletConfigurationFromFile(std::string filenam
 		uint layer3 = v.second.get_child("layer3").get_value<uint>();
 
 		float dThetaCut = v.second.get_child("dThetaCut").get_value<float>();
-		float dThetaWindow = v.second.get_child("dThetaWindow").get_value<float>();
+		float sigmaZ = v.second.get_child("sigmaZ").get_value<float>();
 		float dPhiCut = v.second.get_child("dPhiCut").get_value<float>();
-		float dPhiWindow = v.second.get_child("dPhiWindow").get_value<float>();
+		float sigmaPhi = v.second.get_child("sigmaPhi").get_value<float>();
 		uint pairSpreadZ = v.second.get_child("pairSpreadZ").get_value<uint>();
 		float z0 = v.second.get_child("z0").get_value<uint>();
 		uint pairSpreadPhi = v.second.get_child("pairSpreadPhi").get_value<uint>();
@@ -95,7 +95,7 @@ uint TripletConfigurations::loadTripletConfigurationFromFile(std::string filenam
 
 		if( (n == -1) || (added < n) ){
 			//Layer1, Layer2, Layer3, dThetaCut, dThetaWindow, dPhiCut, dPhiWindow, tipCut, pairSpreadZ, pairSpreadPhi
-			addWithValue(layer1, layer2, layer3, dThetaCut, dThetaWindow, dPhiCut, dPhiWindow, tipCut, pairSpreadZ, z0, pairSpreadPhi, nCandidates);
+			addWithValue(layer1, layer2, layer3, dThetaCut, sigmaZ, dPhiCut, sigmaPhi, tipCut, pairSpreadZ, z0, pairSpreadPhi, nCandidates);
 			++added;
 
 			if(layer3 > maxLayer)

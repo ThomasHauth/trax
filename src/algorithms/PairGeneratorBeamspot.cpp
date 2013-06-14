@@ -52,7 +52,7 @@ Pairing * PairGeneratorBeamspot::run(HitCollection & hits, const GeometrySupplem
 				grid.transfer.buffer(Boundary()),
 				grid.config.MIN_Z, grid.config.sectorSizeZ(),	grid.config.nSectorsZ,
 				grid.config.MIN_PHI, grid.config.sectorSizePhi(), grid.config.nSectorsPhi,
-				layerTriplets.transfer.buffer(z0()), layerTriplets.transfer.buffer(pairSpreadPhi()), layerTriplets.transfer.buffer(dThetaWindow()),
+				layerTriplets.transfer.buffer(z0()), layerTriplets.transfer.buffer(pairSpreadPhi()), layerTriplets.transfer.buffer(sigmaZ()),
 				layerTriplets.transfer.buffer(tipCut()), layerTriplets.minRadiusCurvature(),
 				// hit input
 				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),
@@ -73,7 +73,7 @@ Pairing * PairGeneratorBeamspot::run(HitCollection & hits, const GeometrySupplem
 				grid.transfer.buffer(Boundary()),
 				grid.config.MIN_Z, grid.config.sectorSizeZ(),	grid.config.nSectorsZ,
 				grid.config.MIN_PHI, grid.config.sectorSizePhi(), grid.config.nSectorsPhi,
-				layerTriplets.transfer.buffer(z0()), layerTriplets.transfer.buffer(pairSpreadPhi()), layerTriplets.transfer.buffer(dThetaWindow()),
+				layerTriplets.transfer.buffer(z0()), layerTriplets.transfer.buffer(pairSpreadPhi()), layerTriplets.transfer.buffer(sigmaZ()),
 				layerTriplets.transfer.buffer(tipCut()), layerTriplets.minRadiusCurvature(),
 				// hit input
 				hits.transfer.buffer(GlobalX()), hits.transfer.buffer(GlobalY()), hits.transfer.buffer(GlobalZ()),

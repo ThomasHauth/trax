@@ -14,11 +14,11 @@ struct Layer3: public clever::UIntItem {};
 
 struct dThetaCut: public clever::FloatItem { };
 
-struct dThetaWindow : public clever::FloatItem { };
+struct sigmaZ : public clever::FloatItem { };
 
 struct dPhiCut : public clever::FloatItem { };
 
-struct dPhiWindow : public clever::FloatItem { };
+struct sigmaPhi : public clever::FloatItem { };
 
 struct tipCut : public clever::FloatItem { };
 
@@ -30,7 +30,7 @@ struct pairSpreadPhi : public clever::UIntItem { };
 
 struct nCandidates : public clever::UIntItem { };
 
-#define TRIPLET_CONFIGURATION_COLLECTION_ITEMS Layer1, Layer2, Layer3, dThetaCut, dThetaWindow, dPhiCut, dPhiWindow, tipCut, pairSpreadZ, z0, pairSpreadPhi, nCandidates
+#define TRIPLET_CONFIGURATION_COLLECTION_ITEMS Layer1, Layer2, Layer3, dThetaCut, sigmaZ, dPhiCut, sigmaPhi, tipCut, pairSpreadZ, z0, pairSpreadPhi, nCandidates
 
 typedef clever::Collection<TRIPLET_CONFIGURATION_COLLECTION_ITEMS> TripletConfigurationItems;
 

@@ -171,8 +171,8 @@ std::pair<RuntimeRecords, PhysicsRecords> buildTriplets(ExecutionParameters exec
 			for(uint i = 0; i < layerConfig.size(); ++ i){
 				TripletConfiguration config(layerConfig, i);
 				VLOG << "Layers " << config.layer1() << "-" << config.layer2() << "-" << config.layer3() << std::endl;
-				VLOG << "\t" << "dThetaCut: " << config.getValue<dThetaCut>() << " dThetaWindow: " << config.getValue<dThetaWindow>() << std::endl;
-				VLOG << "\t" << "dPhiCut: " << config.getValue<dPhiCut>() << " dTPhiWindow: " << config.getValue<dPhiWindow>() << std::endl;
+				VLOG << "\t" << "dThetaCut: " << config.getValue<dThetaCut>() << " sigmaZ: " << config.getValue<sigmaZ>() << std::endl;
+				VLOG << "\t" << "dPhiCut: " << config.getValue<dPhiCut>() << " sigmaPhi: " << config.getValue<sigmaPhi>() << std::endl;
 				VLOG << "\t" << "tipCut: " << config.getValue<tipCut>() << std::endl;
 				VLOG << "\t" << "pairSpreadZ: " << config.getValue<pairSpreadZ>() << " pairSpreadPhi: " << config.getValue<pairSpreadPhi>() << std::endl;
 			}
