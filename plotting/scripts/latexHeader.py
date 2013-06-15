@@ -5,7 +5,9 @@ latexConf = {
     "pgf.texsystem": "pdflatex",
     "font.family": "serif", # use serif/main font for text elements
     "axes.titlesize": "x-large",   # fontsize of the axes title
-    "axes.labelsize": "x-large",  # fontsize of the x any y labels
+    "axes.labelsize": "xx-large",  # fontsize of the x any y labels
+    "xtick.labelsize": "x-large",  # fontsize of the tick labels
+    "ytick.labelsize": "x-large",  # fontsize of the tick labels
     "text.usetex": True,    # use inline math for ticks
     "pgf.rcfonts": False,   # don't setup fonts from rc parameters
     "pgf.preamble": [

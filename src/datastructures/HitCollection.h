@@ -14,6 +14,7 @@
 #include <datastructures/EventSupplement.h>
 #include <datastructures/LayerSupplement.h>
 #include <datastructures/Logger.h>
+#include <datastructures/TripletConfiguration.h>
 
 // todo: can we have a Collection view, which looks like a vector type
 
@@ -50,7 +51,7 @@ public:
 	HitCollection(const PB_Event::PEvent & event) ;
 
 	tTrackList addEvent(const PB_Event::PEvent& event, const DetectorGeometry& geom, EventSupplement & eventSupplement, uint evtInGroup, LayerSupplement & layerSupplement,
-			float minPt = 0, int numTracks = -1, bool onlyTracks = false, uint maxLayer = 99) ;
+			const TripletConfigurations & layerTriplets, int numTracks = -1, bool onlyTracks = false) ;
 
 public:
 	clever::OpenCLTransfer<HIT_COLLECTION_ITEMS> transfer;

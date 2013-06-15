@@ -17,8 +17,22 @@ HitCollection::HitCollection(const PB_Event::PEvent & event)
 	//addEvent(event, DetectorGeometry(), LayerSupplement(0, 0));
 }
 
-HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event, const DetectorGeometry & geom, EventSupplement & eventSupplement, uint evtInGroup, LayerSupplement & layerSupplement , float minPt,
-		int numTracks, bool onlyTracks, uint maxLayer) {
+HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event, const DetectorGeometry & geom, EventSupplement & eventSupplement, uint evtInGroup, LayerSupplement & layerSupplement ,
+		const TripletConfigurations & layerTriplets, int numTracks, bool onlyTracks) {
+
+	float minPt = layerTriplets.minPt_;
+	std::set<uint> usedLayers;
+
+	uint maxLayer = 0;
+
+	for(uint i = 0; i < layerTriplets.size(); ++i){
+		usedLayers.insert(layerTriplets[i].layer1());
+		usedLayers.insert(layerTriplets[i].layer2());
+		usedLayers.insert(layerTriplets[i].layer3());
+
+		if(layerTriplets[i].layer3() > maxLayer)
+			maxLayer = layerTriplets[i].layer3();
+	}
 
 	//associate hits to tracks
 	tTrackList allTracks;
@@ -50,15 +64,17 @@ HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event,
 			continue;
 
 		//check for missing hits
-		bool missingHits = false;
-		uint covLayers = 0;
+		bool covLayers[maxLayer];
 		for(auto hit : itTrack->second){
-			if(hit.layer() == (covLayers + 1)){
-				++covLayers;
+			covLayers[hit.layer()-1] = true;
+		}
+		bool missingHits = false;
+		for(auto l : usedLayers){
+			if(!covLayers[l-1]){
+				missingHits = true;
+				//std::cout << "Track: " << itTrack->first << " missing hit in " << l-1 << std::endl;
 			}
 		}
-		if(covLayers < maxLayer)
-			missingHits = true;
 
 		//skip tracks with to low pt
 		if(itTrack->second[0].simtrackpt() < minPt)

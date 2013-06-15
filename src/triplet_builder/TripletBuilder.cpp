@@ -204,8 +204,7 @@ std::pair<RuntimeRecords, PhysicsRecords> buildTriplets(ExecutionParameters exec
 				PB_Event::PEvent pEvent = edLoader->getEvent();
 
 				LOG << "Started processing Event " << pEvent.eventnumber() << " LumiSection " << pEvent.lumisection() << " Run " << pEvent.runnumber() << std::endl;
-				validTracks[iEvt] = hits.addEvent(pEvent, geom, eventSupplement, iEvt, layerSupplement,
-						loader.minPt, loader.maxTracks, loader.onlyTracks, loader.maxLayer);
+				validTracks[iEvt] = hits.addEvent(pEvent, geom, eventSupplement, iEvt, layerSupplement, layerConfig, loader.maxTracks, loader.onlyTracks);
 
 				totalValidTracks += validTracks[iEvt].size();
 				LOG << "Loaded " << validTracks[iEvt].size() << " tracks with minPt " << loader.minPt << " GeV and " << eventSupplement[iEvt].getNHits() << " hits" << std::endl;

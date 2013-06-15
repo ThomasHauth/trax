@@ -182,6 +182,10 @@ public:
 				uint zSectorEnd = lGrid3[(zSector+1)*(nSectorsPhi+1)];
 				uint zSectorLength = zSectorEnd - zSectorStart;
 
+				prefetch(&hitGlobalX[zSectorStart], zSectorLength);
+				prefetch(&hitGlobalY[zSectorStart], zSectorLength);
+				prefetch(&hitGlobalZ[zSectorStart], zSectorLength);
+
 				uint j = lGrid3[zSector*(nSectorsPhi+1)+phiLowSector];
 				uint end2 = wrapAround * zSectorEnd + //add end of layer
 						lGrid3[zSector*(nSectorsPhi+1)+phiHighSector] //actual end of sector
@@ -387,6 +391,10 @@ public:
 				uint zSectorStart = lGrid3[(zSector)*(nSectorsPhi+1)];
 				uint zSectorEnd = lGrid3[(zSector+1)*(nSectorsPhi+1)];
 				uint zSectorLength = zSectorEnd - zSectorStart;
+
+				prefetch(&hitGlobalX[zSectorStart], zSectorLength);
+				prefetch(&hitGlobalY[zSectorStart], zSectorLength);
+				prefetch(&hitGlobalZ[zSectorStart], zSectorLength);
 
 				uint j = lGrid3[zSector*(nSectorsPhi+1)+phiLowSector];
 				uint end2 = wrapAround * zSectorEnd + //add end of layer

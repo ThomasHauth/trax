@@ -43,15 +43,15 @@ def rebin(data):
     return rebinned
 
 # tt bar physics
-ttbar = np.genfromtxt("../data/physics/physics.ttBar.csv", delimiter = " ", names=True)
+qcd = np.genfromtxt("../data/physics/physics.qcd.csv", delimiter = " ", names=True)
 
 # load eta and pt histograms
 etas = []
 pts = []
 
-for lt in ttbar['layerTriplet']:
-    etas.append(np.genfromtxt("../data/physics/ttbar/eta_%s.csv"%str(int(lt)), delimiter = " ", names=True))
-    pts.append(np.genfromtxt("../data/physics/ttbar/pt_%s.csv"%str(int(lt)), delimiter = " ", names=True))
+for lt in qcd['layerTriplet']:
+    etas.append(np.genfromtxt("../data/physics/qcd/eta_%s.csv"%str(int(lt)), delimiter = " ", names=True))
+    pts.append(np.genfromtxt("../data/physics/qcd/pt_%s.csv"%str(int(lt)), delimiter = " ", names=True))
     
 #define layer triplets
 layerTriplets = ["", "1-2-3", "2-3-4", "3-4-5", "4-5-8", "", "combined"]
@@ -61,11 +61,11 @@ overview = 5
 # overview plot
 
 plt.figure()
-plt.errorbar(ttbar['layerTriplet']+1, ttbar['eff'], yerr=ttbar['effVar'], fmt='go-', label='efficiency')
-plt.errorbar(ttbar['layerTriplet']+1, ttbar['fr'], yerr=ttbar['frVar'], fmt='ro-', label='fake rate')
-plt.errorbar(ttbar['layerTriplet']+1, ttbar['cr'], yerr=ttbar['crVar'], fmt='yo-', label='clone rate')
+plt.errorbar(qcd['layerTriplet']+1, qcd['eff'], yerr=qcd['effVar'], fmt='go-', label='efficiency')
+plt.errorbar(qcd['layerTriplet']+1, qcd['fr'], yerr=qcd['frVar'], fmt='ro-', label='fake rate')
+plt.errorbar(qcd['layerTriplet']+1, qcd['cr'], yerr=qcd['crVar'], fmt='yo-', label='clone rate')
 
-plt.title(r'$t\bar{t}$ Simulated Event Studies')
+plt.title(r'QCD Simulated Event Studies')
 plt.xlabel("layer triplet")
 plt.xlim(0, overview+2)
 plt.gca().set_xticklabels(layerTriplets)
@@ -76,19 +76,19 @@ plt.axhline(0, linestyle='--', color='k', linewidth=0.5)
 
 plt.legend(bbox_to_anchor=(0, 0, 1, 1), bbox_transform=plt.gcf().transFigure)
 
-plt.savefig('../output/physics/physics_ttbar_overview.pdf')
+plt.savefig('../output/physics/physics_qcd_overview.pdf')
 
 #******************************
 # plot over eta
 
-for data, lt in zip(etas, ttbar['layerTriplet']):
+for data, lt in zip(etas, qcd['layerTriplet']):
     fig, ax = plt.subplots()
     
     ax.errorbar(data['bin'], div(data['valid'], (data['valid'] + data['missed'])), yerr=binomialError(data['valid']), fmt='go', label='efficiency')
     ax.errorbar(data['bin'], div(data['fake'], (data['valid'] + data['fake'] + data['clones'])), yerr=binomialError(data['fake']), fmt='ro', label='fake rate')
     ax.errorbar(data['bin'], div(data['clones'], (data['valid'] + data['fake'] + data['clones'])), yerr=binomialError(data['clones']), fmt='yo', label='clone rate')
     
-    ax.set_title(r'$t\bar{t}$ Simulated Event Studies over $\eta$')
+    ax.set_title(r'QCD Simulated Event Studies over $\eta$')
     ax.set_xlabel(r'$\eta$')
     ax.set_xlim(-1.5,1.5)
     ax.set_ylim(-0.1,1.1)
@@ -99,12 +99,12 @@ for data, lt in zip(etas, ttbar['layerTriplet']):
     if lt != overview:
         fig.text(0.12, 0.9, "layers %s"%layerTriplets[int(lt)+1], va='bottom', ha='left')
     ax.legend(bbox_to_anchor=(0, 0, 1, 1), bbox_transform=fig.transFigure)
-    plt.savefig('../output/physics/physics_ttbar_eta_%s.pdf'%str(int(lt)))
+    plt.savefig('../output/physics/physics_qcd_eta_%s.pdf'%str(int(lt)))
 
 #******************************
 # plot over pt
 
-for dat, lt in zip(pts, ttbar['layerTriplet']):
+for dat, lt in zip(pts, qcd['layerTriplet']):
     fig, ax = plt.subplots()
     
     data = rebin(dat)
@@ -113,7 +113,7 @@ for dat, lt in zip(pts, ttbar['layerTriplet']):
     ax.errorbar(data['bin'], div(data['fake'], (data['valid'] + data['fake'] + data['clones'])), yerr=binomialError(data['fake']), fmt='ro', label='fake rate')
     ax.errorbar(data['bin'], div(data['clones'], (data['valid'] + data['fake'] + data['clones'])), yerr=binomialError(data['clones']), fmt='yo', label='clone rate')
     
-    ax.set_title(r'$t\bar{t}$ Simulated Event Studies over $p_T$')
+    ax.set_title(r'QCD Simulated Event Studies over $p_T$')
     ax.set_xlabel(r'$p_t$ in [$GeV/c$]')
     ax.set_xlim(minPt,maxPt)
     #ax.set_xscale('symlog', linthreshx=10, subsx=[0,1,2, 3, 4, 5, 6, 7, 8, 9])
@@ -125,5 +125,5 @@ for dat, lt in zip(pts, ttbar['layerTriplet']):
     if lt != overview:
         fig.text(0.12, 0.9, "layers %s"%layerTriplets[int(lt)+1], va='bottom', ha='left')
     ax.legend(bbox_to_anchor=(0, 0, 1, 1), bbox_transform=fig.transFigure)
-    plt.savefig('../output/physics/physics_ttbar_pt_%s.pdf'%str(int(lt)))
+    plt.savefig('../output/physics/physics_qcd_pt_%s.pdf'%str(int(lt)))
     
