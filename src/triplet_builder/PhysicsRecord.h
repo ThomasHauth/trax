@@ -78,7 +78,7 @@ public:
 	PhysicsRecord(uint e, uint lt) :
 		event(e), layerTriplet(lt), efficiencyMean(0), efficiencyVar(0), fakeRateMean(0), fakeRateVar(0),
 		cloneRateMean(0), cloneRateVar(0), n(1),
-		pt(1), eta(0.1) {	}
+		pt(0.1), eta(0.1) {	}
 
 	void fillData(const TrackletCollection & tracklets, const HitCollection::tTrackList & mcTruth, const HitCollection & hits, uint nLayerTriplets);
 
