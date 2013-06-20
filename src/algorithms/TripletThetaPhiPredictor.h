@@ -123,8 +123,8 @@ public:
 
 			//the origin is p1
 			// the cotangent is defined by p1 and p2 minus tip
-			float rOrigin = sqrt(p1.x*p1.x + p1.y*p1.y);
-			rOrigin = sqrt(rOrigin*rOrigin - tip2);
+			float rOrigin = p1.x*p1.x + p1.y*p1.y;
+			rOrigin = sqrt(rOrigin - tip2);
 			float cotTheta = (p2.z - p1.z) / (sqrt(p2.x*p2.x + p2.y*p2.y - tip2) - rOrigin);
 
 

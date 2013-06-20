@@ -23,7 +23,7 @@ TrackletCollection * TripletThetaPhiFilter::run(HitCollection & hits, const Grid
 	LOG << "Running filter kernel...";
 	cl_event evt = filterCount.run(
 			//configuration
-			layerTriplets.transfer.buffer(dThetaCut()), layerTriplets.transfer.buffer(dPhiCut()), layerTriplets.transfer.buffer(tipCut()),
+			layerTriplets.transfer.buffer(dThetaCut()), layerTriplets.transfer.buffer(dPhiCut()), layerTriplets.transfer.buffer(tipCut()), layerTriplets.minRadiusCurvature(),
 			// input
 			pairs.pairing.get_mem(),
 			tripletCandidates.pairing.get_mem(), nTripletCandidates,

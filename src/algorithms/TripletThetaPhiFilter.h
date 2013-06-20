@@ -47,7 +47,7 @@ public:
 			const Pairing & pairs, const Pairing & tripletCandidates,
 			int nThreads, const TripletConfigurations & layerTriplets);
 
-	KERNEL12_CLASSP( filterCount, cl_mem, cl_mem, cl_mem,
+	KERNEL13_CLASSP( filterCount, cl_mem, cl_mem, cl_mem, cl_float,
 			cl_mem,
 			cl_mem,  cl_uint,
 			cl_mem, cl_mem, cl_mem,
@@ -56,7 +56,7 @@ public:
 			oclDEFINES,
 			__kernel void filterCount(
 					//configuration
-					__global const float * thetaCut, __global const float * phiCut, __global const float * maxTIP,
+					__global const float * thetaCut, __global const float * phiCut, __global const float * maxTIP, const float minRadius,
 					// hit input
 					__global const uint2 * pairs,
 					__global const uint2 * triplets, const uint nTriplets,
@@ -146,6 +146,10 @@ public:
 			float tip = sqrt(pCA.x*pCA.x + pCA.y*pCA.y);
 
 			valid = valid * (tip <= tipCut);
+
+			//check for compliance with minimum radius, ie. min Pt
+
+			valid = valid * (cR >= minRadius);
 
 			//found good triplet?
 			//nValid += valid;
