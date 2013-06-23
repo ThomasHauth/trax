@@ -7,11 +7,35 @@
 
 #include "PhysicsRecord.h"
 
-void tBinnedData::operator+=(const tBinnedData t){
-	valid += t.valid;
-	clones += t.clones;
-	fake += t.fake;
-	missed += t.missed;
+void tBinnedData::operator+=(const tBinnedData c){
+	valid += c.valid;
+	clones += c.clones;
+	fake += c.fake;
+	missed += c.missed;
+
+	n += c.n;
+
+	long double delta = c.efficiencyMean - efficiencyMean;
+	efficiencyMean += c.n*delta / Utils::clamp(n);
+	efficiencyVar +=  c.n*delta*(c.efficiencyMean - efficiencyMean) + c.efficiencyVar;
+
+	delta = c.fakeRateMean - fakeRateMean;
+	fakeRateMean += c.n*delta / Utils::clamp(n);
+	fakeRateVar +=  c.n*delta*(c.fakeRateMean - fakeRateMean) + c.fakeRateVar;
+
+	delta = c.cloneRateMean - cloneRateMean;
+	cloneRateMean += c.n*delta / Utils::clamp(n);
+	cloneRateVar +=  c.n*delta*(c.cloneRateMean - cloneRateMean) + c.cloneRateVar;
+}
+
+void tBinnedData::fill(){
+
+	efficiencyMean = ((double) valid) / Utils::clamp(valid + missed);
+	fakeRateMean = ((double) fake / Utils::clamp(valid + fake + clones));
+	cloneRateMean = ((double) clones / Utils::clamp(valid + fake + clones));
+
+	n = valid + fake + clones;
+
 }
 
 tCircleParams PhysicsRecord::getCircleParams(const Hit & p1, const Hit & p2, const Hit & p3) const{
@@ -179,6 +203,9 @@ void PhysicsRecord::fillData(const TrackletCollection& tracklets,
 	fakeRateMean = ((double) fakeTracks) / Utils::clamp(nFoundTracklets);
 	cloneRateMean = ((double) foundClones) / Utils::clamp(nFoundTracklets);
 
+	eta.fill();
+	pt.fill();
+
 	//std::cout << "correctly calculated: " << cPt << " slightly wrongly calculated: " << swPt << " really wrong " << rwPt << std::endl;
 
 	LOG << "Efficiency: " << efficiencyMean  << " FakeRate: " << fakeRateMean << " CloneRate: " << cloneRateMean << std::endl;
@@ -318,7 +345,7 @@ std::string PhysicsRecords::csvDump(std::string outputDir) const {
 std::string tBinnedData::csvDump() const {
 	std::stringstream s;
 
-	s << Utils::csv({valid, fake, clones, missed});
+	s << Utils::csv({valid, fake, clones, missed}) << SEP << Utils::csv({efficiencyMean, toVar(efficiencyVar), fakeRateMean, toVar(fakeRateVar), cloneRateMean, toVar(cloneRateVar)});
 
 	return s.str();
 }
@@ -327,7 +354,7 @@ std::string tHistogram::csvDump() const {
 
 	std::stringstream s;
 
-	s << Utils::csv({"bin", "valid", "fake", "clones", "missed"}) << std::endl;
+	s << Utils::csv({"bin", "valid", "fake", "clones", "missed", "efficiencyMean", "efficiencyVar", "fakeRateMean", "fakeRateVar", "cloneRateMean", "cloneRateVar"}) << std::endl;
 
 	for(auto it = begin(); it != end(); ++it){
 		s << it->first << SEP << it->second.csvDump() << std::endl;

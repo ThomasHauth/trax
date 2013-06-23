@@ -49,7 +49,20 @@ struct tBinnedData{
 	uint fake;
 	uint missed;
 
-	tBinnedData() : valid(0), clones(0), fake(0), missed(0) {}
+	long double efficiencyMean; long double efficiencyVar;
+	long double fakeRateMean; long double fakeRateVar;
+	long double cloneRateMean; long double cloneRateVar;
+	uint n;
+
+	tBinnedData() : valid(0), clones(0), fake(0), missed(0),
+			efficiencyMean(0), efficiencyVar(0), fakeRateMean(0), fakeRateVar(0),
+			cloneRateMean(0), cloneRateVar(0), n(1){}
+
+	void fill();
+
+	long double toVar(long double x) const{
+		return n > 1 ? std::sqrt(x / Utils::clamp(n - 1)) : 0;
+	}
 
 	void operator+=(const tBinnedData t);
 	std::string csvDump() const;
@@ -61,6 +74,11 @@ public:
 	tHistogram(double binWidth_) : binWidth(binWidth_) { }
 
 	std::string csvDump() const;
+
+	void fill() {
+		for(auto & t : *this)
+			t.second.fill();
+	}
 
 public:
 	double binWidth;
