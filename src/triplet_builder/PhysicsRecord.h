@@ -48,13 +48,14 @@ struct tBinnedData{
 	uint clones;
 	uint fake;
 	uint missed;
+	uint misc;
 
 	long double efficiencyMean; long double efficiencyVar;
 	long double fakeRateMean; long double fakeRateVar;
 	long double cloneRateMean; long double cloneRateVar;
 	uint n;
 
-	tBinnedData() : valid(0), clones(0), fake(0), missed(0),
+	tBinnedData() : valid(0), clones(0), fake(0), missed(0), misc(0),
 			efficiencyMean(0), efficiencyVar(0), fakeRateMean(0), fakeRateVar(0),
 			cloneRateMean(0), cloneRateVar(0), n(1){}
 

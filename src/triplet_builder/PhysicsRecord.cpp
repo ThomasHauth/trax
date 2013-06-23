@@ -16,8 +16,8 @@ void tBinnedData::operator+=(const tBinnedData c){
 	n += c.n;
 
 	long double delta = c.efficiencyMean - efficiencyMean;
-	efficiencyMean += c.n*delta / Utils::clamp(n);
-	efficiencyVar +=  c.n*delta*(c.efficiencyMean - efficiencyMean) + c.efficiencyVar;
+	efficiencyMean += (c.valid + c.missed)*delta / Utils::clamp(n); //mc truth defines n here
+	efficiencyVar +=  (c.valid + c.missed)*delta*(c.efficiencyMean - efficiencyMean) + c.efficiencyVar;
 
 	delta = c.fakeRateMean - fakeRateMean;
 	fakeRateMean += c.n*delta / Utils::clamp(n);
@@ -31,10 +31,10 @@ void tBinnedData::operator+=(const tBinnedData c){
 void tBinnedData::fill(){
 
 	efficiencyMean = ((double) valid) / Utils::clamp(valid + missed);
-	fakeRateMean = ((double) fake / Utils::clamp(valid + fake + clones));
-	cloneRateMean = ((double) clones / Utils::clamp(valid + fake + clones));
+	fakeRateMean = ((double) fake / Utils::clamp(valid + fake + clones + misc));
+	cloneRateMean = ((double) clones / Utils::clamp(valid + fake + clones + misc));
 
-	n = valid + fake + clones;
+	n = valid + fake + clones + misc;
 
 }
 
@@ -151,6 +151,9 @@ void PhysicsRecord::fillData(const TrackletCollection& tracklets,
 					VLOG << " TIP: " << getTIP(Hit(hits,tracklet.hit1()), Hit(hits,tracklet.hit2()), Hit(hits,tracklet.hit3()));
 					VLOG << zkr::cc::console << std::endl;
 				}
+			} else { //not in findable tracks definition but still valid
+				eta[getEtaBin(tEta)].misc++;
+				pt[getPtBin(tPt)].misc++;
 			}
 		}
 		else {
@@ -345,7 +348,7 @@ std::string PhysicsRecords::csvDump(std::string outputDir) const {
 std::string tBinnedData::csvDump() const {
 	std::stringstream s;
 
-	s << Utils::csv({valid, fake, clones, missed}) << SEP << Utils::csv({efficiencyMean, toVar(efficiencyVar), fakeRateMean, toVar(fakeRateVar), cloneRateMean, toVar(cloneRateVar)});
+	s << Utils::csv({valid, fake, clones, missed, misc}) << SEP << Utils::csv({efficiencyMean, toVar(efficiencyVar), fakeRateMean, toVar(fakeRateVar), cloneRateMean, toVar(cloneRateVar)});
 
 	return s.str();
 }
@@ -354,7 +357,7 @@ std::string tHistogram::csvDump() const {
 
 	std::stringstream s;
 
-	s << Utils::csv({"bin", "valid", "fake", "clones", "missed", "efficiencyMean", "efficiencyVar", "fakeRateMean", "fakeRateVar", "cloneRateMean", "cloneRateVar"}) << std::endl;
+	s << Utils::csv({"bin", "valid", "fake", "clones", "missed", "misc", "efficiencyMean", "efficiencyVar", "fakeRateMean", "fakeRateVar", "cloneRateMean", "cloneRateVar"}) << std::endl;
 
 	for(auto it = begin(); it != end(); ++it){
 		s << it->first << SEP << it->second.csvDump() << std::endl;
