@@ -16,7 +16,7 @@ void tBinnedData::operator+=(const tBinnedData c){
 	n += c.n;
 
 	long double delta = c.efficiencyMean - efficiencyMean;
-	efficiencyMean += (c.valid + c.missed)*delta / Utils::clamp(n); //mc truth defines n here
+	efficiencyMean += (c.valid + c.missed)*delta / Utils::clamp((valid + missed)); //mc truth defines n here
 	efficiencyVar +=  (c.valid + c.missed)*delta*(c.efficiencyMean - efficiencyMean) + c.efficiencyVar;
 
 	delta = c.fakeRateMean - fakeRateMean;
