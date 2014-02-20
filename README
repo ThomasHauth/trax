@@ -2,13 +2,11 @@
  
  -- Checkout --
 
-using submodules in the git repo:
-git clone the trax repo.
-run "git submodule init" to setup the configuation for the clever repo
+To clone the repository and the contained submodule:
 
-run 
-
-    git submodule update 
+git clone https://github.com/ThomasHauth/trax.git
+git submodule init
+git submodule update 
     
 to get the correct revision of the external repo.
 
@@ -18,7 +16,7 @@ DO NOT commit your locally changed ".gitmodules" file to the central repo !
 
 to compile an CERN / SLC machines, do the following:
 
-starting in the "trax" root folder:
+starting in the "trax" root folder with the bash:
 
 export TRAX_DIR=<full path to the trax folder>
 export LD_LIBRARY_PATH=/afs/cern.ch/cms/slc6_amd64_gcc472/external/gcc/4.7.2/lib64/:/afs/cern.ch/cms/slc6_amd64_gcc472/external/gcc/4.7.2/lib/
