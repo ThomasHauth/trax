@@ -1,3 +1,4 @@
 [submodule "src/external/clever"]
 	path = src/external/clever
-	url = ssh://lxplus.cern.ch/afs/cern.ch/work/h/hauth/git/clever
+	url = https://github.com/ThomasHauth/clever.git
+
