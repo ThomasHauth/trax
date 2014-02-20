@@ -1,5 +1,12 @@
  -- trax --
  
+ 
+ -- External Dependencies --
+ 
+ * Recent Boost library, at least version 1.51. ( taken from CERN  AFS, if availble )
+ * Google Protofbuf Library ( take n from AFS , if available )
+ * OpenCL SDK ( either from Indtel or  AMD)
+ 
  -- Checkout --
 
 To clone the repository and the contained submodule:
