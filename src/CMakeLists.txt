@@ -22,13 +22,14 @@ include_directories (${EXTERNAL_BASE}/clever/src)
 #include_directories (${trax_SOURCE_DIR}/src/eval) 
 #include_directories (${trax_SOURCE_DIR}/src/algo) 
 
-include_directories (/build/hauth/dev/protobuf-bin/include/) 
-link_directories(/build/hauth/dev/protobuf-bin/lib/)
+# include google protobuf for file i/o
+include_directories (/afs/cern.ch/cms/slc6_amd64_gcc481/external/protobuf/2.4.1/include/) 
+link_directories(/afs/cern.ch/cms/slc6_amd64_gcc481/external/protobuf/2.4.1/lib/)
 
 #boost
 # use custom (new) boost due to some compile bugs in the SLC6 version
-include_directories ( /build/hauth/dev/boost_1_53_0/ )
-link_directories(/build/hauth/dev/boost_1_53_0/stage/lib)
+include_directories ( /afs/cern.ch/cms/slc6_amd64_gcc481/external/boost/1.51.0/include )
+link_directories( /afs/cern.ch/cms/slc6_amd64_gcc481/external/boost/1.51.0/lib )
 
 include_directories (${trax_SOURCE_DIR}) 
 
@@ -50,7 +51,9 @@ set (TRAX_SRC src/algo/MPMultScatteringUpdater.cpp src/algo/TBBMultScatteringUpd
 add_subdirectory( algorithms )
 add_subdirectory( datastructures )
 add_subdirectory( trax_test )
-add_subdirectory( trax_cms )
+
+# disabled for now
+#add_subdirectory( trax_cms )
 add_subdirectory( triplet_builder )
 
 
