@@ -64,7 +64,8 @@ HitCollection::tTrackList HitCollection::addEvent(const PB_Event::PEvent& event,
 			continue;
 
 		//check for missing hits
-		bool covLayers[maxLayer];
+		//bool covLayers[maxLayer]; -> commented to not use varLength arrays
+        std::vector< bool > covLayers( maxLayer );
 		for(auto hit : itTrack->second){
 			covLayers[hit.layer()-1] = true;
 		}
