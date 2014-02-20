@@ -3,16 +3,16 @@
 ## Compiler flags
 if(CMAKE_COMPILER_IS_GNUCXX)
 
-	set (GENERAL_COMPILE_FLAGS " -Wfatal-errors -Wall -Wno-unused-variable -Wno-unused-value -std=c++11 -pedantic")
+    set (GENERAL_COMPILE_FLAGS " -Wfatal-errors -Wall -Wno-unused-variable -Wno-unused-value -std=c++11 -pedantic")
 
-	## go for it, big time
+    ## go for it, big time
     #set(CMAKE_CXX_FLAGS "-g -O2 -march=native -Werror --param vect-max-version-for-alias-checks=30 -ftree-vectorizer-verbose=0 -std=gnu++0x -pthread  -Wfatal-errors ")
 
     # for gcov use: -fprofile-arcs -ftestcoverage
     # mega highly optimized: use with gcc 4.7 and link libs statically ( due to LTO )
     #set(CMAKE_CXX_FLAGS "-Ofast --param vect-max-version-for-alias-checks=50  -flto -flto-report -Werror -Wall -std=c++11 -pedantic -pthread")
 
-	## for fast debug compiles
+    ## for fast debug compiles
     set(CMAKE_CXX_FLAGS "-O0 -DDEBUG -g -ggdb ${GENERAL_COMPILE_FLAGS}" )
    
     # oh yeah, you can do it
