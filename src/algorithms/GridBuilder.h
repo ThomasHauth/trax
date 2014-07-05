@@ -45,7 +45,7 @@ public:
 
 	void verifyGrid(HitCollection & hits, const Grid & grid);
 
-	KERNEL15_CLASS( gridCount, cl_mem, cl_mem, cl_mem, uint,  cl_mem, float, float, uint, float, float,  uint, cl_mem, cl_mem, cl_mem, local_param,
+	KERNEL_CLASS( gridCount,
 
 	__kernel void gridCount(
 			//configuration
@@ -112,10 +112,9 @@ public:
 			}
 		}*/
 
-	}
-	);
+	}, cl_mem, cl_mem, cl_mem, uint,  cl_mem, float, float, uint, float, float,  uint, cl_mem, cl_mem, cl_mem, local_param);
 
-	KERNEL14_CLASS( gridNoLocalCount, cl_mem, cl_mem, cl_mem, uint,  cl_mem, float, float, uint, float, float,  uint, cl_mem, cl_mem, cl_mem,
+	KERNEL_CLASS( gridNoLocalCount,
 
 			__kernel void gridNoLocalCount(
 					//configuration
@@ -168,11 +167,9 @@ public:
 				}
 			}*/
 
-	}
-	);
+	}, cl_mem, cl_mem, cl_mem, uint,  cl_mem, float, float, uint, float, float,  uint, cl_mem, cl_mem, cl_mem);
 
-	KERNEL27_CLASS( gridStore, cl_mem, cl_mem, cl_mem, uint,  cl_mem, float, float, uint, float, float,  uint,
-			cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, local_param, local_param,
+	KERNEL_CLASS( gridStore,
 
 	__kernel void gridStore(
 			//configuration
@@ -255,11 +252,11 @@ public:
 			oEventNumber[w] = iEventNumber[i];
 		}
 
-	}
-	);
+	}, cl_mem, cl_mem, cl_mem, uint,  cl_mem, float, float, uint, float, float,  uint,
+	   cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, 
+           cl_mem, cl_mem, cl_mem, cl_mem, local_param, local_param);
 
-	KERNEL26_CLASS( gridWrittenLocalStore, cl_mem, cl_mem, cl_mem, uint,  cl_mem, float, float, uint, float, float,  uint,
-			cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, local_param,
+	KERNEL_CLASS( gridWrittenLocalStore,
 
 			__kernel void gridWrittenLocalStore(
 					//configuration
@@ -342,11 +339,11 @@ public:
 			oEventNumber[w] = iEventNumber[i];
 		}
 
-	}
-	);
+	}, cl_mem, cl_mem, cl_mem, uint,  cl_mem, float, float, uint, float, float,  uint,
+           cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
+           cl_mem, cl_mem, cl_mem, cl_mem, local_param);
 
-	KERNEL26_CLASS( gridNoLocalStore, cl_mem, cl_mem, cl_mem, uint,  cl_mem, float, float, uint, float, float,  uint,
-			cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
+	KERNEL_CLASS( gridNoLocalStore,
 
 			__kernel void gridNoLocalStore(
 					//configuration
@@ -425,6 +422,7 @@ public:
 			oEventNumber[w] = iEventNumber[i];
 		}
 
-	}
-	);
+	}, cl_mem, cl_mem, cl_mem, uint,  cl_mem, float, float, uint, float, float,  uint,
+	   cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,
+           cl_mem, cl_mem, cl_mem, cl_mem, cl_mem);
 };

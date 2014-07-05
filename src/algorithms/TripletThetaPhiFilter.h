@@ -47,12 +47,7 @@ public:
 			const Pairing & pairs, const Pairing & tripletCandidates,
 			int nThreads, const TripletConfigurations & layerTriplets);
 
-	KERNEL13_CLASSP( filterCount, cl_mem, cl_mem, cl_mem, cl_float,
-			cl_mem,
-			cl_mem,  cl_uint,
-			cl_mem, cl_mem, cl_mem,
-			cl_mem, cl_mem,
-			cl_mem,
+	KERNEL_CLASSP( filterCount,
 			oclDEFINES,
 			__kernel void filterCount(
 					//configuration
@@ -164,9 +159,15 @@ public:
 
 			//prefixSum[event*nLayerTriplets*threads + layerTriplet*threads + thread] = nValid;
 		}
-	});
+	},
+		cl_mem, cl_mem, cl_mem, cl_float,
+		cl_mem,
+		cl_mem,  cl_uint,
+		cl_mem, cl_mem, cl_mem,
+		cl_mem, cl_mem,
+		cl_mem);
 
-	KERNEL3_CLASSP(filterPopCount, cl_mem, cl_mem, cl_uint, oclDEFINES,
+	KERNEL_CLASSP(filterPopCount, oclDEFINES,
 
 			__kernel void filterPopCount(__global const uint * oracle, __global uint * prefixSum, const uint n)
 	{
@@ -180,13 +181,9 @@ public:
 			prefixSum[gid] = (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
 		}
 
-	});
+	}, cl_mem, cl_mem, cl_uint);
 
-	KERNEL11_CLASSP( filterStore, cl_mem, cl_uint,
-			cl_mem, cl_uint,
-			cl_mem, cl_uint, cl_mem,
-			cl_mem, cl_mem, cl_mem,
-			cl_mem,
+	KERNEL_CLASSP( filterStore,
 			oclDEFINES,
 				__kernel void filterStore(
 						// hit input
@@ -248,13 +245,13 @@ public:
 				pos += valid;
 			}
 		}
-		});
-
-	KERNEL8_CLASSP( filterOffsetStore,
+		}, cl_mem, cl_uint,
+			cl_mem, cl_uint,
+			cl_mem, cl_uint, cl_mem,
 			cl_mem, cl_mem, cl_mem,
-			cl_uint, cl_uint,
-			cl_mem, cl_mem,
-			cl_mem,
+			cl_mem);
+
+	KERNEL_CLASSP( filterOffsetStore,
 			oclDEFINES,
 
 			__kernel void filterOffsetStore(
@@ -294,10 +291,12 @@ public:
 				//printf("event %u layerTriplet %u: %lu\n", event, layerTriplet, gid+1);
 			}
 		}
-	});
+	},	cl_mem, cl_mem, cl_mem,
+		cl_uint, cl_uint,
+		cl_mem, cl_mem,
+		cl_mem);
 
-	KERNEL2_CLASSP( filterOffsetMonotonizeStore,
-			cl_mem, cl_uint,
+	KERNEL_CLASSP( filterOffsetMonotonizeStore,
 			oclDEFINES,
 
 			__kernel void filterOffsetMonotonizeStore(
@@ -311,7 +310,7 @@ public:
 			if(trackletOffsets[gid] == 0)
 				trackletOffsets[gid] = trackletOffsets[gid-1];
 		}
-	});
+	}, cl_mem, cl_uint);
 
 
 

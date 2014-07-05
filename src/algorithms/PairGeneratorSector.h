@@ -38,15 +38,8 @@ public:
 	Pairing * run(HitCollection & hits, const GeometrySupplement & geomSupplement,
 				uint nThreads, const TripletConfigurations & layerTriplets, const Grid & grid);
 
-	KERNEL19_CLASSP( pairCount, cl_mem, cl_mem, uint,
-			cl_mem,
-			cl_float, cl_float, uint,
-			cl_float, cl_float, uint,
-			cl_mem, cl_mem,
-			cl_mem, cl_mem, cl_mem,
-			cl_mem, cl_mem, cl_mem,
-			local_param,
-			oclDEFINES,
+	KERNEL_CLASSP( pairCount, oclDEFINES,
+
 			__kernel void pairCount(
 					//configuration
 					__global const uint * layer1, __global const uint * layer2, const uint nLayers,
@@ -153,12 +146,17 @@ public:
 		prefixSum[event*nLayerPairs*threads + layerPair*threads + thread] = nFound;
 
 		//PRINTF("[%lu] Found %u pairs\n", gid, nFound);
-	});
+	}, cl_mem, cl_mem, uint,
+	   cl_mem,
+	   cl_float, cl_float, uint,
+	   cl_float, cl_float, uint,
+	   cl_mem, cl_mem,
+	   cl_mem, cl_mem, cl_mem,
+	   cl_mem, cl_mem, cl_mem,
+	   local_param);
 
-	KERNEL11_CLASSP( pairStore, cl_mem, cl_mem, uint,
-			cl_mem, uint, uint,
-			cl_mem, cl_mem, cl_mem,
-			cl_mem, cl_mem, oclDEFINES,
+	KERNEL_CLASSP( pairStore, oclDEFINES,
+
 				__kernel void pairStore(
 						//configuration
 						__global const uint * layer1, __global const uint * layer2, const uint nLayers,
@@ -230,6 +228,9 @@ public:
 		if(thread == threads-1){ //store pos in pairOffset array
 			pairOffsets[event * nLayerPairs + layerPair + 1] = nextThread;
 		}
-		});
+		}, cl_mem, cl_mem, uint,
+	           cl_mem, uint, uint,
+		   cl_mem, cl_mem, cl_mem,
+		   cl_mem, cl_mem);
 
 };

@@ -52,7 +52,7 @@ private:
 
 	void printVector(std::vector<uint> in);
 
-	KERNEL3_CLASSP( prefixSumWG, cl_mem, uint, local_param, oclDEFINES,
+	KERNEL_CLASSP( prefixSumWG, oclDEFINES,
 
 			__kernel void prefixSumWG(
 					//input
@@ -131,10 +131,9 @@ private:
 			input[gOffset + lid + ls] = data[lid+ls + MEMORY_BANK_OFFSET(lid+ls)];
 		barrier(CLK_LOCAL_MEM_FENCE);
 
-	}
-	);
+	}, cl_mem, uint, local_param);
 
-	KERNEL4_CLASSP( prefixSumPartial, cl_mem, uint, cl_mem, local_param, oclDEFINES,
+	KERNEL_CLASSP( prefixSumPartial, oclDEFINES,
 
 			__kernel void prefixSumPartial(
 					//input
@@ -216,10 +215,9 @@ private:
 			input[gOffset + lid + ls] = data[lid+ls + MEMORY_BANK_OFFSET(lid+ls)];
 		barrier(CLK_LOCAL_MEM_FENCE);
 
-	}
-	);
+	}, cl_mem, uint, cl_mem, local_param);
 
-	KERNEL3_CLASS( prefixSumUniformAdd, cl_mem, uint, cl_mem,
+	KERNEL_CLASS( prefixSumUniformAdd,
 
 			__kernel void prefixSumUniformAdd(
 					//input
@@ -244,7 +242,6 @@ private:
 			input[gOffset + lid + ls] += add;
 		barrier(CLK_LOCAL_MEM_FENCE);
 
-	}
-	);
+	}, cl_mem, uint, cl_mem);
 
 };

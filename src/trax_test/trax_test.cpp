@@ -25,7 +25,7 @@ public:
 		: krnl ( ctext ){ }
 
 
-	KERNEL3_CLASSP( krnl, cl_mem, uint, local_param, oclDEFINES,
+	KERNEL_CLASSP( krnl, oclDEFINES,
 
 	__kernel void krnl(
 			//input
@@ -103,8 +103,9 @@ public:
 			input[gOffset + lid + ls] = data[lid+ls + MEMORY_BANK_OFFSET(lid+ls)];
 		barrier(CLK_LOCAL_MEM_FENCE);
 
-	}
-	);
+	},
+
+	cl_mem, uint, local_param);
 };
 
 class WGscanStore{
@@ -114,7 +115,7 @@ public:
 		: krnl ( ctext ){ }
 
 
-	KERNEL4_CLASSP( krnl, cl_mem, uint, cl_mem, local_param, oclDEFINES,
+	KERNEL_CLASSP( krnl, oclDEFINES,
 
 	__kernel void krnl(
 			//input
@@ -197,8 +198,8 @@ public:
 			input[gOffset + lid + ls] = data[lid+ls + MEMORY_BANK_OFFSET(lid+ls)];
 		barrier(CLK_LOCAL_MEM_FENCE);
 
-	}
-	);
+	},
+	cl_mem, uint, cl_mem, local_param);
 };
 
 class UniformAdd{
@@ -208,7 +209,7 @@ public:
 		: krnl ( ctext ){ }
 
 
-	KERNEL3_CLASS( krnl, cl_mem, uint, cl_mem,
+	KERNEL_CLASS( krnl,
 
 	__kernel void krnl(
 			//input
@@ -233,8 +234,8 @@ public:
 			input[gOffset + lid + ls] += add;
 		barrier(CLK_LOCAL_MEM_FENCE);
 
-	}
-	);
+	},
+	cl_mem, uint, cl_mem);
 };
 
 //////////////////////////////////////////////////

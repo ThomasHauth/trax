@@ -53,7 +53,7 @@ public:
 			TrackletCollection  & trackletsFollowing,
 			bool iterateBackwards = false, bool tightPacking = false) const;
 
-	KERNEL6_CLASS( tripletConnectivityWide, cl_mem, cl_mem, cl_mem, cl_mem, cl_uint, cl_uint,
+	KERNEL_CLASS( tripletConnectivityWide,
 			__kernel void tripletConnectivityWide(
 					// tracklet base ( hit id, connectivity )
 					__global const uint * tripletBaseHit1,
@@ -73,10 +73,10 @@ public:
 					tripletFollowCon[gid] += connected * ( tripletBaseCon[ i ] + 1 );
 
 				}
-			})
-	;
+			},
+ 	cl_mem, cl_mem, cl_mem, cl_mem, cl_uint, cl_uint);
 
-	KERNEL8_CLASS( tripletConnectivityTight, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_uint, cl_uint,
+	KERNEL_CLASS( tripletConnectivityTight,
 			__kernel void tripletConnectivityTight(
 					// tracklet base ( hit id, hit id, connectivity )
 					__global uint const* tripletBaseHit1,
@@ -104,7 +104,7 @@ public:
 
 				}
 
-			})
-	;
+			},
+	cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_uint, cl_uint);
 
 };
