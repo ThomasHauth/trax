@@ -3,8 +3,9 @@
 #include <algorithm>
 
 TripletConnectivity::TripletConnectivity(clever::context & ctext) :
-		m_ctx(ctext), tripletConnectivityTight(ctext), tripletConnectivityWide(
-				ctext)
+		m_ctx(ctext),
+                tripletConnectivityWide(ctext),
+                tripletConnectivityTight(ctext) 
 {
 	// create the buffers this algorithm will need to run
 #define DEBUG_OUT
