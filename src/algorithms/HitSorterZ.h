@@ -71,7 +71,7 @@ public:
 		return runtime;
 	}
 
-	KERNEL14_CLASS( sortingZ_kernel, uint, cl_mem, cl_mem,  cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,  cl_mem, cl_mem, local_param,local_param,local_param,local_param,
+	KERNEL_CLASS( sortingZ_kernel,
 
 	uint pow2i(uint exp){
 		return 1 << exp;
@@ -154,7 +154,7 @@ public:
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 
-	}
-	);
+	},
+	uint, cl_mem, cl_mem,  cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,  cl_mem, cl_mem, local_param,local_param,local_param,local_param);
 
 };
