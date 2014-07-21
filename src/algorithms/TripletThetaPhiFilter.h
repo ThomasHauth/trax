@@ -142,7 +142,7 @@ public:
 			float2 pCA = (float2) (cOrigin.x + cR*v.x,
 					cOrigin.y + cR*v.y);
 
-			//tip = squared distance of point of closest approach to origin
+			//TIP = squared distance of point of closest approach to origin
 			float tip = pCA.x*pCA.x + pCA.y*pCA.y;
 
 			valid = valid * (tip <= (tipCut * tipCut));
