@@ -142,10 +142,10 @@ public:
 			float2 pCA = (float2) (cOrigin.x + cR*v.x,
 					cOrigin.y + cR*v.y);
 
-			//TIP = distance of point of closest approach to origin
-			float tip = sqrt(pCA.x*pCA.x + pCA.y*pCA.y);
+			//TIP = squared distance of point of closest approach to origin
+			float tip = pCA.x*pCA.x + pCA.y*pCA.y;
 
-			valid = valid * (tip <= tipCut);
+			valid = valid * (tip <= (tipCut * tipCut));
 
 			//check for compliance with minimum radius, ie. min Pt
 
