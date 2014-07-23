@@ -12,6 +12,7 @@
 To clone the repository and the contained submodule:
 
 git clone https://github.com/ThomasHauth/trax.git
+cd trax
 git submodule init
 git submodule update 
     
