@@ -40,16 +40,7 @@ public:
 	Pairing * run(HitCollection & hits, const GeometrySupplement & geomSupplement,
 				uint nThreads, const TripletConfigurations & layerTriplets, const Grid & grid);
 
-	KERNEL24_CLASSP( pairCount, cl_mem, cl_mem,
-			cl_mem, cl_mem, uint,
-			cl_mem,
-			cl_float, cl_float, uint,
-			cl_float, cl_float, uint,
-			cl_mem, cl_mem, cl_mem,
-			cl_mem, cl_float,
-			cl_mem, cl_mem, cl_mem,
-			cl_mem, cl_mem, cl_mem,
-			local_param,
+	KERNEL_CLASSP( pairCount,
 			oclDEFINES, //"#define PRINTF(a) printf a",
 			__kernel void pairCount(
 					//geometry
@@ -243,17 +234,18 @@ public:
 		prefixSum[event*nLayerPairs*threads + layerPair*threads + thread] = nFound;
 
 		//PRINTF("[%lu] Found %u pairs\n", gid, nFound);
-	});
+	}, cl_mem, cl_mem,
+   	   cl_mem, cl_mem, uint,
+	   cl_mem,
+	   cl_float, cl_float, uint,
+	   cl_float, cl_float, uint,
+	   cl_mem, cl_mem, cl_mem,
+	   cl_mem, cl_float,
+	   cl_mem, cl_mem, cl_mem,
+	   cl_mem, cl_mem, cl_mem,
+	   local_param);
 
-	KERNEL23_CLASSP( pairNoLocalCount, cl_mem, cl_mem,
-			cl_mem, cl_mem, uint,
-			cl_mem,
-			cl_float, cl_float, uint,
-			cl_float, cl_float, uint,
-			cl_mem, cl_mem, cl_mem,
-			cl_mem, cl_float,
-			cl_mem, cl_mem, cl_mem,
-			cl_mem, cl_mem, cl_mem,
+	KERNEL_CLASSP( pairNoLocalCount,
 			oclDEFINES, //"#define PRINTF(a) printf a",
 			__kernel void pairNoLocalCount(
 					//geometry
@@ -443,12 +435,17 @@ public:
 		prefixSum[event*nLayerPairs*threads + layerPair*threads + thread] = nFound;
 
 		//PRINTF("[%lu] Found %u pairs\n", gid, nFound);
-	});
+	}, cl_mem, cl_mem,
+  	  cl_mem, cl_mem, uint,
+	  cl_mem,
+	  cl_float, cl_float, uint,
+	  cl_float, cl_float, uint,
+	  cl_mem, cl_mem, cl_mem,
+	  cl_mem, cl_float,
+	  cl_mem, cl_mem, cl_mem,
+	  cl_mem, cl_mem, cl_mem);
 
-	KERNEL11_CLASSP( pairStore, cl_mem, cl_mem, uint,
-			cl_mem, uint, uint,
-			cl_mem, cl_mem, cl_mem,
-			cl_mem, cl_mem,
+	KERNEL_CLASSP( pairStore,
 			oclDEFINES, //"#define PRINTF(a) printf a",
 				__kernel void pairStore(
 						//configuration
@@ -522,6 +519,9 @@ public:
 		if(thread == threads-1){ //store pos in pairOffset array
 			pairOffsets[event * nLayerPairs + layerPair + 1] = nextThread;
 		}
-		});
+		}, cl_mem, cl_mem, uint,
+	           cl_mem, uint, uint,
+		   cl_mem, cl_mem, cl_mem,
+		   cl_mem, cl_mem);
 
 };

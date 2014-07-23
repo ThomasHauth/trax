@@ -63,7 +63,7 @@ public:
 		return m_trackletsFound.getValue();
 	}
 
-	KERNEL12_CLASS( almostBruteForce_tracklets, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem , cl_mem, cl_mem,
+	KERNEL_CLASS( almostBruteForce_tracklets,
 			__kernel void almostBruteForce_tracklets(
 					//configuration
 					__global const float * dThetaCut, __global const float * dPhiCut, __global const float * tipCut,
@@ -159,6 +159,8 @@ public:
 						trackletId[thisTrackletId] = thisTrackletId;
 					}
 				}
-			});
+			},
+			cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem , cl_mem, cl_mem
+	);
 
-		};
+};

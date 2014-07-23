@@ -72,7 +72,7 @@ public:
 		return runtime;
 	}
 
-	KERNEL16_CLASS( sortingPhi_kernel, uint, cl_mem, cl_mem, cl_float, cl_float, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,  cl_mem, cl_mem, local_param,local_param,local_param,local_param,
+	KERNEL_CLASS( sortingPhi_kernel,
 
 	uint pow2i(uint exp){
 		return 1 << exp;
@@ -157,7 +157,7 @@ public:
 		}
 		barrier(CLK_LOCAL_MEM_FENCE);
 
-	}
-	);
+	},
+	uint, cl_mem, cl_mem, cl_float, cl_float, cl_mem, cl_mem, cl_mem, cl_mem, cl_mem,  cl_mem, cl_mem, local_param,local_param,local_param,local_param);
 
 };

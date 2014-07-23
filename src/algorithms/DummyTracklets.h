@@ -44,7 +44,7 @@ public:
 		return m_trackletsFound.getValue();
 	}
 
-	KERNEL8_CLASS( dummy_tracklets, cl_mem, cl_mem , cl_mem, cl_mem, cl_mem, cl_mem , cl_mem, cl_mem,
+	KERNEL_CLASS( dummy_tracklets,
 			__kernel void dummy_tracklets(
 					// hit input
 					__global const float * hitGlobalX, __global const float * hitGlobalY, __global const uint * hitId,
@@ -75,6 +75,8 @@ public:
 						trackletId[thisTrackletId] = thisTrackletId;
 					}
 				}
-			});
+			},
+		cl_mem, cl_mem , cl_mem, cl_mem, cl_mem, cl_mem , cl_mem, cl_mem
+	);
 
-		};
+};

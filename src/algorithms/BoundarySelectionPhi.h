@@ -86,7 +86,7 @@ public:
 		return runtime;
 	}
 
-	KERNEL12_CLASS( selectionPhi_kernel, uint, cl_mem, cl_mem,  cl_mem, cl_mem, uint, uint, cl_mem, cl_mem, cl_mem,local_param,local_param,
+	KERNEL_CLASS( selectionPhi_kernel,
 
 	inline uint getNextPowerOfTwo(uint n){
 		n--;
@@ -265,7 +265,7 @@ public:
 			}
 		}
 
-	}
-	);
+	},
+	uint, cl_mem, cl_mem,  cl_mem, cl_mem, uint, uint, cl_mem, cl_mem, cl_mem,local_param,local_param);
 
 };

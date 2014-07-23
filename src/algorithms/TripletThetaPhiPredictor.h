@@ -43,16 +43,7 @@ public:
 	Pairing * run(HitCollection & hits, const DetectorGeometry & geom, const GeometrySupplement & geomSupplement, const Dictionary & dict,
 			int nThreads, const TripletConfigurations & layerTriplets, const Grid & grid, const Pairing & pairs);
 
-	KERNEL26_CLASSP( predictCount, cl_mem, cl_mem, cl_mem, cl_mem,
-			cl_mem, cl_mem, uint,
-			cl_float, cl_float, uint,
-			cl_float, cl_float, uint,
-			cl_mem, cl_mem, cl_float,
-			cl_mem, cl_uint,
-			cl_mem, cl_mem, cl_mem,
-			cl_mem, cl_mem,
-			cl_mem, cl_mem,
-			cl_mem,
+	KERNEL_CLASSP( predictCount,
 			oclDEFINES,// "#define PRINTF(a) printf a",
 
 	__kernel void predictCount(
@@ -245,19 +236,18 @@ public:
 
 			//PRINTF("[%lu] rejZ: %u, rejP: %u, rejB: %u\n", gid, rejZ, rejP, rejB);
 		}
-	});
+	}, cl_mem, cl_mem, cl_mem, cl_mem,
+  	   cl_mem, cl_mem, uint,
+	   cl_float, cl_float, uint,
+	   cl_float, cl_float, uint,
+	   cl_mem, cl_mem, cl_float,
+	   cl_mem, cl_uint,
+	   cl_mem, cl_mem, cl_mem,
+	   cl_mem, cl_mem,
+	   cl_mem, cl_mem,
+	   cl_mem);
 
-	KERNEL28_CLASSP(predictStore, cl_mem, cl_mem, cl_mem, cl_mem,
-			cl_mem, cl_mem, uint,
-			cl_float, cl_float, uint,
-			cl_float, cl_float, uint,
-			cl_mem, cl_mem, cl_uint, cl_float,
-			cl_mem, cl_uint,
-			cl_mem, cl_mem, cl_mem,
-			cl_mem, cl_mem,
-			cl_mem,
-			cl_mem,
-			cl_mem, cl_mem,
+	KERNEL_CLASSP(predictStore,
 			oclDEFINES,//"#define PRINTF(a) printf a",
 
 	__kernel void predictStore(
@@ -478,10 +468,19 @@ public:
 				tripletOffsets[event * nLayerTriplets + layerTriplet + 1] = nextThread; // this is the last pair, just store it
 			}
 		}
-	});
+	}, cl_mem, cl_mem, cl_mem, cl_mem,
+  	   cl_mem, cl_mem, uint,
+	   cl_float, cl_float, uint,
+	   cl_float, cl_float, uint,
+	   cl_mem, cl_mem, cl_uint, cl_float,
+	   cl_mem, cl_uint,
+	   cl_mem, cl_mem, cl_mem,
+	   cl_mem, cl_mem,
+	   cl_mem,
+	   cl_mem,
+	   cl_mem, cl_mem);
 
-	KERNEL2_CLASSP( predictOffsetMonotonizeStore,
-			cl_mem, cl_uint,
+	KERNEL_CLASSP( predictOffsetMonotonizeStore,
 			oclDEFINES,
 
 			__kernel void predictOffsetMonotonizeStore(
@@ -495,6 +494,6 @@ public:
 			if(tripletOffsets[gid] == 0)
 				tripletOffsets[gid] = tripletOffsets[gid-1];
 		}
-	});
+	}, cl_mem, cl_uint);
 
 };

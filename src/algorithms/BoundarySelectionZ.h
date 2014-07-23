@@ -86,7 +86,7 @@ public:
 		return runtime;
 	}
 
-	KERNEL10_CLASS( selectionZ_kernel, uint, cl_mem, cl_mem,  cl_mem, cl_mem, uint, uint,  cl_mem,local_param,local_param,
+	KERNEL_CLASS( selectionZ_kernel,
 
 	inline uint getNextPowerOfTwo(uint n){
 		n--;
@@ -212,7 +212,8 @@ public:
 		}
 		sectorBoundaries[(layer-1)*(nSectorsZ+1)*(nSectorsPhi+1)+nSectorsZ*(nSectorsPhi+1)] = hits; // store last divider == layer border
 
-	}
+	}, uint, cl_mem, cl_mem,  cl_mem, cl_mem, uint, uint,  cl_mem,local_param,local_param
+
 	);
 
 };
