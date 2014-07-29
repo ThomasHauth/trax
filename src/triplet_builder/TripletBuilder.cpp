@@ -47,7 +47,7 @@
 #include "lib/CSV.h"
 
 
-std::string traxDir = getenv("TRAX_DIR");
+std::string g_traxDir;
 
 clever::context * createContext(ExecutionParameters exec){
 
@@ -101,7 +101,7 @@ std::pair<RuntimeRecords, PhysicsRecords> buildTriplets(ExecutionParameters exec
 		//load radius dictionary
 		Dictionary dict;
 
-		std::ifstream radiusDictFile(traxDir + "/configs/radiusDictionary.dat");
+		std::ifstream radiusDictFile(g_traxDir + "/configs/radiusDictionary.dat");
 		CSVRow row;
 		while(radiusDictFile >> row)
 		{
@@ -117,7 +117,7 @@ std::pair<RuntimeRecords, PhysicsRecords> buildTriplets(ExecutionParameters exec
 			exRadius[i]= std::make_pair(10000.0, 0.0);
 		}
 
-		std::ifstream detectorGeometryFile(traxDir + "/configs/detectorRadius.dat");
+		std::ifstream detectorGeometryFile(g_traxDir + "/configs/detectorRadius.dat");
 		while(detectorGeometryFile >> row)
 		{
 			uint detId = atoi(row[0].c_str());
@@ -160,7 +160,7 @@ std::pair<RuntimeRecords, PhysicsRecords> buildTriplets(ExecutionParameters exec
 			lastEvent = min((int) (loader.skipEvents + loader.maxEvents), edLoader->nEvents());
 
 		TripletConfigurations layerConfig(loader.minPt);
-		loader.maxLayer = layerConfig.loadTripletConfigurationFromFile(traxDir + "/configs/" + exec.layerTripletConfigFile, exec.layerTriplets);
+		loader.maxLayer = layerConfig.loadTripletConfigurationFromFile(g_traxDir + "/configs/" + exec.layerTripletConfigFile, exec.layerTriplets);
 
 		layerConfig.transfer.initBuffers(*contx, layerConfig);
 		layerConfig.transfer.toDevice(*contx, layerConfig);
@@ -315,6 +315,13 @@ int main(int argc, char *argv[]) {
 
 	namespace po = boost::program_options;
 
+	char * chTraxDir = getenv("TRAX_DIR");
+	if ( chTraxDir == nullptr ) {
+		std::cout << "TRAX_DIR not set" << std::endl;
+		exit(1);
+	}
+	g_traxDir = chTraxDir;
+
 	ExecutionParameters exec;
 	EventDataLoadingParameters loader;
 	GridConfig grid;
@@ -371,7 +378,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if(vm.count("config")){
-		ifstream ifs(traxDir + "/configs/" + getFilename(exec.configFile));
+		ifstream ifs(g_traxDir + "/configs/" + getFilename(exec.configFile));
 		if (!ifs)
 		{
 			cerr << "can not open config file: " << exec.configFile << "\n";
@@ -415,7 +422,7 @@ int main(int argc, char *argv[]) {
 	//****************************************
 	if(vm.count("testSuite")){
 
-		ifstream ifs(traxDir + "/configs/" + getFilename(testSuiteFile));
+		ifstream ifs(g_traxDir + "/configs/" + getFilename(testSuiteFile));
 		if (!ifs)
 		{
 			cerr << "can not open testSuite file: " << testSuiteFile << "\n";
@@ -500,16 +507,16 @@ int main(int argc, char *argv[]) {
 	runtimeRecords.logPrint();
 
 	std::stringstream outputFileRuntime;
-	outputFileRuntime << traxDir << "/runtime/" << "runtime." <<  getFilename(exec.configFile) << (testSuiteFile != "" ? "." : "") << getFilename(testSuiteFile) << (exec.useCPU ? ".cpu" : ".gpu") << ".csv";
+	outputFileRuntime << g_traxDir << "/runtime/" << "runtime." <<  getFilename(exec.configFile) << (testSuiteFile != "" ? "." : "") << getFilename(testSuiteFile) << (exec.useCPU ? ".cpu" : ".gpu") << ".csv";
 
 	std::ofstream runtimeRecordsFile(outputFileRuntime.str(), std::ios::trunc);
 	runtimeRecordsFile << runtimeRecords.csvDump();
 	runtimeRecordsFile.close();
 
 	std::stringstream outputFilePhysics;
-	outputFilePhysics << traxDir << "/physics/" << "physics." << getFilename(exec.configFile) << ".csv";
+	outputFilePhysics << g_traxDir << "/physics/" << "physics." << getFilename(exec.configFile) << ".csv";
 	std::stringstream outputDirPhysics;
-	outputDirPhysics << traxDir << "/physics/" << getFilename(exec.configFile);
+	outputDirPhysics << g_traxDir << "/physics/" << getFilename(exec.configFile);
 
 	boost::filesystem::create_directories(outputDirPhysics.str());
 
